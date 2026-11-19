@@ -3,27 +3,45 @@
 namespace App\Services\Comprobantes;
 
 use App\Models\DatosGen;
+use App\Models\SerieSucursal;
+use App\Services\Configuracion\DatosGeneralesService;
 use DomainException;
 
 class ReservarCorrelativoService
 {
-    /** Reserva el número dentro de la misma transacción de la venta. */
+    public function __construct(private readonly DatosGeneralesService $datosGenerales = new DatosGeneralesService) {}
+
+    /**
+     * Reserva el número dentro de la misma transacción de la venta.
+     *
+     * La sucursal principal numera en su registro de datos_gen; las demás, en su fila de
+     * operaciones.series_sucursal (comparten RUC e IGV de la empresa, no la numeración).
+     */
     public function execute(int $branchId, string $codigoSunat): array
     {
-        $config = DatosGen::query()->where('id_sucursal', $branchId)->lockForUpdate()->first();
-        if (! $config) { throw new DomainException('La sucursal no tiene configuración de comprobantes.'); }
-
-        $fields = match ($codigoSunat) {
+        [$seriesField, $numberField] = match ($codigoSunat) {
             '03' => ['serie_boleta', 'ult_nro_boleta'],
             '01' => ['serie_factura', 'ult_nro_factura'],
             default => throw new DomainException('Tipo de comprobante no soportado.'),
         };
-        [$seriesField, $numberField] = $fields;
-        if (blank($config->{$seriesField})) { throw new DomainException('La serie del comprobante no está configurada.'); }
+
+        $config = DatosGen::query()->where('id_sucursal', $branchId)->lockForUpdate()->first()
+            ?? SerieSucursal::query()->whereKey($branchId)->lockForUpdate()->first();
+        if (! $config) {
+            throw new DomainException('Configura las series de boleta y factura de esta sucursal en Datos generales.');
+        }
+        if (blank($config->{$seriesField})) {
+            throw new DomainException('La serie del comprobante no está configurada para esta sucursal (Datos generales).');
+        }
+
+        $igv = $config instanceof DatosGen ? $config->igv_porcentaje : $this->datosGenerales->empresaDe($branchId)?->igv_porcentaje;
+        if ($igv === null) {
+            throw new DomainException('Configura el IGV de la empresa en Datos generales.');
+        }
 
         $next = (int) $config->{$numberField} + 1;
         $config->update([$numberField => $next]);
 
-        return ['serie' => $config->{$seriesField}, 'correlativo' => $next, 'igv' => (string) $config->igv_porcentaje];
+        return ['serie' => $config->{$seriesField}, 'correlativo' => $next, 'igv' => (string) $igv];
     }
 }

@@ -25,8 +25,8 @@ trait PreparaOperacionRestaurante
         DB::statement('CREATE TABLE seguridad.rol_permisos (id_rol INTEGER, id_permiso INTEGER)');
         DB::statement('CREATE TABLE seguridad.usuario_sucursales (id_usuario INTEGER, id_sucursal INTEGER)');
         DB::statement('ALTER TABLE inventario.sucursales ADD COLUMN codigo_establecimiento TEXT');
-        DB::statement('CREATE TABLE catalogos.clientes (id_cliente INTEGER PRIMARY KEY, id_tipo_documento INTEGER, nombre_razon_social TEXT, num_documento TEXT, estado BOOLEAN DEFAULT 1)');
-        DB::statement('CREATE TABLE catalogos.tipos_documento (id_tipo_documento INTEGER PRIMARY KEY, codigo_sunat TEXT)');
+        DB::statement('CREATE TABLE catalogos.clientes (id_cliente INTEGER PRIMARY KEY, id_tipo_documento INTEGER, nombre_razon_social TEXT, num_documento TEXT UNIQUE, direccion_fiscal TEXT NULL, estado BOOLEAN DEFAULT 1)');
+        DB::statement('CREATE TABLE catalogos.tipos_documento (id_tipo_documento INTEGER PRIMARY KEY, codigo_sunat TEXT, estado BOOLEAN DEFAULT 1)');
         DB::statement('CREATE TABLE catalogos.tipos_comprobante (id_tipo_comprobante INTEGER PRIMARY KEY, codigo_sunat TEXT, estado BOOLEAN DEFAULT 1)');
         DB::statement('CREATE TABLE catalogos.metodos_pago (id_metodo INTEGER PRIMARY KEY, nombre TEXT, tipo TEXT, requiere_referencia BOOLEAN DEFAULT 0, comision_porcentaje NUMERIC DEFAULT 0, comision_fija NUMERIC DEFAULT 0, estado BOOLEAN DEFAULT 1)');
         DB::statement('CREATE TABLE operaciones.datos_gen (id_datos_gen INTEGER PRIMARY KEY, id_sucursal INTEGER, igv_porcentaje NUMERIC, serie_boleta TEXT, ult_nro_boleta INTEGER DEFAULT 0, serie_factura TEXT, ult_nro_factura INTEGER DEFAULT 0)');

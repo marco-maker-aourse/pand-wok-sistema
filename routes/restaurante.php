@@ -21,6 +21,7 @@ use Illuminate\Support\Facades\Route;
 // Punto de venta único (mostrador, para llevar, delivery y mesas)
 Route::get('/pos', [PosController::class, 'index'])->middleware('permission:pedidos.registrar')->name('restaurante.pos');
 Route::post('/pos/enviar', [PosController::class, 'enviar'])->middleware(['permission:pedidos.registrar', 'permission:comandas.enviar', 'throttle:60,1'])->name('restaurante.pos.enviar');
+Route::post('/pos/clientes', [PosController::class, 'cliente'])->middleware(['permission:ventas.registrar', 'throttle:30,1'])->name('restaurante.pos.cliente');
 Route::post('/pos/cobrar', [PosController::class, 'cobrar'])->middleware(['permission:pedidos.registrar', 'permission:ventas.registrar', 'throttle:60,1'])->name('restaurante.pos.cobrar');
 
 // Cocina

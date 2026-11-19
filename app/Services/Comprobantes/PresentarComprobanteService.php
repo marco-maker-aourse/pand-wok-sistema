@@ -2,6 +2,7 @@
 
 namespace App\Services\Comprobantes;
 
+use App\Models\Restaurante\Pedido;
 use App\Models\User;
 use App\Models\Venta;
 use App\Services\Configuracion\DatosGeneralesService;
@@ -75,6 +76,12 @@ class PresentarComprobanteService
         ];
 
         $cajero = $venta->id_usuario ? User::query()->whereKey($venta->id_usuario)->value('nombres') : null;
+        $opciones = DescripcionItems::opciones($venta->detalles->pluck('id_detalle_pedido')->all());
+
+        // Restaurante: de qué cuenta viene el cobro (mesa, para llevar o delivery).
+        $pedido = $venta->id_pedido
+            ? Pedido::query()->withoutGlobalScopes()->with(['mesa:id_mesa,codigo', 'usuario:id_usuario,nombres'])->find($venta->id_pedido)
+            : null;
 
         return [
             'emisor' => [
@@ -92,12 +99,21 @@ class PresentarComprobanteService
             ],
             'documento' => $documento,
             'cliente' => $cliente,
-            'items' => $venta->detalles->map(function ($detalle): array {
+            'pedido' => $pedido ? [
+                'numero' => $pedido->numero,
+                'tipo' => match ($pedido->tipo) { Pedido::MESA => 'Mesa', Pedido::DELIVERY => 'Delivery', default => 'Para llevar' },
+                'mesa' => $pedido->mesa?->codigo,
+                'mozo' => $pedido->usuario?->nombres,
+            ] : null,
+            'items' => $venta->detalles->map(function ($detalle) use ($opciones): array {
                 $producto = $detalle->precio?->producto;
                 $presentacion = $detalle->precio?->presentacion?->nombre;
+                $opcionesItem = $opciones[(int) $detalle->id_detalle_pedido] ?? null;
 
                 return [
-                    'nombre' => $producto?->nombre ?? 'Artículo',
+                    // Igual que cbc:Description del XML: el plato con sus opciones.
+                    'nombre' => DescripcionItems::describir($producto?->nombre ?? 'Artículo', $opcionesItem),
+                    'opciones' => $opcionesItem,
                     'presentacion' => $presentacion ?? 'Unidad base',
                     // Unidad con la que se vendió: la presentación o, si es la base, la unidad del producto.
                     'unidad' => $presentacion && mb_strtolower($presentacion) !== 'unidad base'

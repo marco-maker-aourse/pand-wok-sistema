@@ -86,6 +86,11 @@ class CobrarPedidoService
 
             $factura = $datos['tipo_comprobante'] === 'FACTURA';
             $cliente = $this->cliente($datos['id_cliente'] ?? null, $pedido, $factura);
+            // SUNAT: una boleta por más de S/ 700 debe identificar al cliente (DNI u otro documento).
+            $totalCobro = round(collect($lineas)->sum('subtotal') - $descuento, 2);
+            if (! $factura && $totalCobro > self::LIMITE_BOLETA_SIN_IDENTIFICAR && ! self::clienteIdentificado($cliente)) {
+                throw new DomainException('Para boletas mayores a S/ 700, identifica al cliente con su DNI.');
+            }
             $tipo = TipoComprobante::query()->where('codigo_sunat', $factura ? '01' : '03')->where('estado', true)->value('id_tipo_comprobante');
             if (! $tipo) {
                 throw new DomainException('El tipo de comprobante todavía no está habilitado.');
@@ -108,6 +113,17 @@ class CobrarPedidoService
 
             return ['venta' => $venta, 'nueva' => true];
         }, 3);
+    }
+
+    /** Monto desde el cual SUNAT exige identificar al adquirente en una boleta. */
+    public const LIMITE_BOLETA_SIN_IDENTIFICAR = 700.0;
+
+    /** Un cliente con documento real; "público general" (ceros o tipo 0) no cuenta. */
+    public static function clienteIdentificado(Cliente $cliente): bool
+    {
+        $codigo = (string) ($cliente->tipoDocumento?->codigo_sunat ?? '0');
+
+        return $codigo !== '0' && $codigo !== '-' && ! preg_match('/^0+$/', (string) $cliente->num_documento);
     }
 
     private function cliente(?int $id, Pedido $pedido, bool $factura): Cliente

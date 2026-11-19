@@ -39,7 +39,7 @@ class DocumentLookupService
         // El secreto nunca se transmite al navegador ni se registra en logs.
         $request = Http::acceptJson()
             ->timeout(8)
-            ->retry(2, 250);
+            ->retry(2, 250, throw: false);
 
         try {
             $response = config('services.api_peru.auth_mode') === 'query'

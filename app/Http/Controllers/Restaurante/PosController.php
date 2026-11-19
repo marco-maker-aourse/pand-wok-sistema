@@ -11,6 +11,10 @@ use App\Models\Restaurante\Pedido;
 use App\Services\Restaurante\PresentarRestauranteService;
 use App\Services\Restaurante\VentaPosService;
 use App\Services\Ventas\CatalogoPosService;
+use App\Services\Clientes\RegistrarClientePorDocumentoService;
+use App\Services\Clientes\RequiereNombreException;
+use DomainException;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -72,6 +76,32 @@ class PosController extends Controller
                 'transferir' => $usuario->hasPermission('pedidos.transferir'),
             ],
             'ultimaVenta' => fn () => $request->session()->get('pos.ultima_venta'),
+        ]);
+    }
+
+    /**
+     * Cliente del comprobante por DNI/RUC: lo busca, lo consulta en la API (API Perú) y
+     * lo registra; si la API no está disponible, pide el nombre (requiere_nombre).
+     */
+    public function cliente(Request $request, RegistrarClientePorDocumentoService $clientes): JsonResponse
+    {
+        $datos = $request->validate([
+            'documento' => ['required', 'string', 'regex:/^(\d{8}|\d{11})$/'],
+            'nombre' => ['nullable', 'string', 'max:200'],
+            'direccion' => ['nullable', 'string', 'max:255'],
+        ], ['documento.regex' => 'Escribe un DNI de 8 dígitos o un RUC de 11.']);
+
+        try {
+            ['cliente' => $cliente, 'origen' => $origen] = $clientes->ejecutar($datos['documento'], $datos['nombre'] ?? null, $datos['direccion'] ?? null);
+        } catch (RequiereNombreException $exception) {
+            return response()->json(['message' => $exception->getMessage(), 'requiere_nombre' => true], 422);
+        } catch (DomainException $exception) {
+            return response()->json(['message' => $exception->getMessage()], 422);
+        }
+
+        return response()->json([
+            'origen' => $origen,
+            'cliente' => $cliente->only(['id_cliente', 'nombre_razon_social', 'num_documento', 'direccion_fiscal']),
         ]);
     }
 

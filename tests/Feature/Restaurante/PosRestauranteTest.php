@@ -13,6 +13,7 @@ use App\Services\Restaurante\VentaPosService;
 use DomainException;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
@@ -45,6 +46,23 @@ class PosRestauranteTest extends TestCase
     private function stock(int $producto): float
     {
         return (float) Kardex::query()->where('id_producto', $producto)->where('id_sucursal', 1)->latest('id_kardex')->value('stock_actual');
+    }
+
+    public function test_identificar_cliente_en_el_pos_respeta_el_catalogo_y_permite_nombre_manual(): void
+    {
+        $this->actingAs(User::findOrFail(10));
+        config()->set('services.api_peru.dni_url', 'https://proveedor.test/dni');
+        config()->set('services.api_peru.token', 'token-de-prueba');
+        DB::table('catalogos.tipos_documento')->insert(['id_tipo_documento' => 3, 'codigo_sunat' => '1']);
+        Http::fake(['proveedor.test/dni/12345678' => Http::response([], 503), 'proveedor.test/dni/87654321' => Http::response([], 404)]);
+
+        $this->postJson('/pos/clientes', ['documento' => '12345678'])->assertUnprocessable()->assertJsonPath('requiere_nombre', true);
+        $datos = ['documento' => '12345678', 'nombre' => 'Persona de prueba'];
+        $this->postJson('/pos/clientes', $datos)->assertOk()->assertJsonPath('origen', 'manual');
+        $this->postJson('/pos/clientes', $datos)->assertOk()->assertJsonPath('origen', 'local');
+        $this->postJson('/pos/clientes', ['documento' => '87654321', 'nombre' => 'Persona de prueba'])
+            ->assertUnprocessable()->assertJsonMissingPath('requiere_nombre');
+        $this->assertDatabaseCount('catalogos.clientes', 3);
     }
 
     public function test_venta_de_mostrador_en_un_paso_envia_a_cocina_descuenta_bebidas_y_cierra(): void

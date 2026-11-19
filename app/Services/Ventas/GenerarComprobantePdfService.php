@@ -4,6 +4,10 @@ namespace App\Services\Ventas;
 
 use App\Models\Venta;
 use App\Services\Comprobantes\PresentarComprobanteService;
+use BaconQrCode\Renderer\Image\SvgImageBackEnd;
+use BaconQrCode\Renderer\ImageRenderer;
+use BaconQrCode\Renderer\RendererStyle\RendererStyle;
+use BaconQrCode\Writer;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Storage;
 
@@ -32,7 +36,12 @@ class GenerarComprobantePdfService
         $path = "sunat/pdf/{$filename}";
 
         $comprobante = $this->presentacion->paraVenta($venta);
-        $pdf = Pdf::loadView('pdf.comprobante', compact('comprobante'))
+        $qr = null;
+        if (filled($comprobante['qr_fiscal'])) {
+            $writer = new Writer(new ImageRenderer(new RendererStyle(160, 4), new SvgImageBackEnd()));
+            $qr = 'data:image/svg+xml;base64,'.base64_encode($writer->writeString($comprobante['qr_fiscal']));
+        }
+        $pdf = Pdf::loadView('pdf.comprobante', compact('comprobante', 'qr'))
             ->setPaper('a4', 'portrait')
             ->setOption('isRemoteEnabled', false);
 

@@ -3,6 +3,7 @@
 namespace App\Services\Ventas;
 
 use App\Models\Venta;
+use App\Services\Comprobantes\DescripcionItems;
 use App\Services\Impresion\CrearTrabajoImpresionService;
 use DOMDocument;
 use DOMElement;
@@ -81,11 +82,13 @@ class SunatEmisionService
             return $this->result(false, 'RECHAZADO', 'El comprobante fue rechazado. No se reenviará con el mismo número.');
         }
 
-        $emisor = DB::table('operaciones.datos_gen as dg')
-            ->join('inventario.sucursales as s', 's.id_sucursal', '=', 'dg.id_sucursal')
-            ->where('dg.id_sucursal', $venta->id_sucursal)
-            ->select('dg.*', 's.codigo_establecimiento')
-            ->first();
+        // Datos fiscales: los propios de la sucursal o, si los comparte, los de la empresa;
+        // el código de establecimiento siempre es el de la sucursal donde se vendió.
+        $empresa = app(\App\Services\Configuracion\DatosGeneralesService::class)->empresaDe((int) $venta->id_sucursal);
+        $emisor = $empresa ? (object) [
+            ...$empresa->getAttributes(),
+            'codigo_establecimiento' => DB::table('inventario.sucursales')->where('id_sucursal', $venta->id_sucursal)->value('codigo_establecimiento'),
+        ] : null;
 
         if (! $emisor) {
             throw new \RuntimeException('La sucursal de la venta no tiene datos fiscales configurados.');
@@ -185,7 +188,7 @@ class SunatEmisionService
 
     private function obtenerDetalles(int $idVenta): \Illuminate\Support\Collection
     {
-        return DB::table('operaciones.detalle_ventas as dv')
+        $detalles = DB::table('operaciones.detalle_ventas as dv')
             ->join('inventario.precio_producto as pp', 'dv.id_precio', '=', 'pp.id_precio')
             ->join('catalogos.productos as p', 'pp.id_producto', '=', 'p.id_producto')
             ->join('catalogos.unidades_medida as um', 'p.id_unidad_base', '=', 'um.id_unidad')
@@ -201,8 +204,21 @@ class SunatEmisionService
                 'p.nombre as nombre_producto',
                 'p.afecta_igv',
                 'um.codigo_sunat as unidad_sunat',
+                'dv.id_detalle_pedido',
             ])
             ->get();
+
+        // Restaurante: la descripción incluye las opciones del plato que explican su precio.
+        $opciones = DescripcionItems::opciones($detalles->pluck('id_detalle_pedido')->all());
+
+        return $detalles->map(function (object $detalle) use ($opciones): object {
+            $detalle->nombre_producto = DescripcionItems::describir(
+                (string) $detalle->nombre_producto,
+                $opciones[(int) $detalle->id_detalle_pedido] ?? null,
+            );
+
+            return $detalle;
+        });
     }
 
     private function validarDatos(object $venta, object $emisor, \Illuminate\Support\Collection $detalles): void

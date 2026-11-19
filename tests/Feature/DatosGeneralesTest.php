@@ -2,10 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Http\Controllers\Configuracion\DatosGeneralesController;
 use App\Http\Requests\Configuracion\ActualizarDatosGeneralesRequest;
 use App\Models\DatosGen;
 use App\Models\Rol;
 use App\Models\User;
+use App\Services\Comprobantes\ReservarCorrelativoService;
 use App\Services\Configuracion\DatosGeneralesService;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -21,7 +23,9 @@ class DatosGeneralesTest extends TestCase
             DB::statement("ATTACH DATABASE ':memory:' AS {$esquema}");
         }
         DB::statement('CREATE TABLE inventario.sucursales (id_sucursal INTEGER PRIMARY KEY, nombre TEXT, codigo_establecimiento TEXT NULL)');
-        DB::statement('CREATE TABLE operaciones.datos_gen (id_datos_gen INTEGER PRIMARY KEY, id_sucursal INTEGER, ruc_empresa TEXT NULL, razon_social TEXT NULL, nombre_comercial TEXT NULL, direccion_fiscal TEXT NULL, pie_ticket TEXT NULL, logo_path TEXT NULL, color_primario TEXT NULL, color_secundario TEXT NULL, texto_login_titulo TEXT NULL, texto_login_descripcion TEXT NULL)');
+        DB::statement('CREATE TABLE operaciones.datos_gen (id_datos_gen INTEGER PRIMARY KEY, id_sucursal INTEGER, ruc_empresa TEXT NULL, razon_social TEXT NULL, nombre_comercial TEXT NULL, direccion_fiscal TEXT NULL, pie_ticket TEXT NULL, logo_path TEXT NULL, serie_boleta TEXT NULL, serie_factura TEXT NULL, serie_guia TEXT NULL, ult_nro_boleta INTEGER DEFAULT 0, ult_nro_factura INTEGER DEFAULT 0, igv_porcentaje NUMERIC DEFAULT 18, color_primario TEXT NULL, color_secundario TEXT NULL, texto_login_titulo TEXT NULL, texto_login_descripcion TEXT NULL)');
+
+        DB::statement('CREATE TABLE operaciones.series_sucursal (id_sucursal INTEGER PRIMARY KEY, serie_boleta TEXT UNIQUE, serie_factura TEXT UNIQUE, serie_guia TEXT UNIQUE, ult_nro_boleta INTEGER DEFAULT 0, ult_nro_factura INTEGER DEFAULT 0, created_at DATETIME, updated_at DATETIME)');
 
         DB::table('inventario.sucursales')->insert([
             ['id_sucursal' => 1, 'nombre' => 'PRINCIPAL', 'codigo_establecimiento' => '0000'],
@@ -101,6 +105,26 @@ class DatosGeneralesTest extends TestCase
 
         $this->assertSame('PRINCIPAL EIRL', $servicio->identidad(3)['razon_social']);
         $this->assertSame('PRINCIPAL EIRL', $servicio->identidad(null)['razon_social']);
+    }
+
+    public function test_guardar_series_de_sede_secundaria_preserva_la_numeracion_principal(): void
+    {
+        DB::table('operaciones.datos_gen')->where('id_sucursal', 1)->update(['serie_boleta' => 'B001', 'ult_nro_boleta' => 19]);
+        $usuario = $this->usuarioConRol('Administrador General');
+        $usuario->usarSucursalActiva(3);
+        $request = \Mockery::mock(ActualizarDatosGeneralesRequest::class);
+        $request->shouldReceive('user')->andReturn($usuario);
+        $request->shouldReceive('validated')->withNoArgs()->andReturn(['serie_boleta' => 'B003', 'serie_factura' => 'F003']);
+        $request->shouldReceive('validated')->with('codigo_establecimiento')->andReturn('0002');
+        $request->shouldReceive('hasFile')->with('logo')->andReturnFalse();
+
+        app(DatosGeneralesController::class)->update($request);
+
+        $this->assertDatabaseHas('operaciones.series_sucursal', ['id_sucursal' => 3, 'serie_boleta' => 'B003', 'serie_factura' => 'F003']);
+        $this->assertDatabaseHas('operaciones.datos_gen', ['id_sucursal' => 1, 'serie_boleta' => 'B001', 'ult_nro_boleta' => 19]);
+        $reserva = DB::transaction(fn () => app(ReservarCorrelativoService::class)->execute(3, '03'));
+        $this->assertSame('B003', $reserva['serie']);
+        $this->assertSame(1, $reserva['correlativo']);
     }
 
     private function usuarioConRol(string $nombreRol): User

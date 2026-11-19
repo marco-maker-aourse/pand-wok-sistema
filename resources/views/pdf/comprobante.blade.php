@@ -100,6 +100,9 @@
 
 <div class="box"><span class="label">Pago</span><br>@foreach($comprobante['pagos'] as $pago)<strong>{{ $pago['metodo'] }}:</strong> {{ $dinero($pago['monto']) }}@if($pago['monto_recibido']) · Recibido: {{ $dinero($pago['monto_recibido']) }}@endif @if($pago['vuelto']) · Vuelto: {{ $dinero($pago['vuelto']) }}@endif @if($pago['referencia']) · N° operación: {{ $pago['referencia'] }}@endif<br>@endforeach</div>
 <div class="footer">
+    @if(filled($qr ?? null))
+        <img src="{{ $qr }}" alt="Código QR del comprobante" width="92" height="92"><br>
+    @endif
     {{ $comprobante['leyendas']['representacion'] ?? 'Representación impresa del comprobante electrónico' }}.<br>
     {{ $comprobante['leyendas']['consulta'] ?? '' }}<br>
     @if(filled($comprobante['hash_cpe'] ?? null))Resumen: {{ $comprobante['hash_cpe'] }}<br>@endif

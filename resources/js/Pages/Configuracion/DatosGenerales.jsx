@@ -233,7 +233,9 @@ export default function DatosGenerales({ datos = {}, sucursalActual = null, logo
                         <Card>
                             <CardHeader
                                 title="Series de comprobantes"
-                                description={usaDatosDeEmpresa ? `Series de ${sucursalEmpresa}. Se editan desde esa sucursal.` : 'Prefijos que emite esta sucursal.'}
+                                description={usaDatosDeEmpresa
+                                    ? `Series propias de esta sucursal (distintas a las de ${sucursalEmpresa}), p. ej. B002 y F002.`
+                                    : 'Series que emite esta sucursal. Cada sucursal usa las suyas.'}
                             />
                             <CardBody className="space-y-3">
                                 {[
@@ -242,7 +244,7 @@ export default function DatosGenerales({ datos = {}, sucursalActual = null, logo
                                     ['serie_guia', 'Serie de guía de remisión'],
                                 ].map(([campo, etiqueta]) => (
                                     <Field key={campo} label={etiqueta} error={errors[campo]}>
-                                        <Input className="font-mono uppercase" maxLength={4} value={data[campo]} readOnly={usaDatosDeEmpresa} disabled={usaDatosDeEmpresa} onChange={(e) => setData(campo, e.target.value.toUpperCase())} />
+                                        <Input className="font-mono uppercase" maxLength={4} value={data[campo] ?? ''} onChange={(e) => setData(campo, e.target.value.toUpperCase())} />
                                     </Field>
                                 ))}
                             </CardBody>
