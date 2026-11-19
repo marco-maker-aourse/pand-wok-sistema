@@ -20,6 +20,10 @@ on:
         description: 'Sede de la carta = ID de sucursal, separadas por coma (p. ej. chilca=1,tambo=2,tingomaria=3)'
         type: string
         default: ''
+      completar_sedes:
+        description: 'Al importar: tomar nombre/dirección/horario de la carta y crear las sedes que no existan'
+        type: boolean
+        default: false
       respaldo_bd_confirmado:
         description: 'Confirmo que tengo un respaldo de la base (obligatorio para importar_carta)'
         type: boolean
@@ -49,6 +53,7 @@ jobs:
       ACCION: ${{ inputs.accion }}
       SEDES: ${{ inputs.sedes }}
       RESPALDO: ${{ inputs.respaldo_bd_confirmado }}
+      COMPLETAR: ${{ inputs.completar_sedes }}
       CARTA: database/data/carta/pand-wok.json
       MARCA: .despliegue-restaurante
       MARCA_VALOR: pand-wok-sistema
@@ -96,7 +101,9 @@ jobs:
           case "$ACCION" in
             listar_sucursales) comandos="artisan restaurante:sucursales" ;;
             simular_carta)     comandos="artisan restaurante:importar-carta $CARTA --simular $mapa" ;;
-            importar_carta)    comandos="artisan restaurante:sucursales $asignar --horarios=$CARTA && \$PHP artisan restaurante:importar-carta $CARTA && \$PHP artisan cache:clear" ;;
+            importar_carta)
+              completar=""; [ "$COMPLETAR" = true ] && completar="--completar"
+              comandos="artisan restaurante:sucursales $asignar --horarios=$CARTA $completar && \$PHP artisan restaurante:importar-carta $CARTA && \$PHP artisan cache:clear" ;;
           esac
 
           $SSH_CMD "$SSH_USER@$SSH_HOST" \
