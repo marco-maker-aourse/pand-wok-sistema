@@ -1,0 +1,259 @@
+name: Desplegar restaurante
+
+# Despliegue automático de main al host del restaurante (cuenta propia, separada del
+# sistema comercial). Guía completa: docs/restaurante/10_DESPLIEGUE_AUTOMATICO.md
+#
+# - Cada push a main verifica (pruebas + build) y, si el despliegue está habilitado,
+#   publica el código.
+# - Las migraciones NUNCA corren solas: si el push trae migraciones nuevas, el despliegue
+#   se detiene antes de tocar el servidor. Se aplican con "Run workflow" marcando
+#   "aplicar_migraciones" y confirmando un respaldo de la base.
+# - Mientras la variable DEPLOY_HABILITADO no sea "true", solo se verifica.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      aplicar_migraciones:
+        description: 'Aplicar migraciones pendientes (requiere respaldo previo de PostgreSQL)'
+        type: boolean
+        default: false
+      respaldo_bd_confirmado:
+        description: 'Confirmo que tengo un respaldo comprobado de la base del restaurante'
+        type: boolean
+        default: false
+      solo_probar_conexion:
+        description: 'Solo probar SSH y la estructura del servidor, sin publicar'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: restaurante-produccion
+  cancel-in-progress: false
+
+jobs:
+  verificar:
+    name: Pruebas y compilación
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: dom, curl, libxml, mbstring, zip, pdo_sqlite, sqlite3
+          coverage: none
+
+      - name: Dependencias de Laravel
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Entorno de pruebas (SQLite en memoria, sin base real)
+        run: |
+          set -euo pipefail
+          cp .env.example .env
+          php artisan key:generate --no-interaction
+
+      - name: Pruebas
+        run: php artisan test
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Compilar Vite
+        run: |
+          set -euo pipefail
+          npm ci
+          npm run build
+          test -s public/build/manifest.json
+
+      - name: Guardar assets verificados
+        uses: actions/upload-artifact@v4
+        with:
+          name: vite-build-${{ github.sha }}
+          path: public/build/
+          if-no-files-found: error
+          retention-days: 3
+
+  desplegar:
+    name: Publicar en el host del restaurante
+    needs: verificar
+    if: vars.DEPLOY_HABILITADO == 'true' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: restaurante-produccion
+
+    env:
+      SSH_HOST: ${{ secrets.SSH_HOST }}
+      SSH_PORT: ${{ secrets.SSH_PORT }}
+      SSH_USER: ${{ secrets.SSH_USER }}
+      SSH_HOST_FINGERPRINT: ${{ secrets.SSH_HOST_FINGERPRINT }}
+      HEALTH_URL: ${{ vars.DEPLOY_HEALTHCHECK_URL }}
+      # Rutas relativas al $HOME del usuario SSH.
+      APP_DIR: ${{ vars.DEPLOY_APP_DIR || 'restaurante' }}
+      # Vacío = el dominio apunta a APP_DIR/public. Con valor (p. ej. public_html), se
+      # copian allí los assets públicos y se conservan su index.php y .htaccess.
+      PUBLIC_DIR: ${{ vars.DEPLOY_PUBLIC_DIR }}
+      PHP_BIN: ${{ vars.DEPLOY_PHP_BIN || 'php' }}
+      COMPOSER_BIN: ${{ vars.DEPLOY_COMPOSER_BIN || 'composer' }}
+      APLICAR_MIGRACIONES: ${{ inputs.aplicar_migraciones || false }}
+      RESPALDO_CONFIRMADO: ${{ inputs.respaldo_bd_confirmado || false }}
+      SOLO_CONEXION: ${{ inputs.solo_probar_conexion || false }}
+      # Marca que identifica la carpeta del restaurante en el servidor. Sin ella no se publica.
+      MARCA: .despliegue-restaurante
+      MARCA_VALOR: pand-wok-sistema
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Recuperar compilación verificada
+        uses: actions/download-artifact@v4
+        with:
+          name: vite-build-${{ github.sha }}
+          path: public/build/
+
+      - name: Validar configuración y autorización de migraciones
+        run: |
+          set -euo pipefail
+          for variable in SSH_HOST SSH_PORT SSH_USER SSH_HOST_FINGERPRINT HEALTH_URL; do
+            test -n "${!variable}" || { echo "Falta configurar $variable en GitHub." >&2; exit 1; }
+          done
+          case "$APP_DIR" in /*|*..*|'') echo 'DEPLOY_APP_DIR debe ser una ruta relativa al HOME, sin "..".' >&2; exit 1;; esac
+          case "$PUBLIC_DIR" in /*|*..*) echo 'DEPLOY_PUBLIC_DIR debe ser relativa al HOME, sin "..".' >&2; exit 1;; esac
+          if [ "$APLICAR_MIGRACIONES" = true ] && [ "$RESPALDO_CONFIRMADO" != true ]; then
+            echo 'Para aplicar migraciones confirma primero un respaldo real de la base.' >&2
+            exit 1
+          fi
+
+      - name: Preparar SSH con huella fijada
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$SSH_PRIVATE_KEY"
+          install -m 700 -d "$HOME/.ssh"
+          printf '%s\n' "$SSH_PRIVATE_KEY" > "$HOME/.ssh/id_deploy"
+          chmod 600 "$HOME/.ssh/id_deploy"
+          ssh-keyscan -t ed25519 -p "$SSH_PORT" "$SSH_HOST" > "$HOME/.ssh/known_hosts" 2>/dev/null
+          test -s "$HOME/.ssh/known_hosts"
+          actual=$(ssh-keygen -lf "$HOME/.ssh/known_hosts" -E sha256 | awk '{print $2}')
+          test "$actual" = "$SSH_HOST_FINGERPRINT" || { echo "Huella SSH distinta ($actual); se cancela." >&2; exit 1; }
+          chmod 600 "$HOME/.ssh/known_hosts"
+          echo "SSH_CMD=ssh -i $HOME/.ssh/id_deploy -p $SSH_PORT -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes" >> "$GITHUB_ENV"
+
+      - name: Verificar que el destino es el restaurante
+        run: |
+          set -euo pipefail
+          $SSH_CMD "$SSH_USER@$SSH_HOST" \
+            "APP_DIR='$APP_DIR' PUBLIC_DIR='$PUBLIC_DIR' PHP_BIN='$PHP_BIN' COMPOSER_BIN='$COMPOSER_BIN' MARCA='$MARCA' MARCA_VALOR='$MARCA_VALOR' bash -s" <<'REMOTO'
+          set -eu
+          cd "$HOME"
+          test -d "$APP_DIR" || { echo "No existe ~/$APP_DIR." >&2; exit 1; }
+          # La marca impide publicar por error sobre otra aplicación (p. ej. el sistema comercial).
+          test "$(cat "$APP_DIR/$MARCA" 2>/dev/null)" = "$MARCA_VALOR" || { echo "~/$APP_DIR no tiene la marca $MARCA del restaurante; no se publica." >&2; exit 1; }
+          test -f "$APP_DIR/.env" || { echo "Falta ~/$APP_DIR/.env (créalo a mano)." >&2; exit 1; }
+          grep -q '^DB_CONNECTION=pgsql' "$APP_DIR/.env" || { echo "El .env del host debe usar PostgreSQL." >&2; exit 1; }
+          if [ -n "$PUBLIC_DIR" ]; then
+            test -f "$PUBLIC_DIR/index.php" || { echo "Falta ~/$PUBLIC_DIR/index.php." >&2; exit 1; }
+          fi
+          $PHP_BIN -r 'exit(version_compare(PHP_VERSION, "8.2.0", ">=") ? 0 : 1);' || { echo "Se requiere PHP 8.2 o superior ($PHP_BIN)." >&2; exit 1; }
+          $PHP_BIN -m | grep -qi pdo_pgsql || { echo "Falta la extensión pdo_pgsql en $PHP_BIN." >&2; exit 1; }
+          command -v rsync >/dev/null || { echo "El servidor necesita rsync." >&2; exit 1; }
+          $COMPOSER_BIN --version >/dev/null 2>&1 || $PHP_BIN $COMPOSER_BIN --version >/dev/null 2>&1 || { echo "No se encontró Composer ($COMPOSER_BIN)." >&2; exit 1; }
+          echo "Servidor del restaurante verificado: ~/$APP_DIR"
+          REMOTO
+
+      - name: Detener si hay migraciones sin autorizar
+        if: env.SOLO_CONEXION != 'true' && env.APLICAR_MIGRACIONES != 'true'
+        run: |
+          set -euo pipefail
+          cambios=$(rsync -rcni --out-format='%i %n' -e "$SSH_CMD" \
+            database/migrations/ "$SSH_USER@$SSH_HOST:$APP_DIR/database/migrations/" | grep -v '^\.' || true)
+          if [ -n "$cambios" ]; then
+            echo '::error::Este cambio trae migraciones nuevas o modificadas. No se publicó nada.'
+            echo 'Haz un respaldo de la base y ejecuta este workflow con "Run workflow" marcando aplicar_migraciones y respaldo_bd_confirmado.' >&2
+            printf '%s\n' "$cambios"
+            exit 1
+          fi
+
+      - name: Respaldo del código actual
+        if: env.SOLO_CONEXION != 'true'
+        run: |
+          set -euo pipefail
+          $SSH_CMD "$SSH_USER@$SSH_HOST" "APP_DIR='$APP_DIR' RUN='${{ github.run_id }}' bash -s" <<'REMOTO'
+          set -eu
+          mkdir -p "$HOME/respaldos-restaurante"
+          tar -czf "$HOME/respaldos-restaurante/codigo-$RUN.tar.gz" -C "$HOME/$APP_DIR" \
+            --exclude=./vendor --exclude=./storage --exclude=./bootstrap/cache \
+            --exclude=./public/build --exclude=./.env --exclude=./node_modules .
+          # Conserva los 10 respaldos más recientes.
+          ls -1t "$HOME/respaldos-restaurante"/codigo-*.tar.gz 2>/dev/null | tail -n +11 | xargs -r rm -f
+          REMOTO
+
+      - name: Modo mantenimiento
+        if: env.SOLO_CONEXION != 'true'
+        run: $SSH_CMD "$SSH_USER@$SSH_HOST" "cd \"\$HOME/$APP_DIR\" && $PHP_BIN artisan down --retry=15 || true"
+
+      - name: Publicar código
+        if: env.SOLO_CONEXION != 'true'
+        run: |
+          set -euo pipefail
+          # --delete-delay quita archivos de código obsoletos; las exclusiones protegen
+          # configuración, datos, dependencias y la marca del restaurante.
+          rsync -azc --delete-delay \
+            --exclude='/.env' --exclude='/.env.*' --exclude="/$MARCA" \
+            --exclude='/vendor/' --exclude='/storage/' --exclude='/node_modules/' \
+            --exclude='/.git/' --exclude='/.github/' --exclude='/bootstrap/cache/' \
+            --exclude='/public/build/' --exclude='/public/storage' --exclude='/public/hot' \
+            --exclude='/tests/' --exclude='*.log' --exclude='/database/database.sqlite' \
+            -e "$SSH_CMD" ./ "$SSH_USER@$SSH_HOST:$APP_DIR/"
+          rsync -azc --delete-delay -e "$SSH_CMD" public/build/ "$SSH_USER@$SSH_HOST:$APP_DIR/public/build/"
+          if [ -n "$PUBLIC_DIR" ]; then
+            # El index.php y .htaccess del docroot se mantienen (apuntan a ~/APP_DIR).
+            rsync -azc -e "$SSH_CMD" --exclude='/index.php' --exclude='/.htaccess' --exclude='/storage' \
+              public/ "$SSH_USER@$SSH_HOST:$PUBLIC_DIR/"
+          fi
+
+      - name: Dependencias, migraciones autorizadas y cachés
+        if: env.SOLO_CONEXION != 'true'
+        run: |
+          set -euo pipefail
+          $SSH_CMD "$SSH_USER@$SSH_HOST" \
+            "APP_DIR='$APP_DIR' PUBLIC_DIR='$PUBLIC_DIR' PHP_BIN='$PHP_BIN' COMPOSER_BIN='$COMPOSER_BIN' MIGRAR='$APLICAR_MIGRACIONES' bash -s" <<'REMOTO'
+          set -eu
+          cd "$HOME/$APP_DIR"
+          if $COMPOSER_BIN --version >/dev/null 2>&1; then COMPOSER="$COMPOSER_BIN"; else COMPOSER="$PHP_BIN $COMPOSER_BIN"; fi
+          $COMPOSER install --no-dev --prefer-dist --no-interaction --no-progress --optimize-autoloader
+          $PHP_BIN artisan optimize:clear
+          if [ "$MIGRAR" = true ]; then
+            $PHP_BIN artisan migrate --force --no-interaction
+          fi
+          $PHP_BIN artisan config:cache
+          $PHP_BIN artisan route:cache
+          $PHP_BIN artisan view:cache
+          $PHP_BIN artisan queue:restart || true
+          # Enlace público de archivos subidos (logos), sin pisar algo que no sea el enlace.
+          destino="public/storage"
+          [ -n "$PUBLIC_DIR" ] && destino="$HOME/$PUBLIC_DIR/storage"
+          if [ ! -e "$destino" ] && [ ! -L "$destino" ]; then
+            ln -s "$HOME/$APP_DIR/storage/app/public" "$destino"
+          fi
+          $PHP_BIN artisan up
+          REMOTO
+
+      - name: Salir de mantenimiento si algo falló
+        if: failure() && env.SOLO_CONEXION != 'true'
+        run: $SSH_CMD "$SSH_USER@$SSH_HOST" "cd \"\$HOME/$APP_DIR\" && $PHP_BIN artisan up || true"
+
+      - name: Verificar el sitio publicado
+        if: env.SOLO_CONEXION != 'true'
+        run: |
+          set -euo pipefail
+          curl --fail --show-error --silent --max-time 20 --retry 3 --retry-delay 5 "$HEALTH_URL" | grep -q '"estado":"ok"'
+          echo "Sitio respondiendo en $HEALTH_URL"
