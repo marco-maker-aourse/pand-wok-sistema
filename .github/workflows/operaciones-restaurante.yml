@@ -1,0 +1,115 @@
+name: Operaciones del restaurante
+
+# Tareas manuales sobre el host del restaurante, con la misma conexión SSH del despliegue.
+# El resultado de cada ejecución queda en el resumen (Summary) de la ejecución.
+#
+# 1. listar_sucursales  → muestra ID, nombre e identificador de carta (solo lectura).
+# 2. simular_carta      → muestra qué importaría, sin guardar nada.
+# 3. importar_carta     → asigna los identificadores de "sedes" y carga la carta.
+#                          Escribe en la base: exige confirmar un respaldo.
+
+on:
+  workflow_dispatch:
+    inputs:
+      accion:
+        description: 'Operación'
+        type: choice
+        options: [listar_sucursales, simular_carta, importar_carta]
+        default: listar_sucursales
+      sedes:
+        description: 'Sede de la carta = ID de sucursal, separadas por coma (p. ej. chilca=1,tambo=2,tingomaria=3)'
+        type: string
+        default: ''
+      respaldo_bd_confirmado:
+        description: 'Confirmo que tengo un respaldo de la base (obligatorio para importar_carta)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: restaurante-produccion
+  cancel-in-progress: false
+
+jobs:
+  operar:
+    name: ${{ inputs.accion }}
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: restaurante-produccion
+    env:
+      SSH_HOST: ${{ secrets.SSH_HOST }}
+      SSH_PORT: ${{ secrets.SSH_PORT }}
+      SSH_USER: ${{ secrets.SSH_USER }}
+      SSH_HOST_FINGERPRINT: ${{ secrets.SSH_HOST_FINGERPRINT }}
+      APP_DIR: ${{ vars.DEPLOY_APP_DIR || secrets.DEPLOY_APP_DIR || 'restaurante' }}
+      PHP_BIN: ${{ vars.DEPLOY_PHP_BIN || secrets.DEPLOY_PHP_BIN || 'php' }}
+      ACCION: ${{ inputs.accion }}
+      SEDES: ${{ inputs.sedes }}
+      RESPALDO: ${{ inputs.respaldo_bd_confirmado }}
+      CARTA: database/data/carta/pand-wok.json
+      MARCA: .despliegue-restaurante
+      MARCA_VALOR: pand-wok-sistema
+
+    steps:
+      - name: Validar entradas
+        run: |
+          set -euo pipefail
+          for variable in SSH_HOST SSH_PORT SSH_USER SSH_HOST_FINGERPRINT; do
+            test -n "${!variable}" || { echo "::error::Falta el secreto $variable en GitHub."; exit 1; }
+          done
+          case "$APP_DIR" in /*|*..*|'') echo '::error::DEPLOY_APP_DIR debe ser relativa al HOME.'; exit 1;; esac
+          # Las sedes viajan al servidor: solo se acepta el formato exacto, sin espacios ni otros caracteres.
+          if [ -n "$SEDES" ] && ! printf '%s' "$SEDES" | grep -Eq '^[a-z0-9]+(-[a-z0-9]+)*=[0-9]+(,[a-z0-9]+(-[a-z0-9]+)*=[0-9]+)*$'; then
+            echo '::error::Formato de "sedes" inválido. Ejemplo: chilca=1,tambo=2,tingomaria=3'; exit 1
+          fi
+          if [ "$ACCION" = importar_carta ]; then
+            [ "$RESPALDO" = true ] || { echo '::error::Para importar, confirma primero un respaldo de la base.'; exit 1; }
+            [ -n "$SEDES" ] || { echo '::error::Para importar, indica las sedes (p. ej. chilca=1,tambo=2,tingomaria=3). Usa listar_sucursales para ver los ID.'; exit 1; }
+          fi
+
+      - name: Preparar SSH con huella fijada
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$SSH_PRIVATE_KEY"
+          install -m 700 -d "$HOME/.ssh"
+          printf '%s\n' "$SSH_PRIVATE_KEY" > "$HOME/.ssh/id_deploy"
+          chmod 600 "$HOME/.ssh/id_deploy"
+          ssh-keyscan -t ed25519 -p "$SSH_PORT" "$SSH_HOST" > "$HOME/.ssh/known_hosts" 2>/dev/null
+          actual=$(ssh-keygen -lf "$HOME/.ssh/known_hosts" -E sha256 | awk '{print $2}')
+          test "$actual" = "$SSH_HOST_FINGERPRINT" || { echo "::error::Huella SSH distinta ($actual)."; exit 1; }
+          echo "SSH_CMD=ssh -i $HOME/.ssh/id_deploy -p $SSH_PORT -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o LogLevel=ERROR" >> "$GITHUB_ENV"
+
+      - name: Ejecutar en el host
+        run: |
+          set -euo pipefail
+          # Convierte "chilca=1,tambo=2" en argumentos --asignar / --sede (ya validados arriba).
+          asignar=""; mapa=""
+          if [ -n "$SEDES" ]; then
+            for par in ${SEDES//,/ }; do asignar="$asignar --asignar=$par"; mapa="$mapa --sede=$par"; done
+          fi
+
+          case "$ACCION" in
+            listar_sucursales) comandos="artisan restaurante:sucursales" ;;
+            simular_carta)     comandos="artisan restaurante:importar-carta $CARTA --simular $mapa" ;;
+            importar_carta)    comandos="artisan restaurante:sucursales $asignar --horarios=$CARTA && \$PHP artisan restaurante:importar-carta $CARTA && \$PHP artisan cache:clear" ;;
+          esac
+
+          $SSH_CMD "$SSH_USER@$SSH_HOST" \
+            "APP_DIR='$APP_DIR' PHP='$PHP_BIN' MARCA='$MARCA' MARCA_VALOR='$MARCA_VALOR' bash -s" <<REMOTO | tee salida.txt
+          set -eu
+          cd "\$HOME/\$APP_DIR"
+          test "\$(cat "\$MARCA" 2>/dev/null)" = "\$MARCA_VALOR" || { echo "~/\$APP_DIR no tiene la marca del restaurante." >&2; exit 1; }
+          \$PHP $comandos
+          REMOTO
+
+          {
+            echo "### ${ACCION//_/ }"
+            echo '```'
+            cat salida.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
