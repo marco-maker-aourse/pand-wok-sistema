@@ -103,12 +103,13 @@ jobs:
       # Se acepta como variable (recomendado) o como secreto.
       HEALTH_URL: ${{ vars.DEPLOY_HEALTHCHECK_URL || secrets.DEPLOY_HEALTHCHECK_URL }}
       # Rutas relativas al $HOME del usuario SSH.
-      APP_DIR: ${{ vars.DEPLOY_APP_DIR || 'restaurante' }}
+      # Cada dato se acepta como variable (recomendado) o como secreto.
+      APP_DIR: ${{ vars.DEPLOY_APP_DIR || secrets.DEPLOY_APP_DIR || 'restaurante' }}
       # Vacío = el dominio apunta a APP_DIR/public. Con valor (p. ej. public_html), se
       # copian allí los assets públicos y se conservan su index.php y .htaccess.
-      PUBLIC_DIR: ${{ vars.DEPLOY_PUBLIC_DIR }}
-      PHP_BIN: ${{ vars.DEPLOY_PHP_BIN || 'php' }}
-      COMPOSER_BIN: ${{ vars.DEPLOY_COMPOSER_BIN || 'composer' }}
+      PUBLIC_DIR: ${{ vars.DEPLOY_PUBLIC_DIR || secrets.DEPLOY_PUBLIC_DIR }}
+      PHP_BIN: ${{ vars.DEPLOY_PHP_BIN || secrets.DEPLOY_PHP_BIN || 'php' }}
+      COMPOSER_BIN: ${{ vars.DEPLOY_COMPOSER_BIN || secrets.DEPLOY_COMPOSER_BIN || 'composer' }}
       APLICAR_MIGRACIONES: ${{ inputs.aplicar_migraciones || false }}
       RESPALDO_CONFIRMADO: ${{ inputs.respaldo_bd_confirmado || false }}
       SOLO_CONEXION: ${{ inputs.solo_probar_conexion || false }}
@@ -170,7 +171,7 @@ jobs:
             "APP_DIR='$APP_DIR' PUBLIC_DIR='$PUBLIC_DIR' PHP_BIN='$PHP_BIN' COMPOSER_BIN='$COMPOSER_BIN' MARCA='$MARCA' MARCA_VALOR='$MARCA_VALOR' bash -s" <<'REMOTO'
           set -eu
           cd "$HOME"
-          test -d "$APP_DIR" || { echo "No existe ~/$APP_DIR." >&2; exit 1; }
+          test -d "$APP_DIR" || { echo "No existe ~/$APP_DIR. Revisa la variable DEPLOY_APP_DIR en GitHub (para este host: sistema)." >&2; exit 1; }
           # La marca impide publicar por error sobre otra aplicación (p. ej. el sistema comercial).
           test "$(cat "$APP_DIR/$MARCA" 2>/dev/null)" = "$MARCA_VALOR" || { echo "~/$APP_DIR no tiene la marca $MARCA del restaurante; no se publica." >&2; exit 1; }
           test -f "$APP_DIR/.env" || { echo "Falta ~/$APP_DIR/.env (créalo a mano)." >&2; exit 1; }
