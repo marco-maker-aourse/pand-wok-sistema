@@ -1,0 +1,1774 @@
+{
+  "sedes": {
+    "chilca": {
+      "id": "chilca",
+      "nombre": "Chilca",
+      "direccion": "Av. Próceres 656, Huancayo",
+      "horario": "10:30 AM - 11:00 PM",
+      "mapUrl": "https://maps.google.com/maps?q=Av.+Proceres+656,+Huancayo&t=&z=16&ie=UTF8&iwloc=&output=embed"
+    },
+    "tambo": {
+      "id": "tambo",
+      "nombre": "El Tambo",
+      "direccion": "Av. Huancavelica 360, Huancayo",
+      "horario": "11:30 AM - 12:00 AM",
+      "mapUrl": "https://maps.google.com/maps?q=Av.+Huancavelica+360,+El+Tambo,+Huancayo&t=&z=16&ie=UTF8&iwloc=&output=embed"
+    },
+    "tingomaria": {
+      "id": "tingomaria",
+      "nombre": "Tingo María",
+      "direccion": "Jr. San Alejandro N° 403 (Esq. con Av. Alameda Perú 800)",
+      "horario": "2:00 PM - 1:00 AM",
+      "mapUrl": "https://maps.google.com/maps?q=Jr.+San+Alejandro+403,+Tingo+Maria&t=&z=16&ie=UTF8&iwloc=&output=embed"
+    }
+  },
+  "categorias": [
+    "Todas",
+    "Combinaciones",
+    "Menu",
+    "Sopas",
+    "Arroces",
+    "Tallarines",
+    "Pollo en Trozos",
+    "Platos Especiales",
+    "Chancho Asado",
+    "Pato Asado",
+    "Tortilla",
+    "Bocaditos",
+    "Guarniciones",
+    "Bebidas Frias",
+    "Bebidas Calientes"
+  ],
+  "carta": [
+    {
+      "categoria": "Combinaciones",
+      "iconoNombre": "UtensilsCrossed",
+      "oferta": "Oferta: 3 wantanes fritos ó sopa 1.00",
+      "platos": [
+        {
+          "id": "c01",
+          "nro": "01",
+          "nombre": "Chaufa con Tallarín",
+          "precios": {
+            "chilca": 14,
+            "tambo": 13,
+            "tingomaria": 14
+          }
+        },
+        {
+          "id": "c02",
+          "nro": "02",
+          "nombre": "Chaufa con Alitas Arrebosadas",
+          "precios": {
+            "chilca": 16,
+            "tambo": 15,
+            "tingomaria": 16
+          }
+        },
+        {
+          "id": "c03",
+          "nro": "03",
+          "nombre": "Chaufa con Lomo",
+          "precios": {
+            "chilca": 14,
+            "tambo": 14,
+            "tingomaria": 15
+          }
+        },
+        {
+          "id": "c04",
+          "nro": "04",
+          "nombre": "Mixto Especial",
+          "precios": {
+            "chilca": 15,
+            "tambo": 17,
+            "tingomaria": 17
+          }
+        },
+        {
+          "id": "c05",
+          "nro": "05",
+          "nombre": "Aeropuerto",
+          "precios": {
+            "chilca": 14,
+            "tambo": 15,
+            "tingomaria": 15
+          }
+        },
+        {
+          "id": "c06",
+          "nro": "06",
+          "nombre": "Lomo Saltado con Arroz Blanco",
+          "precios": {
+            "chilca": 13,
+            "tambo": 13,
+            "tingomaria": 14
+          }
+        },
+        {
+          "id": "c07",
+          "nro": "07",
+          "nombre": "Pollo con Verdura con Chaufa",
+          "precios": {
+            "chilca": 14,
+            "tambo": 14,
+            "tingomaria": 14.5
+          }
+        },
+        {
+          "id": "c08",
+          "nro": "08",
+          "nombre": "Pollo con Tamarindo con Chaufa",
+          "precios": {
+            "chilca": 13,
+            "tambo": 14,
+            "tingomaria": 14.5
+          }
+        },
+        {
+          "id": "c09",
+          "nro": "09",
+          "nombre": "Pollo con Tausi con Chaufa",
+          "precios": {
+            "chilca": 14.5,
+            "tambo": 14.5,
+            "tingomaria": 14.5
+          }
+        },
+        {
+          "id": "c10",
+          "nro": "10",
+          "nombre": "Pollo en Salsa Curry con Chaufa",
+          "precios": {
+            "chilca": 14.5,
+            "tambo": 14.5,
+            "tingomaria": 14.5
+          }
+        },
+        {
+          "id": "c11",
+          "nro": "11",
+          "nombre": "Pollo con Champiñones con Chaufa",
+          "precios": {
+            "chilca": 15,
+            "tambo": 15,
+            "tingomaria": 15
+          }
+        },
+        {
+          "id": "c12",
+          "nro": "12",
+          "nombre": "Pollo con Piña con Chaufa",
+          "precios": {
+            "chilca": 15,
+            "tambo": 15,
+            "tingomaria": 15
+          }
+        },
+        {
+          "id": "c13",
+          "nro": "13",
+          "nombre": "Pollo con Frutas con Chaufa",
+          "precios": {
+            "chilca": 16,
+            "tambo": 16,
+            "tingomaria": 16
+          }
+        },
+        {
+          "id": "c14",
+          "nro": "14",
+          "nombre": "Tortilla de Pollo con Chaufa",
+          "precios": {
+            "chilca": 14,
+            "tambo": 15,
+            "tingomaria": 15
+          }
+        },
+        {
+          "id": "c15",
+          "nro": "15",
+          "nombre": "Bisteck de Pollo con Chaufa",
+          "precios": {
+            "chilca": 15,
+            "tambo": 16,
+            "tingomaria": 16
+          }
+        },
+        {
+          "id": "c16",
+          "nro": "16",
+          "nombre": "Chicharrón de Pollo con Chaufa",
+          "precios": {
+            "chilca": 15,
+            "tambo": 15,
+            "tingomaria": 15
+          }
+        },
+        {
+          "id": "c17",
+          "nro": "17",
+          "nombre": "Pollo Chijaukay con Chaufa",
+          "precios": {
+            "chilca": 16,
+            "tambo": 15,
+            "tingomaria": 15
+          }
+        },
+        {
+          "id": "c18",
+          "nro": "18",
+          "nombre": "Pollo Tipakay con Chaufa",
+          "precios": {
+            "chilca": 16,
+            "tambo": 15,
+            "tingomaria": 15
+          }
+        },
+        {
+          "id": "c19",
+          "nro": "19",
+          "nombre": "Pollo Limonkay con Chaufa",
+          "precios": {
+            "chilca": 16,
+            "tambo": 15,
+            "tingomaria": 15
+          }
+        },
+        {
+          "id": "c20",
+          "nro": "20",
+          "nombre": "Chancho Asado con Verduras con Chaufa",
+          "precios": {
+            "chilca": 17,
+            "tambo": 16,
+            "tingomaria": 16
+          }
+        },
+        {
+          "id": "c21",
+          "nro": "21",
+          "nombre": "Chancho Asado con Piña con Chaufa",
+          "precios": {
+            "chilca": 17,
+            "tambo": 16,
+            "tingomaria": 16
+          }
+        },
+        {
+          "id": "c22",
+          "nro": "22",
+          "nombre": "Chancho Asado con Tamarindo con Chaufa",
+          "precios": {
+            "chilca": 16,
+            "tambo": 16,
+            "tingomaria": 16
+          }
+        },
+        {
+          "id": "c23",
+          "nro": "23",
+          "nombre": "Chancho Asado al Ajo con Chaufa",
+          "precios": {
+            "chilca": 16,
+            "tambo": 16,
+            "tingomaria": 16
+          }
+        },
+        {
+          "id": "c24",
+          "nro": "24",
+          "nombre": "Enrollado en Salsa Ostión con Chaufa",
+          "precios": {
+            "chilca": 17,
+            "tambo": 17,
+            "tingomaria": 17
+          }
+        },
+        {
+          "id": "c25",
+          "nro": "25",
+          "nombre": "Enrollado con Verdura con Chaufa",
+          "precios": {
+            "chilca": 17,
+            "tambo": 17,
+            "tingomaria": 17
+          }
+        },
+        {
+          "id": "c26",
+          "nro": "26",
+          "nombre": "Enrollado con Chancho con Chaufa",
+          "precios": {
+            "chilca": 17,
+            "tambo": 17,
+            "tingomaria": 17
+          }
+        },
+        {
+          "id": "c27",
+          "nro": "27",
+          "nombre": "Enrollado con Champiñones con Chaufa",
+          "precios": {
+            "chilca": 17,
+            "tambo": 18,
+            "tingomaria": 18
+          }
+        },
+        {
+          "id": "c28",
+          "nro": "28",
+          "nombre": "Enrollado con Fruta con Chaufa",
+          "precios": {
+            "chilca": 17,
+            "tambo": 19,
+            "tingomaria": 19
+          }
+        },
+        {
+          "id": "c29",
+          "nro": "29",
+          "nombre": "Taypa con Chaufa",
+          "precios": {
+            "chilca": 17,
+            "tambo": 17,
+            "tingomaria": 17
+          }
+        },
+        {
+          "id": "c30",
+          "nro": "30",
+          "nombre": "Kanlu Wantan con Chaufa",
+          "precios": {
+            "chilca": 16,
+            "tambo": 18,
+            "tingomaria": 18
+          }
+        },
+        {
+          "id": "c31",
+          "nro": "31",
+          "nombre": "Lomo Saltado Tallarín con Chaufa",
+          "precios": {
+            "chilca": 17,
+            "tambo": 20,
+            "tingomaria": 20
+          }
+        },
+        {
+          "id": "c32",
+          "nro": "32",
+          "nombre": "Alitas Lomo Saltado con Chaufa",
+          "precios": {
+            "chilca": 17,
+            "tambo": 20,
+            "tingomaria": 20
+          }
+        },
+        {
+          "id": "c33",
+          "nro": "33",
+          "nombre": "Tallarín Alitas con Chaufa",
+          "precios": {
+            "chilca": 17,
+            "tambo": 20,
+            "tingomaria": 20
+          }
+        },
+        {
+          "id": "c34",
+          "nro": "34",
+          "nombre": "Chancho con Piña Chicharrón de Pollo con Chaufa",
+          "precios": {
+            "chilca": 17,
+            "tambo": 20,
+            "tingomaria": 20
+          }
+        },
+        {
+          "id": "c35",
+          "nro": "35",
+          "nombre": "Pollo en Salsa Curry Chicharrón de Pollo con Chaufa",
+          "precios": {
+            "chilca": 17,
+            "tambo": 20,
+            "tingomaria": 20
+          }
+        },
+        {
+          "id": "c36",
+          "nro": "36",
+          "nombre": "Tallarín con Lomo Saltado",
+          "precios": {
+            "chilca": 15,
+            "tambo": 15,
+            "tingomaria": 15
+          }
+        },
+        {
+          "id": "c37",
+          "nro": "37",
+          "nombre": "Tallarines con Alitas Arrebozadas",
+          "precios": {
+            "chilca": 17,
+            "tambo": 16,
+            "tingomaria": 16
+          }
+        },
+        {
+          "id": "c38",
+          "nro": "38",
+          "nombre": "Aeropuerto con Lomo Saltado",
+          "precios": {
+            "chilca": 17,
+            "tambo": 17,
+            "tingomaria": 17
+          }
+        },
+        {
+          "id": "c39",
+          "nro": "39",
+          "nombre": "Aeropuerto con Alitas",
+          "precios": {
+            "chilca": 18.5,
+            "tambo": 18.5,
+            "tingomaria": 19
+          }
+        },
+        {
+          "id": "c40",
+          "nro": "40",
+          "nombre": "Piernitas en Salsa Ostion",
+          "precios": {
+            "chilca": 16,
+            "tambo": 17,
+            "tingomaria": 17
+          }
+        },
+        {
+          "id": "c41",
+          "nro": "41",
+          "nombre": "Piernita en Salsa Curry con Chaufa",
+          "precios": {
+            "chilca": 16,
+            "tambo": 17,
+            "tingomaria": 17
+          }
+        },
+        {
+          "id": "c42",
+          "nro": "42",
+          "nombre": "Piernita en Salsa Tamarindo con Chaufa",
+          "precios": {
+            "chilca": 16,
+            "tambo": 17,
+            "tingomaria": 17
+          }
+        },
+        {
+          "id": "c43",
+          "nro": "43",
+          "nombre": "Pollo 5 Sabores con Chaufa",
+          "precios": {
+            "chilca": 19,
+            "tambo": 19,
+            "tingomaria": 19
+          }
+        },
+        {
+          "id": "c44",
+          "nro": "44",
+          "nombre": "Pollo c/ Brocoli con Chaufa",
+          "precios": {
+            "chilca": 15,
+            "tambo": 15,
+            "tingomaria": 15
+          }
+        },
+        {
+          "id": "c45",
+          "nro": "45",
+          "nombre": "Pollo Frejolito Chino con Chaufa",
+          "precios": {
+            "chilca": 14,
+            "tambo": 14,
+            "tingomaria": 14
+          }
+        },
+        {
+          "id": "c46",
+          "nro": "46",
+          "nombre": "Tofu c/ Verdura con Chaufa",
+          "precios": {
+            "chilca": 15,
+            "tambo": 15,
+            "tingomaria": 15
+          }
+        },
+        {
+          "id": "c47",
+          "nro": "47",
+          "nombre": "Tofu c/ Champiñones con Chaufa",
+          "precios": {
+            "chilca": 16,
+            "tambo": 16,
+            "tingomaria": 16
+          }
+        },
+        {
+          "id": "c48",
+          "nro": "48",
+          "nombre": "Combina Tus Platos Favoritos",
+          "precios": {
+            "chilca": 0,
+            "tambo": 0,
+            "tingomaria": 0
+          }
+        }
+      ]
+    },
+    {
+      "categoria": "Menu",
+      "iconoNombre": "ClipboardList",
+      "oferta": "Sopas a elegir: wantan - pollo - kion",
+      "platos": [
+        {
+          "id": "m01",
+          "nro": "1",
+          "nombre": "Chaufa de Pollo",
+          "precios": {
+            "chilca": 11,
+            "tambo": 12,
+            "tingomaria": 12
+          }
+        },
+        {
+          "id": "m02",
+          "nro": "2",
+          "nombre": "Tallarín de Pollo",
+          "precios": {
+            "chilca": 11,
+            "tambo": 12,
+            "tingomaria": 12
+          }
+        },
+        {
+          "id": "m03",
+          "nro": "3",
+          "nombre": "Pollo c/Verduras",
+          "precios": {
+            "chilca": 12,
+            "tambo": 12,
+            "tingomaria": 12
+          }
+        },
+        {
+          "id": "m04",
+          "nro": "4",
+          "nombre": "Chaufa c/Lomo",
+          "precios": {
+            "chilca": 12,
+            "tambo": 13,
+            "tingomaria": 13
+          }
+        },
+        {
+          "id": "m05",
+          "nro": "5",
+          "nombre": "Pollo c/Tausi",
+          "precios": {
+            "chilca": 12,
+            "tambo": 12,
+            "tingomaria": 12
+          }
+        },
+        {
+          "id": "m06",
+          "nro": "6",
+          "nombre": "Chaufa c/Tallarin",
+          "precios": {
+            "chilca": 12,
+            "tambo": 13,
+            "tingomaria": 13
+          }
+        },
+        {
+          "id": "m07",
+          "nro": "7",
+          "nombre": "Pollo c/Tamarindo",
+          "precios": {
+            "chilca": 12,
+            "tambo": 12,
+            "tingomaria": 12
+          }
+        },
+        {
+          "id": "m08",
+          "nro": "8",
+          "nombre": "Chaufa c/Alitas",
+          "precios": {
+            "chilca": 14,
+            "tambo": 13.5,
+            "tingomaria": 13.5
+          }
+        },
+        {
+          "id": "m09",
+          "nro": "9",
+          "nombre": "Enrollado en Salsa Ostión",
+          "precios": {
+            "chilca": 14,
+            "tambo": 13.5,
+            "tingomaria": 13.5
+          }
+        },
+        {
+          "id": "m10",
+          "nro": "10",
+          "nombre": "Pollo en Salsa Curry",
+          "precios": {
+            "chilca": 13,
+            "tambo": 13,
+            "tingomaria": 13
+          }
+        },
+        {
+          "id": "m11",
+          "nro": "11",
+          "nombre": "Chicharrón de Pollo",
+          "precios": {
+            "chilca": 13,
+            "tambo": 13,
+            "tingomaria": 13
+          }
+        },
+        {
+          "id": "m12",
+          "nro": "12",
+          "nombre": "Pollo c/Frutas",
+          "precios": {
+            "chilca": 13.5,
+            "tambo": 13.5,
+            "tingomaria": 13.5
+          }
+        },
+        {
+          "id": "m13",
+          "nro": "13",
+          "nombre": "Pollo Chijaukay",
+          "precios": {
+            "chilca": 13.5,
+            "tambo": 13.5,
+            "tingomaria": 13.5
+          }
+        },
+        {
+          "id": "m14",
+          "nro": "14",
+          "nombre": "Chancho al Ajo",
+          "precios": {
+            "chilca": 13,
+            "tambo": 13,
+            "tingomaria": 13
+          }
+        },
+        {
+          "id": "m15",
+          "nro": "15",
+          "nombre": "Chancho c/Verdura",
+          "precios": {
+            "chilca": 13,
+            "tambo": 13,
+            "tingomaria": 13
+          }
+        },
+        {
+          "id": "m16",
+          "nro": "16",
+          "nombre": "Chancho c/Piña",
+          "precios": {
+            "chilca": 13,
+            "tambo": 13,
+            "tingomaria": 13
+          }
+        }
+      ]
+    },
+    {
+      "categoria": "Sopas",
+      "iconoNombre": "Soup",
+      "platos": [
+        {
+          "id": "s01",
+          "nombre": "Sopa de Pollo",
+          "precios": {
+            "chilca": 10,
+            "tambo": 10,
+            "tingomaria": 10
+          }
+        },
+        {
+          "id": "s02",
+          "nombre": "Sopa de Verduras",
+          "precios": {
+            "chilca": 11,
+            "tambo": 11,
+            "tingomaria": 11
+          }
+        },
+        {
+          "id": "s03",
+          "nombre": "Sopa Wantan",
+          "precios": {
+            "chilca": 11,
+            "tambo": 11,
+            "tingomaria": 11
+          }
+        },
+        {
+          "id": "s04",
+          "nombre": "Sopa de Kion",
+          "precios": {
+            "chilca": 11,
+            "tambo": 11,
+            "tingomaria": 11
+          }
+        },
+        {
+          "id": "s05",
+          "nombre": "Sopa de Pato (Feriados)",
+          "precios": {
+            "chilca": 15,
+            "tambo": 15,
+            "tingomaria": 15
+          }
+        },
+        {
+          "id": "s06",
+          "nombre": "Sopa Wonmen",
+          "precios": {
+            "chilca": 11,
+            "tambo": 11,
+            "tingomaria": 11
+          }
+        },
+        {
+          "id": "s07",
+          "nombre": "Sopa Pacpow o Fuchifu",
+          "precios": {
+            "chilca": 12,
+            "tambo": 12,
+            "tingomaria": 12
+          }
+        },
+        {
+          "id": "s08",
+          "nombre": "Sustancia de Res o Pollo",
+          "precios": {
+            "chilca": 11,
+            "tambo": 12,
+            "tingomaria": 12
+          }
+        },
+        {
+          "id": "s09",
+          "nombre": "Sopa de Patitas (Sáb. Dom.)",
+          "precios": {
+            "chilca": 10,
+            "tambo": 10,
+            "tingomaria": 10
+          }
+        },
+        {
+          "id": "s10",
+          "nombre": "Sopa de Fideito Chino",
+          "precios": {
+            "chilca": 12,
+            "tambo": 12,
+            "tingomaria": 12
+          }
+        }
+      ]
+    },
+    {
+      "categoria": "Pollo en Trozos",
+      "iconoNombre": "Drumstick",
+      "platos": [
+        {
+          "id": "pt01",
+          "nombre": "Pollo con Tamarindo",
+          "precios": {
+            "chilca": 11,
+            "tambo": 11,
+            "tingomaria": 11
+          }
+        },
+        {
+          "id": "pt02",
+          "nombre": "Pollo con Piña",
+          "precios": {
+            "chilca": 12,
+            "tambo": 12,
+            "tingomaria": 12
+          }
+        },
+        {
+          "id": "pt03",
+          "nombre": "Pollo con Frutas",
+          "precios": {
+            "chilca": 13,
+            "tambo": 13,
+            "tingomaria": 13
+          }
+        },
+        {
+          "id": "pt04",
+          "nombre": "Pollo con Durazno",
+          "precios": {
+            "chilca": 12,
+            "tambo": 12,
+            "tingomaria": 12
+          }
+        },
+        {
+          "id": "pt05",
+          "nombre": "Pollo con Tausi",
+          "precios": {
+            "chilca": 12,
+            "tambo": 12,
+            "tingomaria": 12
+          }
+        },
+        {
+          "id": "pt06",
+          "nombre": "Pollo con Verduras",
+          "precios": {
+            "chilca": 12,
+            "tambo": 12,
+            "tingomaria": 12
+          }
+        },
+        {
+          "id": "pt07",
+          "nombre": "Pollo con Frejolito Chino",
+          "precios": {
+            "chilca": 12,
+            "tambo": 12,
+            "tingomaria": 12
+          }
+        },
+        {
+          "id": "pt08",
+          "nombre": "Pollo con Champiñones",
+          "precios": {
+            "chilca": 13,
+            "tambo": 13,
+            "tingomaria": 13
+          }
+        },
+        {
+          "id": "pt09",
+          "nombre": "Pollo en Salsa Curry",
+          "precios": {
+            "chilca": 12,
+            "tambo": 12,
+            "tingomaria": 12
+          }
+        },
+        {
+          "id": "pt10",
+          "nombre": "Pollo al Ajo",
+          "precios": {
+            "chilca": 12,
+            "tambo": 12,
+            "tingomaria": 12
+          }
+        },
+        {
+          "id": "pt11",
+          "nombre": "Pollo Chop Suey",
+          "precios": {
+            "chilca": 11,
+            "tambo": 11,
+            "tingomaria": 11
+          }
+        }
+      ]
+    },
+    {
+      "categoria": "Arroces",
+      "iconoNombre": "CookingPot",
+      "platos": [
+        {
+          "id": "a12",
+          "nombre": "Arroz Chaufa Amazónico",
+          "precios": {
+            "tingomaria": 18
+          }
+        },
+        {
+          "id": "a01",
+          "nombre": "Arroz Chaufa Dragones",
+          "precios": {
+            "chilca": 17,
+            "tambo": 16,
+            "tingomaria": 16
+          }
+        },
+        {
+          "id": "a02",
+          "nombre": "Arroz Chaufa de Pollo",
+          "precios": {
+            "chilca": 12,
+            "tambo": 13,
+            "tingomaria": 13
+          }
+        },
+        {
+          "id": "a03",
+          "nombre": "Arroz Chaufa de Res",
+          "precios": {
+            "chilca": 13,
+            "tambo": 15,
+            "tingomaria": 15
+          }
+        },
+        {
+          "id": "a04",
+          "nombre": "Arroz Chaufa de Chancho",
+          "precios": {
+            "chilca": 14,
+            "tambo": 15,
+            "tingomaria": 15
+          }
+        },
+        {
+          "id": "a05",
+          "nombre": "Arroz Chaufa Sam Sem",
+          "precios": {
+            "chilca": 15,
+            "tambo": 16,
+            "tingomaria": 16
+          }
+        },
+        {
+          "id": "a06",
+          "nombre": "Arroz Chaufa Especial",
+          "precios": {
+            "chilca": 15,
+            "tambo": 16,
+            "tingomaria": 16
+          }
+        },
+        {
+          "id": "a07",
+          "nombre": "Arroz Chaufa Cantones",
+          "precios": {
+            "chilca": 15,
+            "tambo": 15,
+            "tingomaria": 15
+          }
+        },
+        {
+          "id": "a08",
+          "nombre": "Arroz Chaufa de Pato (Feriados)",
+          "precios": {
+            "chilca": 17,
+            "tambo": 17,
+            "tingomaria": 17
+          }
+        },
+        {
+          "id": "a09",
+          "nombre": "Arroz Chaufa Salvaje",
+          "precios": {
+            "chilca": 15,
+            "tambo": 15,
+            "tingomaria": 15
+          }
+        },
+        {
+          "id": "a10",
+          "nombre": "Arroz Chaufa con Langostinos",
+          "precios": {
+            "chilca": 16,
+            "tambo": 16,
+            "tingomaria": 16
+          }
+        },
+        {
+          "id": "a11",
+          "nombre": "Arroz Chaufa Vegetariano",
+          "precios": {
+            "chilca": 15,
+            "tambo": 15,
+            "tingomaria": 15
+          }
+        },
+        {
+          "id": "a13",
+          "nombre": "Arroz Chaufa de Mariscos",
+          "precios": {
+            "tingomaria": 16
+          }
+        }
+      ]
+    },
+    {
+      "categoria": "Tallarines",
+      "iconoNombre": "Utensils",
+      "platos": [
+        {
+          "id": "t01",
+          "nombre": "Tallarín de Pollo",
+          "precios": {
+            "chilca": 11,
+            "tambo": 11,
+            "tingomaria": 11
+          }
+        },
+        {
+          "id": "t02",
+          "nombre": "Tallarín de Res",
+          "precios": {
+            "chilca": 13,
+            "tambo": 14,
+            "tingomaria": 14
+          }
+        },
+        {
+          "id": "t03",
+          "nombre": "Tallarín Especial",
+          "precios": {
+            "chilca": 15,
+            "tambo": 15,
+            "tingomaria": 15
+          }
+        },
+        {
+          "id": "t04",
+          "nombre": "Tallarín c/ Pollo en Trozos",
+          "precios": {
+            "chilca": 14,
+            "tambo": 14,
+            "tingomaria": 14
+          }
+        },
+        {
+          "id": "t05",
+          "nombre": "Tallarín Frito c/ Pollo",
+          "precios": {
+            "chilca": 15,
+            "tambo": 14,
+            "tingomaria": 14
+          }
+        },
+        {
+          "id": "t06",
+          "nombre": "Tallarín 3 Delicias",
+          "precios": {
+            "chilca": 16,
+            "tambo": 15,
+            "tingomaria": 15
+          }
+        },
+        {
+          "id": "t07",
+          "nombre": "Tallarín Samsi",
+          "precios": {
+            "chilca": 16,
+            "tambo": 15,
+            "tingomaria": 15
+          }
+        },
+        {
+          "id": "t08",
+          "nombre": "Tallarín en Salsa Curry",
+          "precios": {
+            "chilca": 14,
+            "tambo": 14,
+            "tingomaria": 14
+          }
+        },
+        {
+          "id": "t09",
+          "nombre": "Tallarín Entomatado",
+          "precios": {
+            "chilca": 13,
+            "tambo": 13,
+            "tingomaria": 13
+          }
+        },
+        {
+          "id": "t10",
+          "nombre": "Tallarín con Pato (Feriado)",
+          "precios": {
+            "chilca": 17,
+            "tambo": 17,
+            "tingomaria": 17
+          }
+        }
+      ]
+    },
+    {
+      "categoria": "Tortilla",
+      "iconoNombre": "Egg",
+      "platos": [
+        {
+          "id": "to01",
+          "nombre": "Tortilla de Verdura",
+          "precios": {
+            "chilca": 10,
+            "tambo": 11,
+            "tingomaria": 11
+          }
+        },
+        {
+          "id": "to02",
+          "nombre": "Tortilla de Pollo",
+          "precios": {
+            "chilca": 11,
+            "tambo": 12,
+            "tingomaria": 12
+          }
+        },
+        {
+          "id": "to03",
+          "nombre": "Tortilla de Chancho",
+          "precios": {
+            "chilca": 12,
+            "tambo": 14,
+            "tingomaria": 14
+          }
+        },
+        {
+          "id": "to04",
+          "nombre": "Tortilla de Res",
+          "precios": {
+            "chilca": 12,
+            "tambo": 13,
+            "tingomaria": 13
+          }
+        },
+        {
+          "id": "to05",
+          "nombre": "Tortilla de Champiñones",
+          "precios": {
+            "chilca": 13,
+            "tambo": 12,
+            "tingomaria": 12
+          }
+        },
+        {
+          "id": "to06",
+          "nombre": "Tortilla Especial",
+          "precios": {
+            "chilca": 14,
+            "tambo": 14,
+            "tingomaria": 14
+          }
+        }
+      ]
+    },
+    {
+      "categoria": "Chancho Asado",
+      "iconoNombre": "Beef",
+      "platos": [
+        {
+          "id": "cha01",
+          "nombre": "Chancho con Verdura",
+          "precios": {
+            "chilca": 14,
+            "tambo": 14,
+            "tingomaria": 14
+          }
+        },
+        {
+          "id": "cha02",
+          "nombre": "Chancho con Tamarindo",
+          "precios": {
+            "chilca": 13,
+            "tambo": 13,
+            "tingomaria": 13
+          }
+        },
+        {
+          "id": "cha03",
+          "nombre": "Chancho con Piña",
+          "precios": {
+            "chilca": 14,
+            "tambo": 14,
+            "tingomaria": 14
+          }
+        },
+        {
+          "id": "cha04",
+          "nombre": "Chancho con Tausi",
+          "precios": {
+            "chilca": 13,
+            "tambo": 13,
+            "tingomaria": 13
+          }
+        },
+        {
+          "id": "cha05",
+          "nombre": "Chancho en Salsa Curry",
+          "precios": {
+            "chilca": 13,
+            "tambo": 13,
+            "tingomaria": 13
+          }
+        },
+        {
+          "id": "cha06",
+          "nombre": "Chancho con Champiñones",
+          "precios": {
+            "chilca": 14,
+            "tambo": 14,
+            "tingomaria": 14
+          }
+        },
+        {
+          "id": "cha07",
+          "nombre": "Chancho con Frejolito Chino",
+          "precios": {
+            "chilca": 14,
+            "tambo": 14,
+            "tingomaria": 14
+          }
+        },
+        {
+          "id": "cha08",
+          "nombre": "Chancho al Ajo",
+          "precios": {
+            "chilca": 13,
+            "tambo": 13,
+            "tingomaria": 13
+          }
+        }
+      ]
+    },
+    {
+      "categoria": "Pato Asado",
+      "iconoNombre": "Flame",
+      "platos": [
+        {
+          "id": "pa01",
+          "nombre": "Pato a la Laguna",
+          "precios": {
+            "chilca": 15,
+            "tambo": 15,
+            "tingomaria": 17
+          }
+        },
+        {
+          "id": "pa02",
+          "nombre": "Pato con Verduras",
+          "precios": {
+            "chilca": 15,
+            "tambo": 15,
+            "tingomaria": 16
+          }
+        },
+        {
+          "id": "pa03",
+          "nombre": "Pato con Frutas",
+          "precios": {
+            "chilca": 18,
+            "tambo": 18,
+            "tingomaria": 18
+          }
+        },
+        {
+          "id": "pa04",
+          "nombre": "Pato con Tausi",
+          "precios": {
+            "chilca": 15,
+            "tambo": 15,
+            "tingomaria": 15
+          }
+        },
+        {
+          "id": "pa05",
+          "nombre": "Pato con Fideito Chino",
+          "precios": {
+            "chilca": 15,
+            "tambo": 15,
+            "tingomaria": 15
+          }
+        },
+        {
+          "id": "pa06",
+          "nombre": "Pato Chop Suey",
+          "precios": {
+            "chilca": 15,
+            "tambo": 15,
+            "tingomaria": 15
+          }
+        },
+        {
+          "id": "pa07",
+          "nombre": "Pato con Champiñones",
+          "precios": {
+            "chilca": 15,
+            "tambo": 15,
+            "tingomaria": 15
+          }
+        }
+      ]
+    },
+    {
+      "categoria": "Platos Especiales",
+      "iconoNombre": "Sparkles",
+      "platos": [
+        {
+          "id": "pe01",
+          "nombre": "Langostino con Verdura",
+          "precios": {
+            "chilca": 16,
+            "tambo": 16,
+            "tingomaria": 16
+          }
+        },
+        {
+          "id": "pe02",
+          "nombre": "Chicharrón de Pollo",
+          "precios": {
+            "chilca": 15,
+            "tambo": 15,
+            "tingomaria": 15
+          }
+        },
+        {
+          "id": "pe03",
+          "nombre": "Pollo Cinco Sabores",
+          "precios": {
+            "chilca": 15,
+            "tambo": 15,
+            "tingomaria": 17
+          }
+        },
+        {
+          "id": "pe04",
+          "nombre": "Pollo Chijaukay",
+          "precios": {
+            "chilca": 15,
+            "tambo": 15,
+            "tingomaria": 16
+          }
+        },
+        {
+          "id": "pe05",
+          "nombre": "Pollo Limonkay",
+          "precios": {
+            "chilca": 15,
+            "tambo": 15,
+            "tingomaria": 16
+          }
+        },
+        {
+          "id": "pe06",
+          "nombre": "Pollo Tipakay",
+          "precios": {
+            "chilca": 15,
+            "tambo": 15,
+            "tingomaria": 16
+          }
+        },
+        {
+          "id": "pe07",
+          "nombre": "Samsi Especial",
+          "precios": {
+            "chilca": 15,
+            "tambo": 15,
+            "tingomaria": 17
+          }
+        },
+        {
+          "id": "pe08",
+          "nombre": "Pollo a la Naranja",
+          "precios": {
+            "chilca": 16,
+            "tambo": 16,
+            "tingomaria": 16
+          }
+        },
+        {
+          "id": "pe09",
+          "nombre": "Enrollado a la Primavera",
+          "precios": {
+            "chilca": 17,
+            "tambo": 17,
+            "tingomaria": 17
+          }
+        },
+        {
+          "id": "pe10",
+          "nombre": "Pollo Enrollado con Champiñon",
+          "precios": {
+            "chilca": 16,
+            "tambo": 16,
+            "tingomaria": 16
+          }
+        },
+        {
+          "id": "pe11",
+          "nombre": "Pollo Enrollado con Almendra",
+          "precios": {
+            "chilca": 16,
+            "tambo": 16,
+            "tingomaria": 16
+          }
+        },
+        {
+          "id": "pe12",
+          "nombre": "Pollo Enrollado con Frutas",
+          "precios": {
+            "chilca": 18,
+            "tambo": 18,
+            "tingomaria": 18
+          }
+        },
+        {
+          "id": "pe13",
+          "nombre": "Taypa a la Plancha",
+          "precios": {
+            "chilca": 16,
+            "tambo": 16,
+            "tingomaria": 16
+          }
+        },
+        {
+          "id": "pe14",
+          "nombre": "Taypa Especial",
+          "precios": {
+            "chilca": 15,
+            "tambo": 15,
+            "tingomaria": 15
+          }
+        },
+        {
+          "id": "pe15",
+          "nombre": "Kamlu Wan Tan",
+          "precios": {
+            "chilca": 17,
+            "tambo": 17,
+            "tingomaria": 17
+          }
+        },
+        {
+          "id": "pe16",
+          "nombre": "Pollo con Verduras a la Plancha",
+          "precios": {
+            "chilca": 15,
+            "tambo": 15,
+            "tingomaria": 15
+          }
+        }
+      ]
+    },
+    {
+      "categoria": "Guarniciones",
+      "iconoNombre": "Salad",
+      "platos": [
+        {
+          "id": "g01",
+          "nombre": "Porción de Huevitos",
+          "precios": {
+            "chilca": 5,
+            "tambo": 5,
+            "tingomaria": 5
+          }
+        },
+        {
+          "id": "g02",
+          "nombre": "Porción de Fideos",
+          "precios": {
+            "chilca": 5,
+            "tambo": 5,
+            "tingomaria": 5
+          }
+        },
+        {
+          "id": "g03",
+          "nombre": "Porción de Arroz Blanco",
+          "precios": {
+            "chilca": 5,
+            "tambo": 5,
+            "tingomaria": 5
+          }
+        },
+        {
+          "id": "g04",
+          "nombre": "Porción de Arroz Chaufa",
+          "precios": {
+            "chilca": 6,
+            "tambo": 6,
+            "tingomaria": 7
+          }
+        },
+        {
+          "id": "g05",
+          "nombre": "Porción de Pollo Enrollado",
+          "precios": {
+            "chilca": 8,
+            "tambo": 8,
+            "tingomaria": 9
+          }
+        },
+        {
+          "id": "g06",
+          "nombre": "Huevo Frito",
+          "precios": {
+            "chilca": 3,
+            "tambo": 3,
+            "tingomaria": 3
+          }
+        },
+        {
+          "id": "g07",
+          "nombre": "Sopa Pequeña",
+          "precios": {
+            "chilca": 5,
+            "tambo": 5,
+            "tingomaria": 5
+          }
+        }
+      ]
+    },
+    {
+      "categoria": "Bocaditos",
+      "iconoNombre": "Cookie",
+      "platos": [
+        {
+          "id": "b01",
+          "nombre": "Hojuela Frita",
+          "precios": {
+            "chilca": 10,
+            "tambo": 10,
+            "tingomaria": 10
+          }
+        },
+        {
+          "id": "b02",
+          "nombre": "Wantan Frito 1 Porción",
+          "precios": {
+            "chilca": 10,
+            "tambo": 10,
+            "tingomaria": 10
+          }
+        },
+        {
+          "id": "b03",
+          "nombre": "Wantan Frito 1/2 Porción",
+          "precios": {
+            "chilca": 6,
+            "tambo": 6,
+            "tingomaria": 6
+          }
+        },
+        {
+          "id": "b04",
+          "nombre": "Porción Nabo Encurtido",
+          "precios": {
+            "chilca": 5,
+            "tambo": 5,
+            "tingomaria": 5
+          }
+        },
+        {
+          "id": "b05",
+          "nombre": "Porción de Alitas",
+          "precios": {
+            "chilca": 16,
+            "tambo": 16,
+            "tingomaria": 16
+          }
+        },
+        {
+          "id": "b06",
+          "nombre": "1/2 Porción de Alitas",
+          "precios": {
+            "chilca": 9,
+            "tambo": 9,
+            "tingomaria": 9
+          }
+        },
+        {
+          "id": "b07",
+          "nombre": "Conserva de Durazno",
+          "precios": {
+            "chilca": 5,
+            "tambo": 5,
+            "tingomaria": 5
+          }
+        }
+      ]
+    },
+    {
+      "categoria": "Bebidas Frias",
+      "iconoNombre": "CupSoda",
+      "platos": [
+        {
+          "id": "bf01",
+          "nombre": "Gaseosa Litro",
+          "precios": {
+            "chilca": 8,
+            "tambo": 8,
+            "tingomaria": 9
+          }
+        },
+        {
+          "id": "bf02",
+          "nombre": "Gaseosa 1/2 Litro",
+          "precios": {
+            "chilca": 5.5,
+            "tambo": 5,
+            "tingomaria": 6
+          }
+        },
+        {
+          "id": "bf03",
+          "nombre": "Gaseosa Personal",
+          "precios": {
+            "chilca": 3,
+            "tambo": 3,
+            "tingomaria": 3
+          }
+        },
+        {
+          "id": "bf04",
+          "nombre": "Gaseosa 2 Litros",
+          "precios": {
+            "chilca": 11,
+            "tambo": 11,
+            "tingomaria": 13
+          }
+        },
+        {
+          "id": "bf05",
+          "nombre": "Agua de Mesa",
+          "precios": {
+            "chilca": 2.5,
+            "tambo": 2.5,
+            "tingomaria": 3
+          }
+        },
+        {
+          "id": "bf06",
+          "nombre": "Powerade",
+          "precios": {
+            "chilca": 3.5,
+            "tambo": 3,
+            "tingomaria": 3
+          }
+        },
+        {
+          "id": "bf07",
+          "nombre": "Cerveza Cusqueña Personal",
+          "precios": {
+            "chilca": 6,
+            "tambo": 6,
+            "tingomaria": 6
+          }
+        },
+        {
+          "id": "bf08",
+          "nombre": "Vino Tabernero",
+          "precios": {
+            "chilca": 21,
+            "tambo": 21,
+            "tingomaria": 21
+          }
+        },
+        {
+          "id": "bf09",
+          "nombre": "Vino Queirolo",
+          "precios": {
+            "chilca": 22,
+            "tambo": 22,
+            "tingomaria": 22
+          }
+        },
+        {
+          "id": "bf10",
+          "nombre": "Personal Descartable",
+          "precios": {
+            "chilca": 4.5,
+            "tambo": 4,
+            "tingomaria": 5
+          }
+        },
+        {
+          "id": "bf11",
+          "nombre": "Chicha Morada (Sáb. Dom.)",
+          "precios": {
+            "chilca": 10,
+            "tambo": 10,
+            "tingomaria": 10
+          }
+        }
+      ]
+    },
+    {
+      "categoria": "Bebidas Calientes",
+      "iconoNombre": "Coffee",
+      "platos": [
+        {
+          "id": "bc01",
+          "nombre": "Té Jazmin",
+          "precios": {
+            "chilca": 3,
+            "tambo": 3,
+            "tingomaria": 3
+          }
+        },
+        {
+          "id": "bc02",
+          "nombre": "Jazmin de Jarra",
+          "precios": {
+            "chilca": 10,
+            "tambo": 10,
+            "tingomaria": 10
+          }
+        },
+        {
+          "id": "bc03",
+          "nombre": "Mate (Anis, Té, Manzanilla)",
+          "precios": {
+            "chilca": 2.5,
+            "tambo": 2.5,
+            "tingomaria": 2.5
+          }
+        },
+        {
+          "id": "bc04",
+          "nombre": "Mate en Jarra",
+          "precios": {
+            "chilca": 8,
+            "tambo": 8,
+            "tingomaria": 8
+          }
+        },
+        {
+          "id": "bc05",
+          "nombre": "1/2 de Jazmin",
+          "precios": {
+            "chilca": 5,
+            "tambo": 5,
+            "tingomaria": 5
+          }
+        },
+        {
+          "id": "bc06",
+          "nombre": "Café",
+          "precios": {
+            "chilca": 3,
+            "tambo": 3,
+            "tingomaria": 3
+          }
+        }
+      ]
+    }
+  ]
+}

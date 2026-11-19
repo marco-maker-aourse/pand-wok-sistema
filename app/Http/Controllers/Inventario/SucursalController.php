@@ -25,7 +25,7 @@ class SucursalController extends Controller
             'sucursales' => Sucursal::query()
                 ->withCount(['usuarios' => fn ($query) => $query->where('estado', true)])
                 ->orderBy('nombre')
-                ->get(['id_sucursal', 'nombre', 'direccion', 'telefono', 'responsable', 'codigo_establecimiento', 'estado']),
+                ->get(['id_sucursal', 'nombre', 'direccion', 'telefono', 'responsable', 'codigo_establecimiento', 'slug', 'horario_atencion', 'estado']),
             'sucursalActivaId' => $request->user()->idSucursalActiva(),
         ]);
     }

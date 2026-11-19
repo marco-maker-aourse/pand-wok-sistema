@@ -4,8 +4,12 @@
  */
 const PERMISOS_POR_ROL = {
     CAJERO: {
-        grupos: ['Principal', 'Operaciones', 'Gestión'],
-        items: ['Inicio', 'Caja', 'Ventas', 'Productos', 'Clientes'],
+        grupos: ['Principal', 'Restaurante', 'Operaciones', 'Gestión'],
+        items: ['Inicio', 'Salón', 'Caja', 'Ventas', 'Productos', 'Clientes'],
+    },
+    MOZO: {
+        grupos: ['Principal', 'Restaurante'],
+        items: ['Inicio', 'Salón'],
     },
     VENDEDOR: {
         grupos: ['Principal', 'Operaciones', 'Gestión'],

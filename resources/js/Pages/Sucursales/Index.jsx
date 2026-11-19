@@ -29,13 +29,15 @@ export default function Index({ sucursales = [], sucursalActivaId = null }) {
     const crud = useCatalogoCrud({
         endpoint: '/sucursales',
         getId: (sucursal) => sucursal.id_sucursal,
-        valoresIniciales: { nombre: '', direccion: '', telefono: '', responsable: '', codigo_establecimiento: '', estado: true },
+        valoresIniciales: { nombre: '', direccion: '', telefono: '', responsable: '', codigo_establecimiento: '', slug: '', horario_atencion: '', estado: true },
         aFormulario: (sucursal) => ({
             nombre: sucursal.nombre || '',
             direccion: sucursal.direccion || '',
             telefono: sucursal.telefono || '',
             responsable: sucursal.responsable || '',
             codigo_establecimiento: sucursal.codigo_establecimiento || '',
+            slug: sucursal.slug || '',
+            horario_atencion: sucursal.horario_atencion || '',
             estado: Boolean(sucursal.estado),
         }),
         validar,
@@ -101,6 +103,14 @@ export default function Index({ sucursales = [], sucursalActivaId = null }) {
                     <Field label="Responsable" error={form.errors.responsable}>
                         <Input value={form.data.responsable} onChange={(e) => form.setData('responsable', e.target.value)} maxLength={150} />
                     </Field>
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <Field label="Identificador de carta digital" error={form.errors.slug} hint="Minúsculas y guiones, p. ej. el-tambo. Vacío = no aparece en la carta pública.">
+                            <Input value={form.data.slug} onChange={(e) => form.setData('slug', e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))} maxLength={40} className="font-mono" />
+                        </Field>
+                        <Field label="Horario de atención" error={form.errors.horario_atencion} hint="Se muestra en la carta digital.">
+                            <Input value={form.data.horario_atencion} onChange={(e) => form.setData('horario_atencion', e.target.value)} maxLength={80} placeholder="11:00 AM - 11:00 PM" />
+                        </Field>
+                    </div>
                     {form.errors.estado && <p className="text-sm text-rose-600">{form.errors.estado}</p>}
                     <CheckboxField label="Sucursal activa" description="Disponible para iniciar sesión, vender y registrar inventario." checked={form.data.estado} onChange={(valor) => form.setData('estado', valor)} />
                 </>

@@ -21,6 +21,9 @@ class Sucursal extends Model
         'responsable',
         'codigo_establecimiento',
         'estado',
+        // Carta pública: identificador estable en la URL (p. ej. "chilca") y horario visible.
+        'slug',
+        'horario_atencion',
     ];
 
     public function usuarios(): HasMany { return $this->hasMany(User::class, 'id_sucursal', 'id_sucursal'); }

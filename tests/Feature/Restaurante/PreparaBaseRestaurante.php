@@ -22,9 +22,14 @@ trait PreparaBaseRestaurante
             DB::statement("ATTACH DATABASE ':memory:' AS {$esquema}");
         }
 
-        DB::statement('CREATE TABLE inventario.sucursales (id_sucursal INTEGER PRIMARY KEY, nombre TEXT, estado BOOLEAN DEFAULT 1)');
-        DB::statement("CREATE TABLE catalogos.productos (id_producto INTEGER PRIMARY KEY, nombre TEXT, estado BOOLEAN DEFAULT 1, tipo_producto TEXT DEFAULT 'DIRECTO')");
-        DB::statement('CREATE TABLE inventario.precio_producto (id_precio INTEGER PRIMARY KEY, id_producto INTEGER, id_presentacion INTEGER, factor_conversion NUMERIC DEFAULT 1, precio_venta NUMERIC, porcentaje_utilidad NUMERIC NULL, estado BOOLEAN DEFAULT 1)');
+        DB::statement('CREATE TABLE inventario.sucursales (id_sucursal INTEGER PRIMARY KEY, nombre TEXT, direccion TEXT NULL, telefono TEXT NULL, estado BOOLEAN DEFAULT 1, slug TEXT NULL UNIQUE, horario_atencion TEXT NULL)');
+        DB::statement('CREATE TABLE catalogos.categorias (id_categoria INTEGER PRIMARY KEY, nombre TEXT UNIQUE, descripcion TEXT NULL, estado BOOLEAN DEFAULT 1)');
+        DB::statement('CREATE TABLE catalogos.unidades_medida (id_unidad INTEGER PRIMARY KEY, codigo_sunat TEXT UNIQUE, nombre TEXT, estado BOOLEAN DEFAULT 1)');
+        DB::statement('CREATE TABLE catalogos.presentaciones (id_presentacion INTEGER PRIMARY KEY, nombre TEXT UNIQUE, estado BOOLEAN DEFAULT 1)');
+        DB::statement("CREATE TABLE catalogos.productos (id_producto INTEGER PRIMARY KEY, id_categoria INTEGER NULL, id_marca INTEGER NULL, id_unidad_base INTEGER NULL, codigo_barras TEXT NULL, codigo_sunat TEXT NULL, nombre TEXT, afecta_igv BOOLEAN DEFAULT 1, es_servicio BOOLEAN DEFAULT 0, usa_vencimiento BOOLEAN DEFAULT 0, estado BOOLEAN DEFAULT 1, tipo_producto TEXT DEFAULT 'DIRECTO', codigo_carta TEXT NULL, codigo_externo TEXT NULL UNIQUE)");
+        DB::statement('CREATE TABLE inventario.precio_producto (id_precio INTEGER PRIMARY KEY, id_producto INTEGER, id_presentacion INTEGER, factor_conversion NUMERIC DEFAULT 1, precio_venta NUMERIC, porcentaje_utilidad NUMERIC NULL, estado BOOLEAN DEFAULT 1, UNIQUE (id_producto, id_presentacion))');
+        DB::statement('CREATE TABLE restaurante.precios_sucursal (id_sucursal INTEGER, id_precio INTEGER, precio_venta NUMERIC NULL, disponible BOOLEAN DEFAULT 1, created_at DATETIME, updated_at DATETIME, PRIMARY KEY (id_sucursal, id_precio))');
+        DB::statement('CREATE TABLE restaurante.categorias_carta (id_categoria INTEGER PRIMARY KEY, orden INTEGER DEFAULT 0, icono TEXT NULL, nota TEXT NULL, visible BOOLEAN DEFAULT 1, created_at DATETIME, updated_at DATETIME)');
 
         DB::statement('CREATE TABLE restaurante.areas (id_area INTEGER PRIMARY KEY, id_sucursal INTEGER, nombre TEXT, orden INTEGER DEFAULT 0, activo BOOLEAN DEFAULT 1, created_at DATETIME, updated_at DATETIME)');
         DB::statement("CREATE TABLE restaurante.mesas (id_mesa INTEGER PRIMARY KEY, id_sucursal INTEGER, id_area INTEGER, codigo TEXT, capacidad INTEGER DEFAULT 4, estado TEXT DEFAULT 'DISPONIBLE', orden INTEGER DEFAULT 0, activo BOOLEAN DEFAULT 1, created_at DATETIME, updated_at DATETIME)");

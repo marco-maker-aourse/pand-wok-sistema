@@ -15,12 +15,15 @@ use Illuminate\Support\Facades\DB;
  * Reglas:
  * - La presentación y el producto deben estar activos; los insumos no se venden.
  * - El producto no debe estar agotado en la sucursal.
+ * - El precio base es el de la sucursal (PrecioSucursalService), no el general.
  * - Cada opción debe estar activa y pertenecer a un grupo asignado al producto.
  * - Se respeta el mínimo y máximo de selección de cada grupo (obligatorios incluidos).
  */
 class ArmarItemPedidoService
 {
     public const CANTIDAD_MAXIMA = 999;
+
+    public function __construct(private readonly PrecioSucursalService $precios) {}
 
     /**
      * @param  array{id_precio:int, cantidad:float|int|string, observacion?:?string, opciones?:array<int>}  $item
@@ -55,7 +58,8 @@ class ArmarItemPedidoService
         }
 
         $modificadores = $this->modificadores($producto, $item['opciones'] ?? []);
-        $precioBase = round((float) $precio->precio_venta, 4);
+        // Cada sucursal puede tener su propio precio (o no vender el plato).
+        $precioBase = round($this->precios->precio($precio, $sucursalId), 4);
         $precioModificadores = round(array_sum(array_column($modificadores, 'precio_adicional')), 4);
         $precioUnitario = round($precioBase + $precioModificadores, 4);
 

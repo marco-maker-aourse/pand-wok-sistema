@@ -1,9 +1,13 @@
-import { FiArchive, FiBarChart2, FiBox, FiCreditCard, FiFileText, FiGrid, FiHome, FiLayers, FiMapPin, FiPackage, FiShoppingCart, FiSliders, FiTag, FiTruck, FiUsers, FiDollarSign, FiPrinter } from 'react-icons/fi';
+import { FiArchive, FiBarChart2, FiBookOpen, FiBox, FiCreditCard, FiFileText, FiGrid, FiHome, FiLayers, FiLayout, FiMapPin, FiPackage, FiShoppingCart, FiSliders, FiTag, FiTruck, FiUsers, FiDollarSign, FiPrinter } from 'react-icons/fi';
 
 /** Rutas visibles; la autorización real continúa en middleware y policies del servidor. */
 export const navigationModules = [
     { label: 'Principal', items: [
         { label: 'Inicio', href: '/', icon: FiHome },
+    ] },
+    { label: 'Restaurante', items: [
+        { label: 'Salón', href: '/salon', icon: FiLayout },
+        { label: 'Carta', href: '/carta', icon: FiBookOpen },
     ] },
     { label: 'Operaciones', items: [
         { label: 'Caja', href: '/caja', icon: FiDollarSign },

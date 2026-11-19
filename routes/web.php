@@ -205,6 +205,9 @@ Route::middleware('auth')->group(function (): void {
         ->middleware('permission:ventas.registrar')
         ->name('sunat.emitir');
 
+    // --- 12.1 RESTAURANTE: salón, pedidos y carta ---
+    require __DIR__.'/restaurante.php';
+
     // --- 13. CERRAR SESIÓN ---
     Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');
 });

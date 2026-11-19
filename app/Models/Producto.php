@@ -30,6 +30,9 @@ class Producto extends Model
         'estado',
         // Restaurante: PREPARADO (pasa por cocina), DIRECTO (venta tal cual) o INSUMO (solo inventario).
         'tipo_producto',
+        // Número que el cliente dice al mozo y id del plato en la carta de origen (importación).
+        'codigo_carta',
+        'codigo_externo',
     ];
 
     public const PREPARADO = 'PREPARADO';
