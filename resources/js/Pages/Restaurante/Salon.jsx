@@ -38,12 +38,13 @@ export default function Salon({ areas = [], cuentasSinMesa = [], resumen, puede 
 
     const area = areas.find((a) => a.id_area === areaActiva);
 
-    const rutaCuenta = (id) => `/pedidos/${id}${!puede.abrir && puede.cobrar ? '/cobrar' : ''}`;
+    // Todo se atiende desde el punto de venta; quien solo cobra va directo al cobro.
+    const rutaCuenta = (id) => (puede.abrir ? `/pos?cuenta=${id}` : `/pedidos/${id}/cobrar`);
     const seleccionarMesa = (mesa) => {
         if (mesa.cuenta) {
             router.visit(rutaCuenta(mesa.cuenta.id_pedido));
         } else if (puede.abrir && ['DISPONIBLE', 'RESERVADA'].includes(mesa.estado)) {
-            setDialogo({ tipo: 'MESA', mesa });
+            router.get('/pos', { mesa: mesa.id_mesa });
         }
     };
 
@@ -66,8 +67,8 @@ export default function Salon({ areas = [], cuentasSinMesa = [], resumen, puede 
                     actions={(
                         <>
                             {puede.configurar && <Button variant="secondary" icon={Settings2} href="/salon/configuracion">Mesas y áreas</Button>}
-                            {puede.abrir && <Button variant="secondary" icon={ShoppingBag} onClick={() => setDialogo({ tipo: 'PARA_LLEVAR' })}>Para llevar</Button>}
-                            {puede.abrir && <Button icon={Bike} onClick={() => setDialogo({ tipo: 'DELIVERY' })}>Delivery</Button>}
+                            {puede.abrir && <Button variant="secondary" icon={ShoppingBag} href="/pos?tipo=PARA_LLEVAR">Mostrador</Button>}
+                            {puede.abrir && <Button icon={Bike} href="/pos?tipo=DELIVERY">Delivery</Button>}
                         </>
                     )}
                 />

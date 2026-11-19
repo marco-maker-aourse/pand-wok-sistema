@@ -80,7 +80,9 @@ Route::middleware('auth')->group(function (): void {
         ->whereIn('tipo', ['xml', 'cdr', 'pdf'])
         ->middleware('permission:ventas.registrar')
         ->name('ventas.archivos.download');
-    Route::get('/ventas/create', [VentaController::class, 'create'])->middleware('permission:ventas.registrar')->name('ventas.create');
+    // Restaurante: se vende todo desde un solo POS (/pos). Se conserva el nombre de la ruta
+    // porque caja y otras pantallas redirigen a ventas.create.
+    Route::redirect('/ventas/create', '/pos')->middleware('permission:ventas.registrar')->name('ventas.create');
     Route::get('/ventas/productos/buscar', [VentaController::class, 'buscarProductos'])->middleware(['permission:ventas.registrar', 'throttle:60,1'])->name('ventas.productos.buscar');
     Route::post('/ventas', [VentaController::class, 'store'])->middleware('permission:ventas.registrar')->name('ventas.store');
     Route::get('/ventas/{venta}/representacion', [TicketTermicoController::class, 'representacion'])->middleware('permission:ventas.registrar')->name('ventas.representacion');

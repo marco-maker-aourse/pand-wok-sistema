@@ -44,7 +44,7 @@ function ItemNavegacion({ item, activo, compacto, onNavigate }) {
 
 export default function BarraLateral({ modulos, url, organizacion, compacto, onToggleCompacto, abiertoMovil, onCerrarMovil }) {
     const [colapsados, setColapsados] = useState({});
-    const nombreEmpresa = organizacion?.nombre_comercial || organizacion?.razon_social || 'Sistema de ventas';
+    const nombreEmpresa = organizacion?.nombre_comercial || organizacion?.razon_social || 'Restaurante';
 
     return (
         <aside

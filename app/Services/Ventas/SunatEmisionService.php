@@ -530,7 +530,7 @@ class SunatEmisionService
             throw new \RuntimeException('La dependencia de firma XML no está instalada.');
         }
 
-        $certificatePath = env('SUNAT_CERTIFICATE_PATH', 'keys/certificado.p12');
+        $certificatePath = (string) config('services.sunat.certificado', 'keys/certificado.p12');
         $certificatePath = str_starts_with($certificatePath, DIRECTORY_SEPARATOR)
             || preg_match('/^[A-Za-z]:\\\\/', $certificatePath)
                 ? $certificatePath
@@ -543,7 +543,7 @@ class SunatEmisionService
         $certificateContents = file_get_contents($certificatePath);
         $certificates = [];
         if ($certificateContents === false
-            || ! openssl_pkcs12_read($certificateContents, $certificates, (string) env('SUNAT_CERTIFICATE_PASSWORD', ''))
+            || ! openssl_pkcs12_read($certificateContents, $certificates, (string) config('services.sunat.certificado_clave', ''))
             || empty($certificates['pkey'])
             || empty($certificates['cert'])) {
             throw new \RuntimeException('No se pudo abrir el certificado digital o la contraseña es incorrecta.');
@@ -596,8 +596,8 @@ class SunatEmisionService
             throw new \RuntimeException('La extensión PHP SOAP no está habilitada.');
         }
 
-        $solUsername = trim((string) env('SUNAT_USUARIO_SOL', ''));
-        $solPassword = (string) env('SUNAT_CLAVE_SOL', '');
+        $solUsername = trim((string) config('services.sunat.usuario_sol', ''));
+        $solPassword = (string) config('services.sunat.clave_sol', '');
         if ($solUsername === '' || $solPassword === '') {
             throw new \RuntimeException('Configura SUNAT_USUARIO_SOL y SUNAT_CLAVE_SOL en el entorno.');
         }
@@ -605,8 +605,8 @@ class SunatEmisionService
         $username = str_starts_with($solUsername, (string) $emisor->ruc_empresa)
             ? $solUsername
             : $emisor->ruc_empresa.$solUsername;
-        $endpoint = (string) env(
-            'SUNAT_ENDPOINT_CPE',
+        $endpoint = (string) config(
+            'services.sunat.endpoint_cpe',
             'https://e-beta.sunat.gob.pe/ol-ti-itcpfegem-beta/billService?wsdl',
         );
 

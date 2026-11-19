@@ -5,6 +5,7 @@ use App\Http\Controllers\Restaurante\CocinaController;
 use App\Http\Controllers\Restaurante\CobroPedidoController;
 use App\Http\Controllers\Restaurante\EstacionController;
 use App\Http\Controllers\Restaurante\PedidoController;
+use App\Http\Controllers\Restaurante\PosController;
 use App\Http\Controllers\Restaurante\RecetaController;
 use App\Http\Controllers\Restaurante\ReporteRestauranteController;
 use App\Http\Controllers\Restaurante\SalonController;
@@ -16,6 +17,11 @@ use Illuminate\Support\Facades\Route;
 |--------------------------------------------------------------------------
 | Los ids viajan como enteros; cada servicio valida la sucursal activa.
 */
+
+// Punto de venta único (mostrador, para llevar, delivery y mesas)
+Route::get('/pos', [PosController::class, 'index'])->middleware('permission:pedidos.registrar')->name('restaurante.pos');
+Route::post('/pos/enviar', [PosController::class, 'enviar'])->middleware(['permission:pedidos.registrar', 'permission:comandas.enviar', 'throttle:60,1'])->name('restaurante.pos.enviar');
+Route::post('/pos/cobrar', [PosController::class, 'cobrar'])->middleware(['permission:pedidos.registrar', 'permission:ventas.registrar', 'throttle:60,1'])->name('restaurante.pos.cobrar');
 
 // Cocina
 Route::get('/cocina', [CocinaController::class, 'index'])->middleware('permission:cocina.ver')->name('restaurante.cocina');

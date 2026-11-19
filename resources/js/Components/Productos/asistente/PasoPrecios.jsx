@@ -3,7 +3,8 @@ import { Button, Field, IconButton, Input, Select, cx } from '@/Components/ui';
 
 const formatMoneda = (val) => `S/ ${Number(val || 0).toFixed(2)}`;
 const SIN_FLECHAS = '[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none';
-const EMPAQUES_RAPIDOS = [['SIXPACK', 6, 'Sixpack ×6'], ['DOCENA', 12, 'Docena ×12'], ['CAJA', 24, 'Caja ×24'], ['SACO', 50, 'Saco ×50']];
+// Presentaciones por volumen habituales en restaurante (bebidas e insumos).
+const EMPAQUES_RAPIDOS = [['BALDE', 6, 'Balde ×6'], ['PAQUETE', 12, 'Paquete ×12'], ['CAJA', 24, 'Caja ×24'], ['SACO', 50, 'Saco ×50']];
 
 function CampoSoles({ label, value, onChange, required, hint, min = '0' }) {
     return (
@@ -22,7 +23,7 @@ function CampoSoles({ label, value, onChange, required, hint, min = '0' }) {
     );
 }
 
-/** Fila de empaque mayorista con su rentabilidad de referencia. */
+/** Fila de presentación por volumen con su rentabilidad de referencia. */
 function FilaEmpaque({ fila, indice, f }) {
     const { costoNum, ventaUnitariaNum, unidadNombre, catalogoLocalPresentaciones, actualizarPresentacionFila, eliminarPresentacionFila } = f;
     const factorFila = Math.max(Number(fila.factor_conversion) || 1, 1);

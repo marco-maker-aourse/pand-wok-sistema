@@ -1,4 +1,4 @@
-import { FiArchive, FiBarChart2, FiBookOpen, FiBox, FiCreditCard, FiCoffee, FiFileText, FiGrid, FiHome, FiLayers, FiLayout, FiMapPin, FiPackage, FiShoppingCart, FiSliders, FiTag, FiTruck, FiUsers, FiDollarSign, FiPrinter } from 'react-icons/fi';
+import { FiArchive, FiBarChart2, FiBookOpen, FiBox, FiCreditCard, FiCoffee, FiFileText, FiGrid, FiHome, FiLayers, FiLayout, FiMapPin, FiPackage, FiMonitor, FiShoppingCart, FiSliders, FiTag, FiTruck, FiUsers, FiDollarSign, FiPrinter } from 'react-icons/fi';
 
 /** Rutas visibles; la autorización real continúa en middleware y policies del servidor. */
 export const navigationModules = [
@@ -6,6 +6,8 @@ export const navigationModules = [
         { label: 'Inicio', href: '/', icon: FiHome },
     ] },
     { label: 'Restaurante', items: [
+        // Un solo punto de venta: mostrador, mesas y delivery.
+        { label: 'Punto de venta', href: '/pos', icon: FiMonitor, permiso: 'pedidos.registrar' },
         { label: 'Salón', href: '/salon', icon: FiLayout },
         { label: 'Carta', href: '/carta', icon: FiBookOpen },
         { label: 'Cocina', href: '/cocina', icon: FiCoffee, exacta: true, permiso: 'cocina.ver' },
@@ -16,7 +18,7 @@ export const navigationModules = [
     ] },
     { label: 'Operaciones', items: [
         { label: 'Caja', href: '/caja', icon: FiDollarSign },
-        { label: 'Ventas', href: '/ventas', icon: FiShoppingCart },
+        { label: 'Comprobantes', href: '/ventas', icon: FiShoppingCart, exacta: true },
         { label: 'Entradas', href: '/ingresos', icon: FiArchive },
         { label: 'Ajustes de inventario', href: '/salidas', icon: FiBox },
         { label: 'Kardex', href: '/kardex', icon: FiBarChart2 },

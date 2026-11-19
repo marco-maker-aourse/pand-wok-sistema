@@ -1,54 +1,16 @@
 import { useRef, useState } from 'react';
 import { Head, router, usePage, usePoll } from '@inertiajs/react';
-import axios from 'axios';
 import { ReceiptText } from 'lucide-react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Button, Card, Field, Input, toast } from '@/Components/ui';
 import PanelPagos from '@/Components/Ventas/PanelPagos';
 import DialogoConfirmarCobro from '@/Components/Ventas/pos/DialogoConfirmarCobro';
+import ClienteCobro from '@/Components/Restaurante/ClienteCobro';
 import { nuevaClave, primerError, soles, tituloCuenta } from '@/Components/Restaurante/formato';
 
 const centimos = (cantidad, precio) => Math.round(Math.round(cantidad * 1000) * Math.round(precio * 10000) / 100000);
 const disponible = (item) => Number((item.cantidad - item.cantidad_cobrada).toFixed(3));
 const pagoVacio = (id = '') => ({ id_metodo: id, monto: '', monto_recibido: '', nro_referencia: '' });
-
-function ClienteCobro({ cliente, cambiar }) {
-    const [busqueda, setBusqueda] = useState('');
-    const [resultados, setResultados] = useState([]);
-    const [estado, setEstado] = useState('');
-    const buscar = async (evento) => {
-        evento.preventDefault();
-        if (busqueda.trim().length < 2) return;
-        setEstado('Buscando…');
-        try {
-            const { data } = await axios.get('/ventas/clientes/buscar', { params: { q: busqueda.trim() } });
-            setResultados(data.data);
-            setEstado(data.data.length ? '' : 'Sin resultados');
-        } catch {
-            setEstado('No se pudo consultar el catálogo de clientes.');
-        }
-    };
-
-    return (
-        <div className="space-y-2">
-            <p className="text-sm font-medium">Cliente {cliente ? `· ${cliente.nombre_razon_social} · ${cliente.num_documento}` : 'sin seleccionar'}</p>
-            <form className="flex gap-2" onSubmit={buscar}>
-                <Input aria-label="Buscar cliente por nombre o documento" placeholder="Nombre, DNI o RUC" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} />
-                <Button type="submit" variant="secondary" disabled={busqueda.trim().length < 2}>Buscar</Button>
-            </form>
-            {estado && <p role="status" className="text-sm text-slate-600">{estado}</p>}
-            {resultados.length > 0 && (
-                <ul className="max-h-40 divide-y overflow-auto rounded-lg border">
-                    {resultados.map((resultado) => <li key={resultado.id_cliente}>
-                        <button type="button" onClick={() => { cambiar(resultado); setResultados([]); }} className="block min-h-11 w-full px-3 text-left text-sm hover:bg-brand-soft">
-                            {resultado.nombre_razon_social} · {resultado.num_documento}
-                        </button>
-                    </li>)}
-                </ul>
-            )}
-        </div>
-    );
-}
 
 export default function CobrarPedido({ pedido, items, cobros, clienteInicial, metodosPago, turno, puedeDescontar, puedeVerPedido }) {
     const { flash } = usePage().props;

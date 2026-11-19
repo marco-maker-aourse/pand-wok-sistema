@@ -47,4 +47,16 @@ return [
         'auth_mode' => env('API_PERU_AUTH_MODE', 'bearer'),
     ],
 
+    // Facturación electrónica SUNAT. Se lee con config(): env() fuera de config/ devuelve
+    // vacío cuando el host ejecuta `php artisan config:cache` (lo hace cada despliegue).
+    'sunat' => [
+        // Ruta relativa a storage/app (p. ej. keys/certificado.pfx) o absoluta.
+        'certificado' => env('SUNAT_CERTIFICATE_PATH', 'keys/certificado.p12'),
+        'certificado_clave' => env('SUNAT_CERTIFICATE_PASSWORD', ''),
+        'usuario_sol' => env('SUNAT_USUARIO_SOL', ''),
+        'clave_sol' => env('SUNAT_CLAVE_SOL', ''),
+        // Por defecto, el servicio beta (pruebas) de SUNAT.
+        'endpoint_cpe' => env('SUNAT_ENDPOINT_CPE', 'https://e-beta.sunat.gob.pe/ol-ti-itcpfegem-beta/billService?wsdl'),
+    ],
+
 ];

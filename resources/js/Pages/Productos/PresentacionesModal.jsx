@@ -22,6 +22,17 @@ import {
 
 const formatMoneda = (val) => `S/ ${Number(val || 0).toFixed(2)}`;
 
+/**
+ * Atajos de presentación por tipo de producto del restaurante. En platos, cada
+ * presentación es un tamaño con su propio precio (factor 1: no hay stock del plato).
+ * En bebidas e insumos el factor convierte a la unidad base del Kardex.
+ */
+const PRESETS_POR_TIPO = {
+    PREPARADO: [['PORCIÓN', 1, 'Plato regular'], ['PERSONAL', 1, 'Tamaño individual'], ['FAMILIAR', 1, 'Para varias personas'], ['PARA COMPARTIR', 1, 'Fuente o piqueo']],
+    DIRECTO: [['UNIDAD', 1, 'Botella, lata o vaso'], ['VASO', 1, 'Servido en vaso'], ['JARRA', 1, 'Jarra para la mesa'], ['BALDE', 6, '6 unidades (p. ej. cervezas)']],
+    INSUMO: [['UNIDAD', 1, 'Unidad base'], ['PAQUETE', 12, 'Compra por paquete'], ['CAJA', 24, 'Compra por caja'], ['SACO', 50, 'Compra por saco']],
+};
+
 export default function PresentacionesModal({
     producto,
     show,
@@ -270,7 +281,7 @@ export default function PresentacionesModal({
                         </span>
                         <div>
                             <h2 className="text-base font-black text-slate-900 tracking-tight">
-                                Precios y Empaques: {producto.nombre}
+                                Precios y presentaciones: {producto.nombre}
                             </h2>
                             <p className="text-xs text-slate-400 font-bold mt-0.5">
                                 Stock controlado en almacén por: <strong className="text-slate-800">{unidadBaseNombre}</strong>
@@ -415,59 +426,26 @@ export default function PresentacionesModal({
                                 </h3>
                             </div>
 
-                            {/* BOTONES DE 1 CLIC (PRESETS) */}
+                            {/* BOTONES DE 1 CLIC (PRESETS): según el tipo de producto del restaurante */}
                             <div>
                                 <label className="block text-[9px] font-black tracking-wider text-slate-600 mb-1.5">
-                                    Empaques Rápidos (Elige uno con 1 clic)
+                                    Presentaciones rápidas (elige una con 1 clic)
                                 </label>
                                 <div className="grid grid-cols-2 gap-1.5">
-                                    <button
-                                        type="button"
-                                        onClick={() => seleccionarPresetRapido('UNIDAD', 1)}
-                                        className="p-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-left transition cursor-pointer flex items-center gap-2"
-                                    >
-                                        <ShoppingBag className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                                        <div>
-                                            <span className="block text-xs font-black text-slate-800 uppercase">Suelto (x1)</span>
-                                            <span className="text-[9px] text-slate-400 font-bold uppercase">1 {unidadBaseNombre.toLowerCase()}</span>
-                                        </div>
-                                    </button>
-
-                                    <button
-                                        type="button"
-                                        onClick={() => seleccionarPresetRapido('SIXPACK', 6)}
-                                        className="p-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-left transition cursor-pointer flex items-center gap-2"
-                                    >
-                                        <Boxes className="w-3.5 h-3.5 text-purple-600 shrink-0" />
-                                        <div>
-                                            <span className="block text-xs font-black text-slate-800 uppercase">Sixpack (x6)</span>
-                                            <span className="text-[9px] text-slate-400 font-bold uppercase">6 {unidadBaseNombre.toLowerCase()}s</span>
-                                        </div>
-                                    </button>
-
-                                    <button
-                                        type="button"
-                                        onClick={() => seleccionarPresetRapido('DOCENA', 12)}
-                                        className="p-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-left transition cursor-pointer flex items-center gap-2"
-                                    >
-                                        <Boxes className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                                        <div>
-                                            <span className="block text-xs font-black text-slate-800 uppercase">Docena (x12)</span>
-                                            <span className="text-[9px] text-slate-400 font-bold uppercase">12 {unidadBaseNombre.toLowerCase()}s</span>
-                                        </div>
-                                    </button>
-
-                                    <button
-                                        type="button"
-                                        onClick={() => seleccionarPresetRapido('CAJA (X24)', 24)}
-                                        className="p-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-left transition cursor-pointer flex items-center gap-2"
-                                    >
-                                        <Boxes className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                                        <div>
-                                            <span className="block text-xs font-black text-slate-800 uppercase">Caja (x24)</span>
-                                            <span className="text-[9px] text-slate-400 font-bold uppercase">24 {unidadBaseNombre.toLowerCase()}s</span>
-                                        </div>
-                                    </button>
+                                    {(PRESETS_POR_TIPO[producto?.tipo_producto] ?? PRESETS_POR_TIPO.DIRECTO).map(([nombre, factor, ayuda]) => (
+                                        <button
+                                            key={nombre}
+                                            type="button"
+                                            onClick={() => seleccionarPresetRapido(nombre, factor)}
+                                            className="p-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-left transition cursor-pointer flex items-center gap-2"
+                                        >
+                                            {factor === 1 ? <ShoppingBag className="w-3.5 h-3.5 text-blue-600 shrink-0" /> : <Boxes className="w-3.5 h-3.5 text-amber-600 shrink-0" />}
+                                            <div>
+                                                <span className="block text-xs font-black text-slate-800 uppercase">{nombre}{factor > 1 ? ` (x${factor})` : ''}</span>
+                                                <span className="text-[9px] text-slate-400 font-bold uppercase">{ayuda}</span>
+                                            </div>
+                                        </button>
+                                    ))}
                                 </div>
                             </div>
 

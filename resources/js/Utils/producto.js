@@ -4,6 +4,6 @@
  */
 const nombreConfigurado = (import.meta.env.VITE_APP_NAME || '').trim();
 
-export const NOMBRE_PRODUCTO = nombreConfigurado && nombreConfigurado.toLowerCase() !== 'laravel' ? nombreConfigurado : 'SVAMM';
+export const NOMBRE_PRODUCTO = nombreConfigurado && nombreConfigurado.toLowerCase() !== 'laravel' ? nombreConfigurado : 'Sistema Restaurante';
 
 export const DESCRIPCION_PRODUCTO = 'Ventas, inventario y caja para comercio mayorista y minorista';
