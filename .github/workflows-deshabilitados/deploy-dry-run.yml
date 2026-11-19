@@ -1,0 +1,201 @@
+
+name: Simular despliegue Namecheap
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: namecheap-dry-run
+  cancel-in-progress: false
+
+jobs:
+  dry-run:
+    name: Verificar Laravel y React sin publicar
+    runs-on: ubuntu-latest
+
+    timeout-minutes: 20
+
+    steps:
+      # 1. Descargar el código de GitHub
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+
+      # 2. Configurar Node.js
+      - name: Instalar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      # 3. Instalar dependencias y compilar React
+      - name: Compilar React con Vite
+        run: |
+          set -euo pipefail
+
+          npm ci
+          npm run build
+
+          test -s public/build/manifest.json
+
+          echo "Compilacion de React completada."
+          echo "Manifest de Vite verificado."
+
+      # 4. Preparar conexión SSH segura
+      - name: Preparar SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+        run: |
+          set -euo pipefail
+
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+
+          # Obtener la clave pública ED25519 del servidor.
+          ssh-keyscan \
+            -t ed25519 \
+            -p "$SSH_PORT" \
+            "$SSH_HOST" \
+            > /tmp/namecheap_known_hosts 2>/dev/null
+
+          test -s /tmp/namecheap_known_hosts
+
+          # Comprobar la huella SSH previamente verificada.
+          FINGERPRINT_ESPERADO="SHA256:9pZEFfo9RpJN3+yPWYaPU5uCBqo5vaCrC3x7UE/PzKM"
+
+          FINGERPRINT_ACTUAL=$(
+            ssh-keygen -lf /tmp/namecheap_known_hosts -E sha256 |
+            awk '{print $2}'
+          )
+
+          if [ "$FINGERPRINT_ACTUAL" != "$FINGERPRINT_ESPERADO" ]; then
+            echo "ERROR: La huella SSH no coincide."
+            exit 1
+          fi
+
+          mv /tmp/namecheap_known_hosts ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+          echo "Identidad SSH de Namecheap verificada."
+
+      # 5. Verificar conexión y directorios
+      - name: Verificar servidor Namecheap
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+        run: |
+          set -euo pipefail
+
+          ssh \
+            -i ~/.ssh/id_deploy \
+            -p "$SSH_PORT" \
+            -o BatchMode=yes \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            "$SSH_USER@$SSH_HOST" \
+            'test -d "$HOME/Sistema" &&
+             test -d "$HOME/Sistema/vendor" &&
+             test -d "$HOME/Sistema/storage" &&
+             test -f "$HOME/Sistema/.env" &&
+             test -d "$HOME/public_html/build" &&
+             test -f "$HOME/public_html/index.php" &&
+             echo "Directorios de produccion verificados"'
+
+      # 6. Simular transferencia del código Laravel
+      - name: Simular transferencia Laravel
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+        run: |
+          set -euo pipefail
+
+          echo "Simulando transferencia del codigo Laravel..."
+
+          rsync -rlnc --itemize-changes \
+            --exclude='/.env' \
+            --exclude='/.env.*' \
+            --exclude='/vendor/' \
+            --exclude='/storage/' \
+            --exclude='/node_modules/' \
+            --exclude='/.git/' \
+            --exclude='/.github/' \
+            --exclude='/.vite/' \
+            --exclude='/bootstrap/cache/' \
+            --exclude='/public/build/' \
+            --exclude='/public/storage' \
+            --exclude='/public/hot' \
+            --exclude='/.phpunit.cache/' \
+            --exclude='/tests/' \
+            --exclude='/coverage/' \
+            --exclude='*.log' \
+            --exclude='*.bak' \
+            --exclude='*.zip' \
+            --exclude='/database/database.sqlite' \
+            -e "ssh -i ~/.ssh/id_deploy -p $SSH_PORT -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes" \
+            ./ \
+            "$SSH_USER@$SSH_HOST:/home/$SSH_USER/Sistema/"
+
+          echo "Simulacion Laravel completada."
+
+      # 7. Simular los archivos Vite usados por Laravel
+      - name: Simular build interno de Laravel
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+        run: |
+          set -euo pipefail
+
+          test -s public/build/manifest.json
+
+          echo "Simulando build interno de Laravel..."
+
+          rsync -rlnc --itemize-changes \
+            -e "ssh -i ~/.ssh/id_deploy -p $SSH_PORT -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes" \
+            public/build/ \
+            "$SSH_USER@$SSH_HOST:/home/$SSH_USER/Sistema/public/build/"
+
+          echo "Simulacion del build interno completada."
+
+      # 8. Simular archivos públicos React/Vite
+      - name: Simular transferencia React a public_html
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+        run: |
+          set -euo pipefail
+
+          test -s public/build/manifest.json
+
+          echo "Simulando transferencia React a public_html..."
+
+          rsync -rlnc --itemize-changes \
+            -e "ssh -i ~/.ssh/id_deploy -p $SSH_PORT -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes" \
+            public/build/ \
+            "$SSH_USER@$SSH_HOST:/home/$SSH_USER/public_html/build/"
+
+          echo "Simulacion React completada."
+
+      # 9. Resultado final
+      - name: Resumen de simulacion
+        run: |
+          echo "========================================"
+          echo "SIMULACION DE DESPLIEGUE COMPLETADA"
+          echo "========================================"
+          echo "Laravel: verificado"
+          echo "React/Vite: compilado"
+          echo "SSH: verificado"
+          echo "Rsync: simulaciones completadas"
+          echo "Produccion: sin modificaciones"
+          echo "Base de datos: sin modificaciones"
+          echo "========================================"

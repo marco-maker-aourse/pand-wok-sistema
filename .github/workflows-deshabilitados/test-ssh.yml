@@ -1,0 +1,54 @@
+
+name: Probar conexion SSH Namecheap
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-ssh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Configurar SSH seguro
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+        run: |
+          set -eu
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/namecheap_key
+          chmod 600 ~/.ssh/namecheap_key
+
+          ssh-keyscan -p "$SSH_PORT" -t ed25519 "$SSH_HOST" \
+            > ~/.ssh/known_hosts
+
+          ACTUAL=$(ssh-keygen -lf ~/.ssh/known_hosts \
+            -E sha256 | awk '{print $2}')
+
+          ESPERADA="SHA256:9pZEFfo9RpJN3+yPWYaPU5uCBqo5vaCrC3x7UE/PzKM"
+
+          if [ "$ACTUAL" != "$ESPERADA" ]; then
+            echo "ERROR: Huella SSH diferente"
+            exit 1
+          fi
+
+          echo "Identidad del servidor verificada"
+
+      - name: Probar autenticacion SSH
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+        run: |
+          ssh -i ~/.ssh/namecheap_key \
+            -p "$SSH_PORT" \
+            -o IdentitiesOnly=yes \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            "$SSH_USER@$SSH_HOST" \
+            'whoami && test -d "$HOME/Sistema" && test -d "$HOME/public_html" && echo "Directorios verificados"'

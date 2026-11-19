@@ -1,0 +1,44 @@
+{
+  "emisor": {
+    "ruc": "20123456789",
+    "razon_social": "COMERCIAL ÑAÑA S.A.C.",
+    "nombre_comercial": "Bodega Ñaña",
+    "direccion": "Av. Perú 123, Huancayo",
+    "pie_ticket": "¡Gracias por su compra! Vuelva pronto.",
+    "establecimiento": { "codigo": "0001", "nombre": "Tienda Tambo", "direccion": "Jr. Lima 320, El Tambo", "telefono": "064 456789" }
+  },
+  "documento": {
+    "codigo_sunat": "03",
+    "titulo": "BOLETA DE VENTA ELECTRÓNICA",
+    "serie": "B001",
+    "correlativo": "00000010",
+    "numero": "B001-00000010",
+    "emitido_en": "2026-11-18T19:05:09+00:00",
+    "fecha": "18/11/2026",
+    "hora": "14:05:09",
+    "moneda": "SOLES",
+    "codigo_moneda": "PEN",
+    "forma_pago": "CONTADO"
+  },
+  "cliente": {
+    "codigo_sunat": "0",
+    "nombre": "PÚBLICO EN GENERAL",
+    "tipo_documento": "Otros",
+    "tipo_documento_corto": "OTROS",
+    "numero_documento": "00000000",
+    "direccion": null,
+    "identificado": false
+  },
+  "items": [
+    { "nombre": "Azúcar rubia", "presentacion": "Bolsa x 1 kg", "unidad": "Bolsa x 1 kg", "codigo": "7750001", "cantidad": 2, "precio_unitario": 4.5, "subtotal": 9 },
+    { "nombre": "Café pilado de altura con una descripción comercial bastante extensa", "presentacion": "Unidad base", "unidad": "UNIDAD", "codigo": null, "cantidad": 1, "precio_unitario": 25.3, "subtotal": 25.3 },
+    { "nombre": "Piña golden", "presentacion": "Unidad base", "unidad": "KILOGRAMO", "codigo": null, "cantidad": 0.5, "precio_unitario": 7, "subtotal": 3.5 }
+  ],
+  "totales": { "gravadas": 32.03, "exoneradas": 0, "igv": 5.77, "igv_porcentaje": 18, "descuento": 0, "total": 37.8, "total_letras": "SON: TREINTA Y SIETE CON 80/100 SOLES" },
+  "operacion": { "cajero": "María López", "caja": "Caja 1" },
+  "leyendas": { "representacion": "Representación impresa de la Boleta de Venta Electrónica", "consulta": "Consulte su comprobante en www.sunat.gob.pe" },
+  "estado_sunat": "ACEPTADO",
+  "hash_cpe": "aB3+xYz/Q9=",
+  "qr_fiscal": "20123456789|03|B001|00000010|5.77|37.80|2026-11-18|0|00000000|aB3+xYz/Q9=",
+  "pagos": [ { "metodo": "Efectivo", "monto": 37.8, "monto_recibido": 50, "vuelto": 12.2, "referencia": null } ]
+}

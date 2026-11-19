@@ -1,0 +1,47 @@
+{
+  "emisor": {
+    "ruc": "20601234567",
+    "razon_social": "INVERSIONES ÑAHUI E.I.R.L.",
+    "nombre_comercial": "Minimarket Ñahui",
+    "direccion": "Jr. Junín 456, Huancayo",
+    "pie_ticket": "Canjee su comprobante en www.ejemplo.pe",
+    "establecimiento": { "codigo": "0000", "nombre": "Principal", "direccion": "Jr. Junín 456, Huancayo", "telefono": null }
+  },
+  "documento": {
+    "codigo_sunat": "01",
+    "titulo": "FACTURA ELECTRÓNICA",
+    "serie": "F001",
+    "correlativo": "00000123",
+    "numero": "F001-00000123",
+    "emitido_en": "2026-11-18T21:45:30+00:00",
+    "fecha": "18/11/2026",
+    "hora": "16:45:30",
+    "moneda": "SOLES",
+    "codigo_moneda": "PEN",
+    "forma_pago": "CONTADO"
+  },
+  "cliente": {
+    "codigo_sunat": "6",
+    "nombre": "DISTRIBUIDORA ANDINA DEL CENTRO S.A.C.",
+    "tipo_documento": "RUC",
+    "tipo_documento_corto": "RUC",
+    "numero_documento": "20100055237",
+    "direccion": "Av. Argentina 4793, Callao",
+    "identificado": true
+  },
+  "items": [
+    { "nombre": "Leche gloria azul", "presentacion": "Unidad base", "unidad": "UNIDAD", "codigo": null, "cantidad": 3, "precio_unitario": 3.7, "subtotal": 11.1 },
+    { "nombre": "Arroz Costeño extra añejo graneadito", "presentacion": "Saco x 5 kg", "unidad": "Saco x 5 kg", "codigo": null, "cantidad": 1.5, "precio_unitario": 25.93, "subtotal": 38.9 },
+    { "nombre": "Huevos de corral", "presentacion": "Unidad base", "unidad": "UNIDAD", "codigo": null, "cantidad": 0.25, "precio_unitario": 8, "subtotal": 2 }
+  ],
+  "totales": { "gravadas": 42.37, "exoneradas": 2, "igv": 7.63, "igv_porcentaje": 18, "descuento": 0.5, "total": 51.5, "total_letras": "SON: CINCUENTA Y UNO CON 50/100 SOLES" },
+  "operacion": { "cajero": "José Peña", "caja": "Caja 2" },
+  "leyendas": { "representacion": "Representación impresa de la Factura Electrónica", "consulta": "Consulte su comprobante en www.sunat.gob.pe" },
+  "estado_sunat": "ACEPTADO",
+  "hash_cpe": "Zx9/Kq+Lm2=",
+  "qr_fiscal": "20601234567|01|F001|00000123|7.63|51.50|2026-11-18|6|20100055237|Zx9/Kq+Lm2=",
+  "pagos": [
+    { "metodo": "Yape", "monto": 21.5, "monto_recibido": null, "vuelto": null, "referencia": "OP-998877" },
+    { "metodo": "Efectivo", "monto": 30, "monto_recibido": 50, "vuelto": 20, "referencia": null }
+  ]
+}

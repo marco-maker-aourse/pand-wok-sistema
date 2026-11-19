@@ -1,0 +1,265 @@
+name: Desplegar producción
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      aplicar_migraciones:
+        description: 'Aplicar migraciones en producción (requiere respaldo previo)'
+        type: boolean
+        required: true
+        default: false
+      respaldo_bd_confirmado:
+        description: 'Confirmo que tengo un respaldo comprobado de PostgreSQL'
+        type: boolean
+        required: true
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: swvamm-production
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Verificar Laravel y compilar React
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Obtener código
+        uses: actions/checkout@v4
+
+      - name: Configurar PHP 8.2
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: dom, curl, libxml, mbstring, zip, pdo_sqlite, sqlite3
+          coverage: none
+
+      - name: Instalar dependencias de Laravel
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Preparar entorno de pruebas
+        run: |
+          set -euo pipefail
+          cp .env.example .env
+          php artisan key:generate --no-interaction
+
+      - name: Ejecutar pruebas
+        run: php artisan test
+
+      - name: Configurar Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Compilar Vite
+        run: |
+          set -euo pipefail
+          npm ci
+          npm run build
+          test -s public/build/manifest.json
+
+      - name: Guardar assets verificados
+        uses: actions/upload-artifact@v4
+        with:
+          name: vite-build-${{ github.sha }}
+          path: public/build/
+          if-no-files-found: error
+          retention-days: 3
+
+  deploy:
+    name: Publicar en Namecheap
+    needs: verify
+    # Por seguridad, el despliegue se inicia manualmente.
+    # Una vez probado el primer despliegue y el plan de migraciones,
+    # se puede habilitar el despliegue por push a main.
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: production
+
+    env:
+      SSH_HOST: ${{ secrets.SSH_HOST }}
+      SSH_PORT: ${{ secrets.SSH_PORT }}
+      SSH_USER: ${{ secrets.SSH_USER }}
+      HEALTH_URL: ${{ secrets.DEPLOY_HEALTHCHECK_URL }}
+      APPLY_MIGRATIONS: ${{ inputs.aplicar_migraciones }}
+      BACKUP_CONFIRMED: ${{ inputs.respaldo_bd_confirmado }}
+
+    steps:
+      - name: Obtener exactamente el commit probado
+        uses: actions/checkout@v4
+
+      - name: Recuperar compilación verificada
+        uses: actions/download-artifact@v4
+        with:
+          name: vite-build-${{ github.sha }}
+          path: public/build/
+
+      - name: Comprobar permiso de migraciones
+        run: |
+          set -euo pipefail
+          if [ "$APPLY_MIGRATIONS" = true ] && [ "$BACKUP_CONFIRMED" != true ]; then
+            echo 'ERROR: para ejecutar migraciones debes confirmar un respaldo real de PostgreSQL.' >&2
+            exit 1
+          fi
+
+      - name: Preparar SSH y validar huella del servidor
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$SSH_PRIVATE_KEY"
+          test -n "$SSH_HOST"
+          test -n "$SSH_PORT"
+          test -n "$SSH_USER"
+          install -m 700 -d "$HOME/.ssh"
+          printf '%s\n' "$SSH_PRIVATE_KEY" > "$HOME/.ssh/id_deploy"
+          chmod 600 "$HOME/.ssh/id_deploy"
+          ssh-keyscan -t ed25519 -p "$SSH_PORT" "$SSH_HOST" > "$HOME/.ssh/known_hosts" 2>/dev/null
+          test -s "$HOME/.ssh/known_hosts"
+          expected='SHA256:9pZEFfo9RpJN3+yPWYaPU5uCBqo5vaCrC3x7UE/PzKM'
+          actual=$(ssh-keygen -lf "$HOME/.ssh/known_hosts" -E sha256 | awk '{print $2}')
+          test "$actual" = "$expected" || { echo 'Huella SSH distinta; se cancela el despliegue.' >&2; exit 1; }
+          chmod 600 "$HOME/.ssh/known_hosts"
+
+      - name: Verificar entorno remoto
+        run: |
+          set -euo pipefail
+          ssh -i "$HOME/.ssh/id_deploy" -p "$SSH_PORT" \
+            -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            "$SSH_USER@$SSH_HOST" '
+              set -eu
+              test -d "$HOME/Sistema"
+              test -f "$HOME/Sistema/.env"
+              test -d "$HOME/Sistema/storage"
+              test -d "$HOME/Sistema/vendor"
+              test -d "$HOME/Sistema/bootstrap/cache"
+              test -f "$HOME/public_html/index.php"
+              test -f "$HOME/public_html/.htaccess"
+              test -f "$HOME/composer.phar"
+              test -x /usr/local/bin/php
+              command -v rsync >/dev/null
+              /usr/local/bin/php -v >/dev/null
+            '
+
+      - name: Comprobar migraciones pendientes antes de sustituir código
+        # Si existen archivos de migración nuevos o modificados en el código fuente,
+        # el despliegue automático sin autorización explícita se bloquea.
+        run: |
+          set -euo pipefail
+          if [ "$APPLY_MIGRATIONS" != true ]; then
+            cambios=$(rsync -rcni --out-format='%i %n' \
+              -e "ssh -i $HOME/.ssh/id_deploy -p $SSH_PORT -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes" \
+              database/migrations/ "$SSH_USER@$SSH_HOST:Sistema/database/migrations/")
+            if [ -n "$cambios" ]; then
+              echo 'Hay archivos de migración nuevos/modificados. Revisa y aprueba una ejecución manual con respaldo:' >&2
+              printf '%s\n' "$cambios"
+              exit 1
+            fi
+          fi
+
+      - name: Respaldo básico del código remoto
+        run: |
+          set -euo pipefail
+          ssh -i "$HOME/.ssh/id_deploy" -p "$SSH_PORT" \
+            -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            "$SSH_USER@$SSH_HOST" '
+              set -eu
+              mkdir -p "$HOME/deploy-backups"
+              tar -czf "$HOME/deploy-backups/sistema-pre-${{ github.run_id }}.tar.gz" \
+                -C "$HOME/Sistema" \
+                --exclude=./vendor --exclude=./storage --exclude=./bootstrap/cache \
+                --exclude=./public/build --exclude=./.env --exclude=./.git .
+            '
+
+      - name: Publicar código Laravel sin eliminar archivos remotos
+        run: |
+          set -euo pipefail
+          rsync -azc \
+            --exclude='/.env' --exclude='/.env.*' \
+            --exclude='/vendor/' --exclude='/storage/' \
+            --exclude='/node_modules/' --exclude='/.git/' --exclude='/.github/' \
+            --exclude='/bootstrap/cache/' --exclude='/public/build/' \
+            --exclude='/public/storage' --exclude='/public/hot' \
+            --exclude='/tests/' --exclude='/coverage/' \
+            --exclude='*.log' --exclude='*.bak' --exclude='*.zip' \
+            --exclude='/database/database.sqlite' \
+            -e "ssh -i $HOME/.ssh/id_deploy -p $SSH_PORT -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes" \
+            ./ "$SSH_USER@$SSH_HOST:Sistema/"
+
+      - name: Instalar dependencias y preparar Laravel
+        run: |
+          set -euo pipefail
+          ssh -i "$HOME/.ssh/id_deploy" -p "$SSH_PORT" \
+            -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            "$SSH_USER@$SSH_HOST" '
+              set -eu
+              cd "$HOME/Sistema"
+              /usr/local/bin/php "$HOME/composer.phar" install \
+                --no-dev --prefer-dist --no-interaction --no-progress --optimize-autoloader
+              /usr/local/bin/php artisan config:clear
+              /usr/local/bin/php artisan route:clear
+              /usr/local/bin/php artisan view:clear
+              /usr/local/bin/php artisan event:clear
+            '
+
+      - name: Ejecutar migraciones solo con autorización explícita
+        if: ${{ inputs.aplicar_migraciones }}
+        run: |
+          set -euo pipefail
+          ssh -i "$HOME/.ssh/id_deploy" -p "$SSH_PORT" \
+            -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            "$SSH_USER@$SSH_HOST" '
+              set -eu
+              cd "$HOME/Sistema"
+              /usr/local/bin/php artisan migrate --force --no-interaction
+            '
+
+      - name: Optimizar aplicación y publicar assets
+        run: |
+          set -euo pipefail
+          ssh -i "$HOME/.ssh/id_deploy" -p "$SSH_PORT" \
+            -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            "$SSH_USER@$SSH_HOST" '
+              set -eu
+              cd "$HOME/Sistema"
+              /usr/local/bin/php artisan config:cache
+              /usr/local/bin/php artisan view:cache
+              mkdir -p "$HOME/Sistema/public/build" "$HOME/public_html/build"
+
+              # Los archivos cargados (logos y adjuntos) viven fuera del código
+              # versionado. El dominio público apunta a public_html, por eso el
+              # enlace debe existir allí y no solo en Sistema/public.
+              storage_source="$HOME/Sistema/storage/app/public"
+              storage_public="$HOME/public_html/storage"
+              test -d "$storage_source"
+
+              if [ -e "$storage_public" ] || [ -L "$storage_public" ]; then
+                if [ ! -L "$storage_public" ] || [ "$(readlink -f "$storage_public")" != "$storage_source" ]; then
+                  echo "La ruta pública storage existe y no apunta al almacenamiento de Laravel; se cancela para no sobrescribir archivos." >&2
+                  exit 1
+                fi
+              else
+                ln -s "$storage_source" "$storage_public"
+              fi
+            '
+          rsync -azc \
+            -e "ssh -i $HOME/.ssh/id_deploy -p $SSH_PORT -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes" \
+            public/build/ "$SSH_USER@$SSH_HOST:Sistema/public/build/"
+          rsync -azc \
+            -e "ssh -i $HOME/.ssh/id_deploy -p $SSH_PORT -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes" \
+            public/build/ "$SSH_USER@$SSH_HOST:public_html/build/"
+
+      - name: Verificar aplicación publicada
+        run: |
+          set -euo pipefail
+          test -n "$HEALTH_URL"
+          curl --fail --show-error --silent --max-time 20 \
+            --retry 3 --retry-delay 3 "$HEALTH_URL" > /dev/null
+          echo 'Verificación HTTP correcta.'

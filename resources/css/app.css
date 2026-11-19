@@ -1,0 +1,211 @@
+@import "tailwindcss";
+
+/*
+ * Sistema de diseño.
+ *
+ * --brand-primary, --brand-on y --brand-ink los escribe resources/js/Utils/theme.js
+ * a partir de `color_primario` de Datos Generales. Los valores de :root solo son
+ * el respaldo mientras llega la primera respuesta.
+ */
+:root {
+   --brand-primary: #0e7490;
+   --brand-on: #ffffff;
+   --brand-ink: #0e7490;
+   --brand-hover: color-mix(in srgb, var(--brand-primary) 85%, #000);
+   --brand-soft: color-mix(in srgb, var(--brand-primary) 8%, #fff);
+   --brand-border: color-mix(in srgb, var(--brand-primary) 30%, #fff);
+   --brand-ring: color-mix(in srgb, var(--brand-primary) 35%, transparent);
+   /* Escala de tintes de la marca para series de gráficos (de más intenso a más suave). */
+   --brand-serie-1: var(--brand-primary);
+   --brand-serie-2: color-mix(in srgb, var(--brand-primary) 72%, #fff);
+   --brand-serie-3: color-mix(in srgb, var(--brand-primary) 50%, #fff);
+   --brand-serie-4: color-mix(in srgb, var(--brand-primary) 32%, #fff);
+   --brand-serie-5: color-mix(in srgb, var(--brand-primary) 18%, #fff);
+
+   /* Alias usados por pantallas que aún no migran a las utilidades `brand`. */
+   --brand-light: var(--brand-soft);
+   --brand-light-text: var(--brand-ink);
+
+   color-scheme: light;
+}
+
+@theme inline {
+   --color-brand: var(--brand-primary);
+   --color-brand-serie-2: var(--brand-serie-2);
+   --color-brand-serie-3: var(--brand-serie-3);
+   --color-brand-serie-4: var(--brand-serie-4);
+   --color-brand-serie-5: var(--brand-serie-5);
+   --color-brand-hover: var(--brand-hover);
+   --color-brand-soft: var(--brand-soft);
+   --color-brand-border: var(--brand-border);
+   --color-brand-ink: var(--brand-ink);
+   --color-brand-ring: var(--brand-ring);
+   --color-on-brand: var(--brand-on);
+}
+
+@theme {
+   --font-sans: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Roboto, Arial, sans-serif;
+   --font-mono: ui-monospace, "Cascadia Mono", "SF Mono", Consolas, monospace;
+   --color-canvas: #f5f6f8;
+   --shadow-tarjeta: 0 1px 2px rgb(15 23 42 / 0.04), 0 1px 1px rgb(15 23 42 / 0.02);
+   --shadow-elevado: 0 1px 2px rgb(15 23 42 / 0.06), 0 8px 24px -6px rgb(15 23 42 / 0.12);
+   --shadow-flotante: 0 2px 4px rgb(15 23 42 / 0.06), 0 24px 48px -12px rgb(15 23 42 / 0.22);
+}
+
+@layer base {
+   html {
+      -webkit-text-size-adjust: 100%;
+   }
+
+   body {
+      background: var(--color-canvas);
+      color: var(--color-slate-800);
+      font-family: var(--font-sans);
+      font-size: 0.875rem;
+      line-height: 1.45;
+      -webkit-font-smoothing: antialiased;
+   }
+
+   ::selection {
+      background: var(--brand-primary);
+      color: var(--brand-on);
+   }
+
+   /* Superficies del navegador tematizadas con la marca y los neutros del sistema. */
+   html {
+      scrollbar-color: var(--color-slate-300) transparent;
+      scrollbar-width: thin;
+      accent-color: var(--brand-primary);
+   }
+
+   input,
+   textarea {
+      caret-color: var(--brand-primary);
+   }
+
+   a {
+      text-underline-offset: 0.2em;
+   }
+
+   h1,
+   h2,
+   h3 {
+      text-wrap: balance;
+   }
+
+   button:not(:disabled),
+   [role='button']:not([aria-disabled='true']),
+   label[for],
+   summary {
+      cursor: pointer;
+   }
+
+   :focus-visible {
+      outline: 2px solid var(--brand-primary);
+      outline-offset: 2px;
+   }
+
+   input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']):not([type='file']),
+   select,
+   textarea {
+      min-height: 2.375rem;
+      border: 1px solid var(--color-slate-300);
+      border-radius: 0.5rem;
+      background-color: #fff;
+      color: var(--color-slate-900);
+      font-weight: 500;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+   }
+
+   input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']):not([type='file']):focus,
+   select:focus,
+   textarea:focus {
+      border-color: var(--brand-primary);
+      box-shadow: 0 0 0 3px var(--brand-ring);
+      outline: 0;
+   }
+
+   input:disabled,
+   select:disabled,
+   textarea:disabled {
+      background-color: var(--color-slate-100);
+      color: var(--color-slate-500);
+      cursor: not-allowed;
+   }
+
+   input[aria-invalid='true'],
+   select[aria-invalid='true'],
+   textarea[aria-invalid='true'] {
+      border-color: var(--color-rose-400);
+   }
+
+   input::placeholder,
+   textarea::placeholder {
+      color: var(--color-slate-400);
+      font-weight: 400;
+   }
+
+   input[type='checkbox'],
+   input[type='radio'] {
+      accent-color: var(--brand-primary);
+   }
+
+   table {
+      font-variant-numeric: tabular-nums;
+   }
+}
+
+@layer utilities {
+   .tabular-nums {
+      font-variant-numeric: tabular-nums;
+   }
+
+   /*
+    * Material 3D sutil (solo CSS, sin costo de render continuo): luz desde arriba,
+    * brillo interior y sombra del color de marca con desplazamiento.
+    */
+   .volumen-marca {
+      background-image: linear-gradient(180deg, color-mix(in srgb, var(--brand-primary) 82%, #fff) 0%, var(--brand-primary) 55%, var(--brand-hover) 100%);
+      box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.28), inset 0 -1px 0 rgb(0 0 0 / 0.12), 0 6px 14px -6px color-mix(in srgb, var(--brand-primary) 70%, transparent);
+   }
+
+   .volumen-suave {
+      background-image: linear-gradient(180deg, #fff 0%, var(--brand-soft) 100%);
+      box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.9), 0 1px 2px rgb(15 23 42 / 0.06), 0 4px 10px -4px color-mix(in srgb, var(--brand-primary) 30%, transparent);
+   }
+
+   .elevable {
+      transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1), box-shadow 0.2s cubic-bezier(0.2, 0, 0, 1);
+   }
+
+   .elevable:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-elevado);
+   }
+
+   /* Entrada breve del contenido al navegar; se anula con prefers-reduced-motion. */
+   .animate-entrada {
+      animation: entrada 180ms cubic-bezier(0.2, 0, 0, 1) both;
+   }
+}
+
+@keyframes flotar {
+   0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg); }
+   50% { transform: translate3d(0, -12px, 0) rotate(2deg); }
+}
+
+@keyframes entrada {
+   from { opacity: 0; transform: translateY(4px); }
+   to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+   *,
+   *::before,
+   *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+   }
+}
