@@ -8,7 +8,8 @@ name: Desplegar restaurante
 # - Las migraciones NUNCA corren solas: si el push trae migraciones nuevas, el despliegue
 #   se detiene antes de tocar el servidor. Se aplican con "Run workflow" marcando
 #   "aplicar_migraciones" y confirmando un respaldo de la base.
-# - Mientras la variable DEPLOY_HABILITADO no sea "true", solo se verifica.
+# - Mientras la variable DEPLOY_HABILITADO no sea "true", solo se verifica. La ejecución
+#   manual con "solo_probar_conexion" funciona siempre y nunca publica.
 
 on:
   push:
@@ -84,7 +85,12 @@ jobs:
   desplegar:
     name: Publicar en el host del restaurante
     needs: verificar
-    if: vars.DEPLOY_HABILITADO == 'true' && github.ref == 'refs/heads/main'
+    # Publica solo con DEPLOY_HABILITADO. La prueba de conexión manual corre siempre:
+    # sirve justamente para validar SSH antes de habilitar el despliegue, y no publica nada.
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (vars.DEPLOY_HABILITADO == 'true' ||
+       (github.event_name == 'workflow_dispatch' && inputs.solo_probar_conexion == true))
     runs-on: ubuntu-latest
     timeout-minutes: 25
     environment: restaurante-produccion

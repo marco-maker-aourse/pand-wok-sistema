@@ -76,3 +76,11 @@ Repositorio → **Settings → Environments → New environment** `restaurante-p
 ## Advertencia
 
 `--delete-delay` elimina en `~/sistema` los archivos de código que ya no están en el repositorio. Archivos agregados a mano en el servidor fuera de `.env`, `storage`, `vendor` y `bootstrap/cache` se borrarán en la primera publicación: muévelos a `storage` antes de habilitar el despliegue.
+
+## Corrección: páginas Inertia en Linux (2026-11-19)
+
+- **Fallo:** en GitHub Actions 6 pruebas fallaban porque `assertInertia` no encontraba `Restaurante/Salon`, `Cocina`, `Estaciones`, `Recetas` y `CobrarPedido`. `inertia-laravel` v3.3.4 busca por defecto en `resources/js/pages` (minúsculas) y el proyecto usa `resources/js/Pages`. Windows no distingue mayúsculas, por eso localmente pasaban.
+- **Corrección:** `config/inertia.php` redefine solo `pages` (ruta `resources/js/Pages`, extensión `.jsx`) y mantiene `testing.ensure_pages_exist = true`. El resto de la configuración sigue la del paquete.
+- **Prevención:** `tests/Feature/PaginasInertiaTest.php` compara nombres reales de carpetas y archivos, así detecta el error también en Windows (falla sin la corrección, pasa con ella).
+- **Workflow:** `solo_probar_conexion` ahora se ejecuta aunque `DEPLOY_HABILITADO` no esté activo; ese modo nunca publica.
+- **Resultado local:** `php artisan test` → 157 pruebas en verde. La confirmación en Linux es la ejecución de GitHub Actions de este commit.
