@@ -21,7 +21,8 @@ class Venta extends Model
         'id_sucursal', 'id_cliente', 'id_usuario', 'id_turno', 'id_tipo_comprobante',
         'serie', 'correlativo', 'fecha_emision', 'op_gravadas', 
         'op_exoneradas', 'igv', 'descuento_global', 'total_venta', 
-        'estado_sunat', 'hash_cpe', 'enlace_pdf', 'enlace_xml', 'enlace_cdr'
+        'estado_sunat', 'hash_cpe', 'enlace_pdf', 'enlace_xml', 'enlace_cdr',
+        'id_pedido', 'clave_cobro', 'huella_cobro',
     ];
 
     protected function casts(): array

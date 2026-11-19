@@ -24,7 +24,18 @@ class RegistrarVentaService
      */
     public function execute(array $data): Venta
     {
-        return DB::transaction(function () use ($data): Venta {
+        return $this->registrar($data, false);
+    }
+
+    /** Comando interno construido con líneas bloqueadas y precios congelados del pedido. */
+    public function registrarPedido(array $data): Venta
+    {
+        return $this->registrar($data, true);
+    }
+
+    private function registrar(array $data, bool $esPedido): Venta
+    {
+        return DB::transaction(function () use ($data, $esPedido): Venta {
             // El turno se bloquea antes de precio, stock y comprobante. El cierre de caja
             // no puede coexistir con una venta a medio registrar.
             $turno = TurnoCaja::query()
@@ -39,15 +50,26 @@ class RegistrarVentaService
                 throw new DomainException('El turno de caja fue cerrado o ya no está disponible.');
             }
 
-            $lines = $this->prepareLines($data);
+            $lines = $this->prepareLines($data, $esPedido);
             $receiptType = TipoComprobante::query()
                 ->whereKey($data['id_tipo_comprobante'])
                 ->where('estado', true)
                 ->firstOrFail();
+            if ($esPedido && (float) ($data['descuento_global'] ?? 0) > 0) {
+                $gravadas = collect($lines)->filter(fn (array $line) => $line['presentation']->producto->afecta_igv)->sum('subtotal');
+                if (round((float) $data['descuento_global'], 2) > round($gravadas, 2)) {
+                    throw new DomainException('El descuento solo puede aplicarse sobre el importe gravado seleccionado.');
+                }
+            }
             $document = $this->documents->execute($data['id_sucursal'], $receiptType->codigo_sunat);
             $totals = $this->totals($lines, (float) ($data['descuento_global'] ?? 0), (float) $document['igv']);
 
+            if ($esPedido && $totals['total'] <= 0) {
+                throw new DomainException('El cobro debe tener un importe mayor que cero.');
+            }
+
             $sale = Venta::create([
+                ...($esPedido ? array_intersect_key($data, array_flip(['id_pedido', 'clave_cobro', 'huella_cobro'])) : []),
                 'id_sucursal' => $data['id_sucursal'], 'id_cliente' => $data['id_cliente'],
                 'id_usuario' => $data['id_usuario'], 'id_turno' => $data['id_turno'],
                 'id_tipo_comprobante' => $receiptType->id_tipo_comprobante,
@@ -59,29 +81,31 @@ class RegistrarVentaService
 
             foreach ($lines as $line) {
                 $sale->detalles()->create([
+                    ...($esPedido ? ['id_detalle_pedido' => $line['id_detalle_pedido']] : []),
                     'id_precio' => $line['presentation']->id_precio,
                     'id_lote' => $line['lote_id'], 'cantidad' => $line['quantity'],
                     'precio_unitario' => $line['price'], 'subtotal' => $line['subtotal'],
                 ]);
-                if (! $line['presentation']->producto->es_servicio) {
+                $producto = $line['presentation']->producto;
+                if (! $producto->es_servicio && $line['descontar_stock']) {
                     $this->inventory->decrease($line['presentation'], $data['id_sucursal'], $line['quantity'], OrigenMovimiento::venta($sale), $line['lot_code']);
                 }
             }
 
-            $this->registerPayments($sale, $data['pagos'], $totals['total']);
+            $this->registerPayments($sale, $data['pagos'], $totals['total'], $esPedido);
 
             return $sale->load('detalles', 'pagos');
         }, attempts: 3);
     }
 
-    private function prepareLines(array $data): array
+    private function prepareLines(array $data, bool $esPedido): array
     {
-        return array_map(function (array $detail) use ($data): array {
-            // El precio aplicable procede exclusivamente de la presentación configurada.
-            // Nunca se acepta un importe enviado por el navegador.
+        return array_map(function (array $detail) use ($data, $esPedido): array {
+            // El POS toma el precio de la presentación; la cuenta usa el precio que
+            // congeló el servidor al tomar el pedido.
             $presentation = ProductoPresentacion::query()->with('producto')
                 ->whereKey($detail['id_precio'])
-                ->where('estado', true)
+                ->when(! $esPedido, fn ($query) => $query->where('estado', true))
                 ->lockForUpdate()
                 ->firstOrFail();
             $lot = filled($detail['id_lote'] ?? null)
@@ -96,12 +120,14 @@ class RegistrarVentaService
             if ((float) $presentation->factor_conversion <= 0) {
                 throw new DomainException('La presentación seleccionada no tiene una conversión válida.');
             }
-            $price = (float) $presentation->precio_venta;
+            $price = (float) ($esPedido ? $detail['precio_unitario'] : $presentation->precio_venta);
             return ['presentation' => $presentation, 'quantity' => $quantity,
+                'id_detalle_pedido' => $esPedido ? $detail['id_detalle_pedido'] : null,
+                'descontar_stock' => ! $esPedido || $detail['descontar_stock'],
                 'lote_id' => $lot?->id_lote,
                 'lot_code' => $lot?->codigo_lote,
                 'price' => $price,
-                'subtotal' => round($quantity * $price, 2)];
+                'subtotal' => $esPedido ? $detail['subtotal'] : round($quantity * $price, 2)];
         }, $data['detalles']);
     }
 
@@ -124,18 +150,21 @@ class RegistrarVentaService
             'descuento' => round($discount, 2), 'total' => round($gross - $discount, 2)];
     }
 
-    private function registerPayments(Venta $sale, array $payments, float $total): void
+    private function registerPayments(Venta $sale, array $payments, float $total, bool $esPedido): void
     {
         // Un cobro único equivale al total calculado por el servidor; nunca al subtotal enviado por React.
         if (count($payments) === 1 && ! isset($payments[0]['monto'])) {
             $payments[0]['monto'] = $total;
         }
         $received = round(array_sum(array_column($payments, 'monto')), 2);
-        if (abs($received - $total) > 0.01) {
+        if ($esPedido ? $received !== $total : abs($received - $total) > 0.01) {
             throw new DomainException('La suma de pagos debe coincidir exactamente con el total de la venta.');
         }
         foreach ($payments as $payment) {
-            $method = MetodoPago::findOrFail($payment['id_metodo']);
+            $method = MetodoPago::query()->when($esPedido, fn ($query) => $query->where('estado', true))->find($payment['id_metodo']);
+            if (! $method) {
+                throw new DomainException('Uno de los medios de pago ya no está disponible.');
+            }
             $cashReceived = null;
             $change = null;
             if ($method->tipo === 'EFECTIVO') {

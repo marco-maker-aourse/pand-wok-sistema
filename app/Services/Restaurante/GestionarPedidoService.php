@@ -21,6 +21,9 @@ class GestionarPedidoService
         private readonly BloqueoSalonService $bloqueo,
         private readonly ArmarItemPedidoService $items,
         private readonly RegistrarEventoPedido $eventos,
+        private readonly CocinaService $cocina,
+        private readonly ConsumoRecetaService $consumo,
+        private readonly CerrarCuentaSaldada $cierre,
     ) {}
 
     /**
@@ -114,8 +117,8 @@ class GestionarPedidoService
     {
         return DB::transaction(function () use ($detalleId, $cambios, $usuarioId, $sucursalId): PedidoDetalle {
             $detalle = $this->detalleBloqueado($detalleId, $sucursalId);
-            if (! $detalle->estaPendiente()) {
-                throw new DomainException('Solo se pueden editar ítems que aún no se enviaron a cocina.');
+            if (! $detalle->estaPendiente() || $detalle->tieneCobro()) {
+                throw new DomainException('Solo se pueden editar ítems pendientes y sin cobros.');
             }
 
             $antes = ['cantidad' => (float) $detalle->cantidad, 'observacion' => $detalle->observacion];
@@ -151,9 +154,9 @@ class GestionarPedidoService
      * Quita un ítem. Si aún no salió a cocina basta con pedido abierto; si ya salió,
      * exige el permiso pedidos.anular y un motivo, porque cocina pudo haberlo preparado.
      */
-    public function anularItem(int $detalleId, ?string $motivo, bool $puedeAnularEnviados, int $usuarioId, int $sucursalId): PedidoDetalle
+    public function anularItem(int $detalleId, ?string $motivo, bool $puedeAnularEnviados, int $usuarioId, int $sucursalId, bool $recuperar = false): PedidoDetalle
     {
-        return DB::transaction(function () use ($detalleId, $motivo, $puedeAnularEnviados, $usuarioId, $sucursalId): PedidoDetalle {
+        return DB::transaction(function () use ($detalleId, $motivo, $puedeAnularEnviados, $usuarioId, $sucursalId, $recuperar): PedidoDetalle {
             $detalle = $this->detalleBloqueado($detalleId, $sucursalId);
             if ($detalle->estaAnulado()) {
                 return $detalle;
@@ -162,6 +165,7 @@ class GestionarPedidoService
             $motivo = ArmarItemPedidoService::textoOpcional($motivo);
             $this->validarAnulacion($detalle, $motivo, $puedeAnularEnviados);
 
+            $this->consumo->resolverAnulacion(collect([$detalle]), $sucursalId, $usuarioId, $recuperar);
             $estadoPrevio = $detalle->estado;
             $detalle->update([
                 'estado' => PedidoDetalle::ANULADO,
@@ -169,6 +173,8 @@ class GestionarPedidoService
                 'id_usuario_anulacion' => $usuarioId,
                 'anulado_en' => now(),
             ]);
+            // Si ya estaba en cocina, la estación recibe el aviso y la comanda se actualiza.
+            $this->cocina->itemsAnulados(collect([$detalle]));
 
             $this->eventos->registrar($detalle->id_pedido, $usuarioId, RegistrarEventoPedido::ITEM_ANULADO, [
                 'producto' => $detalle->nombre_producto,
@@ -176,20 +182,21 @@ class GestionarPedidoService
                 'estado_previo' => $estadoPrevio,
                 'motivo' => $motivo,
             ], $detalle->id_detalle_pedido);
+            $this->cierre->ejecutar($detalle->pedido, $usuarioId);
 
             return $detalle->refresh();
-        });
+        }, 3);
     }
 
     /** Anula la cuenta completa (p. ej. el cliente se retiró) y libera la mesa. */
-    public function anularPedido(int $pedidoId, ?string $motivo, bool $puedeAnularEnviados, int $usuarioId, int $sucursalId): Pedido
+    public function anularPedido(int $pedidoId, ?string $motivo, bool $puedeAnularEnviados, int $usuarioId, int $sucursalId, bool $recuperar = false): Pedido
     {
         $motivo = ArmarItemPedidoService::textoOpcional($motivo);
         if ($motivo === null) {
             throw new DomainException('Indica el motivo de la anulación.');
         }
 
-        return DB::transaction(function () use ($pedidoId, $motivo, $puedeAnularEnviados, $usuarioId, $sucursalId): Pedido {
+        return DB::transaction(function () use ($pedidoId, $motivo, $puedeAnularEnviados, $usuarioId, $sucursalId, $recuperar): Pedido {
             $pedido = $this->bloqueo->pedidoAbierto($pedidoId, $sucursalId);
             $activos = $pedido->detalles()->where('estado', '!=', PedidoDetalle::ANULADO)->lockForUpdate()->get();
 
@@ -197,12 +204,14 @@ class GestionarPedidoService
                 $this->validarAnulacion($detalle, $motivo, $puedeAnularEnviados);
             }
 
+            $this->consumo->resolverAnulacion($activos, $sucursalId, $usuarioId, $recuperar);
             PedidoDetalle::query()->whereKey($activos->modelKeys())->update([
                 'estado' => PedidoDetalle::ANULADO,
                 'motivo_anulacion' => $motivo,
                 'id_usuario_anulacion' => $usuarioId,
                 'anulado_en' => now(),
             ]);
+            $this->cocina->itemsAnulados($activos);
 
             $pedido->update([
                 'estado' => Pedido::ANULADO,
@@ -218,7 +227,7 @@ class GestionarPedidoService
             ]);
 
             return $pedido->refresh();
-        });
+        }, 3);
     }
 
     /** Total vigente de la cuenta (sin ítems anulados). El IGV se calcula al emitir la venta. */
@@ -292,14 +301,18 @@ class GestionarPedidoService
 
     private function detalleBloqueado(int $detalleId, int $sucursalId): PedidoDetalle
     {
-        $detalle = PedidoDetalle::query()->lockForUpdate()->find($detalleId);
-        if (! $detalle) {
+        $pedidoId = PedidoDetalle::query()->whereKey($detalleId)
+            ->whereHas('pedido', fn ($query) => $query->where('id_sucursal', $sucursalId))->value('id_pedido');
+        if (! $pedidoId) {
             throw new DomainException('El ítem no existe.');
         }
-        // Bloquea y valida el pedido: debe estar abierto y ser de esta sucursal.
-        $this->bloqueo->pedidoAbierto($detalle->id_pedido, $sucursalId);
+        $pedido = $this->bloqueo->pedidoAbierto($pedidoId, $sucursalId);
+        $detalle = $pedido->detalles()->lockForUpdate()->find($detalleId);
+        if (! $detalle) {
+            throw new DomainException('El ítem ya no pertenece a esta cuenta.');
+        }
 
-        return $detalle;
+        return $detalle->setRelation('pedido', $pedido);
     }
 
     private function validarAnulacion(PedidoDetalle $detalle, ?string $motivo, bool $puedeAnularEnviados): void

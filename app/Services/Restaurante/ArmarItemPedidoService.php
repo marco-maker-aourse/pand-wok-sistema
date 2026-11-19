@@ -67,6 +67,7 @@ class ArmarItemPedidoService
             'detalle' => [
                 'id_precio' => $precio->id_precio,
                 'id_producto' => $producto->id_producto,
+                'tipo_producto' => $producto->tipo_producto,
                 'nombre_producto' => $producto->nombre,
                 'cantidad' => $cantidad,
                 'precio_base' => $precioBase,

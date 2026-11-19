@@ -14,6 +14,9 @@ class AnularRequest extends FormRequest
 
     public function rules(): array
     {
-        return ['motivo' => ['nullable', 'string', 'max:255']];
+        return [
+            'motivo' => ['nullable', 'string', 'max:255'],
+            'recuperar_insumos' => ['sometimes', 'boolean'],
+        ];
     }
 }

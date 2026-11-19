@@ -6,6 +6,7 @@ use App\Models\Categoria;
 use App\Models\Producto;
 use App\Models\ProductoPresentacion;
 use App\Models\Restaurante\Area;
+use App\Models\Restaurante\Comanda;
 use App\Models\Restaurante\GrupoModificador;
 use App\Models\Restaurante\Mesa;
 use App\Models\Restaurante\Pedido;
@@ -28,6 +29,7 @@ class PresentarRestauranteService
     public function __construct(
         private readonly GestionarCartaService $carta,
         private readonly PrecioSucursalService $precios,
+        private readonly ImprimirComandaService $impresion,
     ) {}
 
     /** Plano del salón: áreas activas, sus mesas y la cuenta abierta de cada una. */
@@ -93,6 +95,11 @@ class PresentarRestauranteService
         $pedido->loadMissing(['mesa.area:id_area,nombre', 'usuario:id_usuario,nombres']);
         $detalles = $pedido->detalles()->with('modificadores')->orderBy('id_detalle_pedido')->get();
 
+        $comandas = Comanda::query()->where('id_sucursal', $pedido->id_sucursal)
+            ->whereKey($detalles->pluck('id_comanda')->filter()->unique()->values()->all())
+            ->with('estacion:id_estacion,nombre')->orderByDesc('id_comanda')->get();
+        $impresion = $this->impresion->estados($comandas->modelKeys());
+
         $usuarios = DB::table('seguridad.usuarios')
             ->whereIn('id_usuario', PedidoEvento::query()->where('id_pedido', $pedido->id_pedido)->select('id_usuario'))
             ->pluck('nombres', 'id_usuario');
@@ -118,6 +125,9 @@ class PresentarRestauranteService
                 'area' => $pedido->mesa->area?->nombre,
             ] : null,
             'total' => round((float) $detalles->where('estado', '!=', PedidoDetalle::ANULADO)->sum('subtotal'), 2),
+            'saldo' => round((float) $detalles->where('estado', '!=', PedidoDetalle::ANULADO)->sum(
+                fn (PedidoDetalle $detalle): float => (float) $detalle->subtotal - ArmarItemPedidoService::subtotal((float) $detalle->cantidad_cobrada, (float) $detalle->precio_unitario),
+            ), 2),
             'detalles' => $detalles->map(fn (PedidoDetalle $detalle): array => [
                 'id_detalle_pedido' => $detalle->id_detalle_pedido,
                 'nombre_producto' => $detalle->nombre_producto,
@@ -133,6 +143,14 @@ class PresentarRestauranteService
                     'nombre_opcion' => $m->nombre_opcion,
                     'precio_adicional' => (float) $m->precio_adicional,
                 ])->values(),
+            ])->values(),
+            'comandas' => $comandas->map(fn (Comanda $comanda): array => [
+                'id_comanda' => $comanda->id_comanda,
+                'numero' => $comanda->numero,
+                'estado' => $comanda->estado,
+                'estacion' => $comanda->estacion?->nombre ?? 'Cocina general',
+                'enviada_en' => $comanda->enviada_en?->toIso8601String(),
+                'impresion' => $impresion->get($comanda->id_comanda),
             ])->values(),
             'eventos' => PedidoEvento::query()
                 ->where('id_pedido', $pedido->id_pedido)

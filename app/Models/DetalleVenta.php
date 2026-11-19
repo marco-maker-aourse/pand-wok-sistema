@@ -12,7 +12,7 @@ class DetalleVenta extends Model
     public $timestamps = false;
 
     protected $fillable = [
-        'id_venta', 'id_precio', 'id_lote', 'cantidad', 'precio_unitario', 'subtotal',
+        'id_venta', 'id_precio', 'id_lote', 'cantidad', 'precio_unitario', 'subtotal', 'id_detalle_pedido',
     ];
 
     public function precio(): BelongsTo

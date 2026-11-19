@@ -24,11 +24,14 @@ export default function LineaCuenta({ item, editable, ocupado, onCantidad, onQui
                     )}
                     {item.observacion && <p className="text-xs text-amber-700 italic">“{item.observacion}”</p>}
                     {anulado && item.motivo_anulacion && <p className="text-xs text-rose-600">Anulado: {item.motivo_anulacion}</p>}
-                    <div className="mt-1"><Badge tone={estado.tono}>{estado.etiqueta}</Badge></div>
+                    <div className="mt-1 flex flex-wrap gap-1.5">
+                        <Badge tone={estado.tono}>{estado.etiqueta}</Badge>
+                        {item.cantidad_cobrada > 0 && <Badge tone="success">{fmtCantidad(item.cantidad_cobrada)} cobrado(s)</Badge>}
+                    </div>
                 </div>
                 <div className="flex flex-col items-end gap-1.5">
                     <span className={cx('font-mono text-sm font-semibold tabular-nums', anulado && 'line-through')}>{soles(item.subtotal)}</span>
-                    {editable && !anulado && (
+                    {editable && !anulado && item.cantidad_cobrada === 0 && (
                         <div className="flex items-center gap-1">
                             {pendiente && (
                                 <>

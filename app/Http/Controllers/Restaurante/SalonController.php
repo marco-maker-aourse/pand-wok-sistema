@@ -31,6 +31,7 @@ class SalonController extends Controller
             ...$this->presentar->salon($usuario->idSucursalActiva()),
             'puede' => [
                 'abrir' => $usuario->hasPermission('pedidos.registrar'),
+                'cobrar' => $usuario->hasPermission('ventas.registrar'),
                 'configurar' => $usuario->hasPermission('mesas.gestionar'),
             ],
         ]);

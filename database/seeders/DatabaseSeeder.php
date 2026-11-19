@@ -112,6 +112,15 @@ class DatabaseSeeder extends Seeder
                 ['codigo' => 'pedidos.transferir', 'nombre' => 'Transferir, unir y separar cuentas', 'modulo' => 'restaurante'],
                 ['codigo' => 'pedidos.anular', 'nombre' => 'Anular pedidos e ítems enviados a cocina', 'modulo' => 'restaurante'],
                 ['codigo' => 'carta.gestionar', 'nombre' => 'Gestionar carta, modificadores y agotados', 'modulo' => 'restaurante'],
+                // Cocina (también los crea la migración 2026_11_21_000100 en bases existentes).
+                ['codigo' => 'cocina.ver', 'nombre' => 'Ver pantalla de cocina', 'modulo' => 'restaurante'],
+                ['codigo' => 'cocina.gestionar', 'nombre' => 'Cambiar estado de comandas', 'modulo' => 'restaurante'],
+                ['codigo' => 'cocina.configurar', 'nombre' => 'Configurar estaciones de cocina', 'modulo' => 'restaurante'],
+                ['codigo' => 'comandas.enviar', 'nombre' => 'Enviar pedidos a cocina', 'modulo' => 'restaurante'],
+                ['codigo' => 'pos.descuentos', 'nombre' => 'Aplicar descuentos al cobrar pedidos', 'modulo' => 'restaurante'],
+                ['codigo' => 'recetas.gestionar', 'nombre' => 'Configurar recetas y consultar sus costos estimados', 'modulo' => 'restaurante'],
+                ['codigo' => 'mermas.registrar', 'nombre' => 'Registrar mermas de insumos', 'modulo' => 'restaurante'],
+                ['codigo' => 'reportes.restaurante', 'nombre' => 'Consultar reportes del restaurante', 'modulo' => 'restaurante'],
             ];
 
             $permisoIds = collect($permisos)->mapWithKeys(
@@ -137,6 +146,7 @@ class DatabaseSeeder extends Seeder
                 'Administrador General' => $todos,
                 'Administrador' => $todos,
                 'Cajero' => [
+                    'mesas.ver',
                     'dashboard.ver',
                     'ventas.registrar',
                     'clientes.ver',
@@ -157,10 +167,17 @@ class DatabaseSeeder extends Seeder
                     'dashboard.ver',
                     'mesas.ver',
                     'pedidos.registrar',
+                    'comandas.enviar',
                     'productos.ver',
                     'clientes.ver',
                 ],
+                // Pantalla de cocina (KDS): ve comandas y cambia su estado.
+                'Cocina' => [
+                    'cocina.ver',
+                    'cocina.gestionar',
+                ],
                 'Almacenero' => [
+                    'mermas.registrar',
                     'dashboard.ver',
                     'ingresos.registrar',
                     'salidas.registrar',

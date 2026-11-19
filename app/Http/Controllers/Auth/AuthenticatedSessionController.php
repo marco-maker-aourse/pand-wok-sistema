@@ -23,7 +23,12 @@ class AuthenticatedSessionController extends Controller
         $request->session()->regenerate();
         // Cada inicio de sesión empieza en la sede principal del usuario.
         $request->session()->forget(ContextoSucursalService::CLAVE_SESION);
-        return to_route('dashboard');
+        $usuario = $request->user();
+        $ruta = $usuario->hasPermission('cocina.ver') && ! $usuario->hasPermission('dashboard.ver')
+            ? 'restaurante.cocina'
+            : 'dashboard';
+
+        return to_route($ruta);
     }
 
     public function destroy(Request $request): RedirectResponse

@@ -11,6 +11,8 @@ use App\Models\Restaurante\PedidoEvento;
 class RegistrarEventoPedido
 {
     public const PEDIDO_ABIERTO = 'PEDIDO_ABIERTO';
+    public const COBRO_REGISTRADO = 'COBRO_REGISTRADO';
+    public const PEDIDO_CERRADO = 'PEDIDO_CERRADO';
     public const PEDIDO_ANULADO = 'PEDIDO_ANULADO';
     public const ITEM_AGREGADO = 'ITEM_AGREGADO';
     public const ITEM_MODIFICADO = 'ITEM_MODIFICADO';
@@ -20,6 +22,8 @@ class RegistrarEventoPedido
     public const CUENTA_ABSORBIDA = 'CUENTA_ABSORBIDA';
     public const ITEMS_MOVIDOS = 'ITEMS_MOVIDOS';
     public const ITEMS_RECIBIDOS = 'ITEMS_RECIBIDOS';
+    public const COMANDA_ENVIADA = 'COMANDA_ENVIADA';
+    public const COMANDA_REIMPRESA = 'COMANDA_REIMPRESA';
 
     public function registrar(int $pedidoId, int $usuarioId, string $tipo, array $datos = [], ?int $detalleId = null): PedidoEvento
     {

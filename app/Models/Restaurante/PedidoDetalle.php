@@ -21,7 +21,7 @@ class PedidoDetalle extends Model
     protected $table = 'restaurante.pedido_detalles';
     protected $primaryKey = 'id_detalle_pedido';
     protected $fillable = [
-        'id_pedido', 'id_precio', 'id_producto', 'nombre_producto', 'cantidad', 'precio_base',
+        'id_pedido', 'id_precio', 'id_producto', 'tipo_producto', 'nombre_producto', 'cantidad', 'precio_base',
         'precio_modificadores', 'precio_unitario', 'subtotal', 'observacion', 'estado',
         'cantidad_cobrada', 'id_usuario', 'id_comanda', 'enviado_en', 'motivo_anulacion',
         'id_usuario_anulacion', 'anulado_en', 'clave_idempotencia',
@@ -59,6 +59,11 @@ class PedidoDetalle extends Model
     public function modificadores(): HasMany
     {
         return $this->hasMany(PedidoDetalleModificador::class, 'id_detalle_pedido', 'id_detalle_pedido');
+    }
+
+    public function tipoRestaurante(): ?string
+    {
+        return $this->tipo_producto ?? $this->producto?->tipo_producto;
     }
 
     /** Pendiente = aún no salió a cocina; se puede editar o quitar sin permiso especial. */

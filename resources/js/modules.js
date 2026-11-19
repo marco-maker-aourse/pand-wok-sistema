@@ -1,4 +1,4 @@
-import { FiArchive, FiBarChart2, FiBookOpen, FiBox, FiCreditCard, FiFileText, FiGrid, FiHome, FiLayers, FiLayout, FiMapPin, FiPackage, FiShoppingCart, FiSliders, FiTag, FiTruck, FiUsers, FiDollarSign, FiPrinter } from 'react-icons/fi';
+import { FiArchive, FiBarChart2, FiBookOpen, FiBox, FiCreditCard, FiCoffee, FiFileText, FiGrid, FiHome, FiLayers, FiLayout, FiMapPin, FiPackage, FiShoppingCart, FiSliders, FiTag, FiTruck, FiUsers, FiDollarSign, FiPrinter } from 'react-icons/fi';
 
 /** Rutas visibles; la autorización real continúa en middleware y policies del servidor. */
 export const navigationModules = [
@@ -8,6 +8,11 @@ export const navigationModules = [
     { label: 'Restaurante', items: [
         { label: 'Salón', href: '/salon', icon: FiLayout },
         { label: 'Carta', href: '/carta', icon: FiBookOpen },
+        { label: 'Cocina', href: '/cocina', icon: FiCoffee, exacta: true, permiso: 'cocina.ver' },
+        { label: 'Estaciones de cocina', href: '/cocina/estaciones', icon: FiSliders, permiso: 'cocina.configurar' },
+        { label: 'Recetas', href: '/recetas', icon: FiBookOpen, permiso: 'recetas.gestionar' },
+        { label: 'Mermas de insumos', href: '/mermas', icon: FiArchive, permiso: 'mermas.registrar' },
+        { label: 'Reportes del restaurante', href: '/reportes/restaurante', icon: FiBarChart2, permiso: 'reportes.restaurante' },
     ] },
     { label: 'Operaciones', items: [
         { label: 'Caja', href: '/caja', icon: FiDollarSign },

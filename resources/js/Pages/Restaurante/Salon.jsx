@@ -38,9 +38,10 @@ export default function Salon({ areas = [], cuentasSinMesa = [], resumen, puede 
 
     const area = areas.find((a) => a.id_area === areaActiva);
 
+    const rutaCuenta = (id) => `/pedidos/${id}${!puede.abrir && puede.cobrar ? '/cobrar' : ''}`;
     const seleccionarMesa = (mesa) => {
         if (mesa.cuenta) {
-            router.visit(`/pedidos/${mesa.cuenta.id_pedido}`);
+            router.visit(rutaCuenta(mesa.cuenta.id_pedido));
         } else if (puede.abrir && ['DISPONIBLE', 'RESERVADA'].includes(mesa.estado)) {
             setDialogo({ tipo: 'MESA', mesa });
         }
@@ -143,7 +144,7 @@ export default function Salon({ areas = [], cuentasSinMesa = [], resumen, puede 
                             <ul className="divide-y divide-slate-100">
                                 {cuentasSinMesa.map((cuenta) => (
                                     <li key={cuenta.id_pedido}>
-                                        <Link href={`/pedidos/${cuenta.id_pedido}`} className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50">
+                                        <Link href={rutaCuenta(cuenta.id_pedido)} className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50">
                                             <div className="min-w-0 flex-1">
                                                 <p className="truncate text-sm font-medium text-slate-900">{tituloCuenta(cuenta)}</p>
                                                 <p className="text-xs text-slate-500">

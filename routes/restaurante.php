@@ -1,7 +1,12 @@
 <?php
 
 use App\Http\Controllers\Restaurante\CartaController;
+use App\Http\Controllers\Restaurante\CocinaController;
+use App\Http\Controllers\Restaurante\CobroPedidoController;
+use App\Http\Controllers\Restaurante\EstacionController;
 use App\Http\Controllers\Restaurante\PedidoController;
+use App\Http\Controllers\Restaurante\RecetaController;
+use App\Http\Controllers\Restaurante\ReporteRestauranteController;
 use App\Http\Controllers\Restaurante\SalonController;
 use Illuminate\Support\Facades\Route;
 
@@ -11,6 +16,28 @@ use Illuminate\Support\Facades\Route;
 |--------------------------------------------------------------------------
 | Los ids viajan como enteros; cada servicio valida la sucursal activa.
 */
+
+// Cocina
+Route::get('/cocina', [CocinaController::class, 'index'])->middleware('permission:cocina.ver')->name('restaurante.cocina');
+Route::put('/cocina/comandas/{comanda}/estado', [CocinaController::class, 'estado'])->whereNumber('comanda')->middleware('permission:cocina.gestionar')->name('restaurante.comandas.estado');
+Route::post('/cocina/comandas/{comanda}/reimprimir', [CocinaController::class, 'reimprimir'])->whereNumber('comanda')->middleware('throttle:30,1')->name('restaurante.comandas.reimprimir');
+Route::get('/cocina/estaciones', [EstacionController::class, 'index'])->middleware('permission:cocina.configurar')->name('restaurante.estaciones');
+Route::post('/cocina/estaciones', [EstacionController::class, 'guardar'])->middleware('permission:cocina.configurar')->name('restaurante.estaciones.store');
+Route::put('/cocina/estaciones/{estacion}', [EstacionController::class, 'guardar'])->whereNumber('estacion')->middleware('permission:cocina.configurar')->name('restaurante.estaciones.update');
+Route::post('/pedidos/{pedido}/enviar-cocina', [PedidoController::class, 'enviar'])->whereNumber('pedido')->middleware(['permission:pedidos.registrar', 'permission:comandas.enviar', 'throttle:60,1'])->name('restaurante.pedidos.enviar');
+Route::post('/pedidos/{pedido}/guardar-y-enviar', [PedidoController::class, 'guardarYEnviar'])->whereNumber('pedido')->middleware(['permission:pedidos.registrar', 'permission:comandas.enviar', 'throttle:60,1'])->name('restaurante.pedidos.guardar-y-enviar');
+
+// Caja de pedidos
+Route::get('/pedidos/{pedido}/cobrar', [CobroPedidoController::class, 'show'])->whereNumber('pedido')->middleware('permission:ventas.registrar')->name('restaurante.cobrar.show');
+Route::post('/pedidos/{pedido}/cobrar', [CobroPedidoController::class, 'store'])->whereNumber('pedido')->middleware(['permission:ventas.registrar', 'throttle:30,1'])->name('restaurante.cobrar.store');
+
+// Inventario de cocina
+Route::get('/recetas', [RecetaController::class, 'index'])->middleware('permission:recetas.gestionar')->name('restaurante.recetas');
+Route::put('/recetas/{precio}', [RecetaController::class, 'guardar'])->whereNumber('precio')->middleware('permission:recetas.gestionar')->name('restaurante.recetas.guardar');
+Route::get('/mermas', [RecetaController::class, 'index'])->middleware('permission:mermas.registrar')->name('restaurante.mermas');
+Route::post('/mermas', [RecetaController::class, 'merma'])->middleware(['permission:mermas.registrar', 'throttle:30,1'])->name('restaurante.mermas.store');
+
+Route::get('/reportes/restaurante', ReporteRestauranteController::class)->middleware('permission:reportes.restaurante')->name('restaurante.reportes');
 
 // Salón
 Route::get('/salon', [SalonController::class, 'index'])->middleware('permission:mesas.ver')->name('restaurante.salon');

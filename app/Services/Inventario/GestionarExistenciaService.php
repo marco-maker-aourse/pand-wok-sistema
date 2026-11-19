@@ -13,31 +13,49 @@ class GestionarExistenciaService
     /** El saldo está en Kardex; los lotes detallan el stock con vencimiento. */
     public function decrease(ProductoPresentacion $precio, int $sucursalId, float $cantidad, OrigenMovimiento $origen, ?string $codigoLote = null): void
     {
-        $cantidadBase = $this->toBaseQuantity($precio, $cantidad);
-        $ultimoKardex = $this->ultimoKardex($precio->id_producto, $sucursalId);
+        $this->disminuirBase($precio->producto, $sucursalId, $this->toBaseQuantity($precio, $cantidad), $origen, $codigoLote);
+    }
+
+    /** Devuelve el costo y los lotes para que una devolución del restaurante sea exacta. */
+    public function disminuirBase(Producto $producto, int $sucursalId, float $cantidadBase, OrigenMovimiento $origen, ?string $codigoLote = null): array
+    {
+        $ultimoKardex = $this->ultimoKardex($producto->id_producto, $sucursalId);
         $saldo = (float) ($ultimoKardex?->stock_actual ?? 0);
 
         if ($saldo < $cantidadBase) {
-            throw new DomainException("Stock insuficiente para {$precio->producto->nombre}.");
+            throw new DomainException("Stock insuficiente para {$producto->nombre}.");
         }
 
-        $this->descontarLotes($precio, $sucursalId, $cantidadBase, $codigoLote);
+        $lotes = $this->descontarLotes($producto, $sucursalId, $cantidadBase, $codigoLote);
+        $costo = (float) ($ultimoKardex?->precio_costo ?? 0);
         // Una salida no recalcula el CPP: conserva el último costo unitario vigente.
         $this->registrarKardex(
-            $precio->id_producto,
-            $sucursalId,
-            0,
-            $cantidadBase,
-            $saldo - $cantidadBase,
-            (float) ($ultimoKardex?->precio_costo ?? 0),
-            $origen,
+            $producto->id_producto, $sucursalId, 0, $cantidadBase, $saldo - $cantidadBase, $costo, $origen,
         );
+
+        return ['costo' => $costo, 'lotes' => $lotes];
     }
 
     public function increase(ProductoPresentacion $precio, int $sucursalId, float $cantidad, OrigenMovimiento $origen, float $costo = 0): void
     {
-        $cantidadBase = $this->toBaseQuantity($precio, $cantidad);
-        $ultimoKardex = $this->ultimoKardex($precio->id_producto, $sucursalId);
+        $this->aumentarSaldo($precio->id_producto, $sucursalId, $this->toBaseQuantity($precio, $cantidad), $origen, $costo);
+    }
+
+    public function reponerConsumo(int $producto, int $sucursal, float $cantidadBase, float $costo, array $lotes, OrigenMovimiento $origen): void
+    {
+        $this->aumentarSaldo($producto, $sucursal, $cantidadBase, $origen, $costo);
+        foreach ($lotes as $id => $cantidad) {
+            $lote = Lote::query()->where('id_producto', $producto)->where('id_sucursal', $sucursal)->lockForUpdate()->find($id);
+            if (! $lote || ! $lote->estado || $lote->fecha_vencimiento?->isPast()) {
+                throw new DomainException('Uno de los lotes consumidos ya no admite devolución. Registra la anulación como merma.');
+            }
+            $lote->increment('stock', $cantidad);
+        }
+    }
+
+    private function aumentarSaldo(int $producto, int $sucursalId, float $cantidadBase, OrigenMovimiento $origen, float $costo): void
+    {
+        $ultimoKardex = $this->ultimoKardex($producto, $sucursalId);
         $saldoAnterior = (float) ($ultimoKardex?->stock_actual ?? 0);
         $costoAnterior = (float) ($ultimoKardex?->precio_costo ?? 0);
         $saldoNuevo = $saldoAnterior + $cantidadBase;
@@ -48,7 +66,7 @@ class GestionarExistenciaService
             ? round((($saldoAnterior * $costoAnterior) + ($cantidadBase * $costo)) / $saldoNuevo, 4)
             : 0.0;
 
-        $this->registrarKardex($precio->id_producto, $sucursalId, $cantidadBase, 0, $saldoNuevo, $costoPromedio, $origen);
+        $this->registrarKardex($producto, $sucursalId, $cantidadBase, 0, $saldoNuevo, $costoPromedio, $origen);
     }
 
     public function toBaseQuantity(ProductoPresentacion $precio, float $cantidad): float
@@ -81,14 +99,14 @@ class GestionarExistenciaService
             ->first();
     }
 
-    private function descontarLotes(ProductoPresentacion $precio, int $sucursalId, float $cantidadBase, ?string $codigoLote): void
+    private function descontarLotes(Producto $producto, int $sucursalId, float $cantidadBase, ?string $codigoLote): array
     {
-        if (! $precio->producto->usa_vencimiento) {
-            return;
+        if (! $producto->usa_vencimiento) {
+            return [];
         }
 
         $lotes = Lote::query()
-            ->where('id_producto', $precio->id_producto)
+            ->where('id_producto', $producto->id_producto)
             ->where('id_sucursal', $sucursalId)
             ->where('estado', true)
             ->where('stock', '>', 0)
@@ -99,6 +117,7 @@ class GestionarExistenciaService
             ->get();
 
         $pendiente = $cantidadBase;
+        $descontados = [];
         foreach ($lotes as $lote) {
             if ($lote->fecha_vencimiento?->isPast()) {
                 continue;
@@ -106,14 +125,15 @@ class GestionarExistenciaService
 
             $descuento = min((float) $lote->stock, $pendiente);
             $lote->decrement('stock', $descuento);
-            $pendiente -= $descuento;
+            $descontados[$lote->id_lote] = $descuento;
+            $pendiente = round($pendiente - $descuento, 4);
 
             if ($pendiente <= 0) {
-                return;
+                return $descontados;
             }
         }
 
-        throw new DomainException("Los lotes disponibles no cubren la cantidad solicitada para {$precio->producto->nombre}.");
+        throw new DomainException("Los lotes disponibles no cubren la cantidad solicitada para {$producto->nombre}.");
     }
 
     private function registrarKardex(int $productoId, int $sucursalId, float $entrada, float $salida, float $saldo, float $costo, OrigenMovimiento $origen): void

@@ -7,13 +7,16 @@ use App\Http\Requests\Restaurante\AbrirPedidoRequest;
 use App\Http\Requests\Restaurante\ActualizarItemPedidoRequest;
 use App\Http\Requests\Restaurante\AgregarItemsPedidoRequest;
 use App\Http\Requests\Restaurante\AnularRequest;
+use App\Http\Requests\Restaurante\EnviarComandaRequest;
 use App\Http\Requests\Restaurante\TransferirPedidoRequest;
 use App\Models\Restaurante\Pedido;
+use App\Services\Restaurante\EnviarComandaService;
 use App\Services\Restaurante\GestionarPedidoService;
 use App\Services\Restaurante\PresentarRestauranteService;
 use App\Services\Restaurante\TransferirPedidoService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -29,6 +32,7 @@ class PedidoController extends Controller
         private readonly GestionarPedidoService $pedidos,
         private readonly TransferirPedidoService $transferencias,
         private readonly PresentarRestauranteService $presentar,
+        private readonly EnviarComandaService $envios,
     ) {}
 
     public function store(AbrirPedidoRequest $request): RedirectResponse
@@ -60,6 +64,9 @@ class PedidoController extends Controller
                 : null,
             'puede' => [
                 'editar' => $abierto,
+                'cobrar' => $usuario->hasPermission('ventas.registrar'),
+                'enviar' => $abierto && $usuario->hasPermission('comandas.enviar'),
+                'reimprimir' => $usuario->hasPermission('comandas.enviar') || $usuario->hasPermission('cocina.gestionar'),
                 'anular_enviados' => $usuario->hasPermission('pedidos.anular'),
                 'transferir' => $usuario->hasPermission('pedidos.transferir'),
             ],
@@ -72,6 +79,45 @@ class PedidoController extends Controller
         $items = $this->enDominio(fn () => $this->pedidos->agregarItems($pedido, $request->items(), $usuario->id_usuario, $usuario->idSucursalActiva()), 'items');
 
         return back()->with('success', count($items) === 1 ? 'Ítem agregado a la cuenta.' : count($items).' ítems agregados a la cuenta.');
+    }
+
+    public function enviar(EnviarComandaRequest $request, int $pedido): RedirectResponse
+    {
+        $usuario = $request->user();
+        $sucursal = $usuario->idSucursalActiva();
+        Pedido::query()->where('id_sucursal', $sucursal)->findOrFail($pedido);
+
+        $resultado = $this->enDominio(fn () => $this->envios->enviar(
+            $pedido, $request->validated('clave_envio'), $usuario->id_usuario, $sucursal,
+        ));
+
+        return back()->with('success', $this->mensajeEnvio($resultado));
+    }
+
+    public function guardarYEnviar(AgregarItemsPedidoRequest $request, int $pedido): RedirectResponse
+    {
+        $usuario = $request->user();
+        $sucursal = $usuario->idSucursalActiva();
+        Pedido::query()->where('id_sucursal', $sucursal)->findOrFail($pedido);
+
+        $resultado = $this->enDominio(fn () => DB::transaction(function () use ($pedido, $usuario, $sucursal, $request): array {
+            $this->pedidos->agregarItems($pedido, $request->items(), $usuario->id_usuario, $sucursal);
+
+            return $this->envios->enviar($pedido, $request->validated('clave_envio'), $usuario->id_usuario, $sucursal);
+        }, 3), 'items');
+
+        return back()->with('success', $this->mensajeEnvio($resultado));
+    }
+
+    private function mensajeEnvio(array $resultado): string
+    {
+        $comandas = $resultado['comandas']->count();
+        $directos = $resultado['directos'];
+
+        return collect([
+            $comandas ? "Comandas enviadas: {$comandas}." : null,
+            $directos ? "Ítems de entrega directa: {$directos}." : null,
+        ])->filter()->implode(' ') ?: 'El envío ya estaba registrado.';
     }
 
     public function actualizarItem(ActualizarItemPedidoRequest $request, int $detalle): RedirectResponse
@@ -91,6 +137,7 @@ class PedidoController extends Controller
             $usuario->hasPermission('pedidos.anular'),
             $usuario->id_usuario,
             $usuario->idSucursalActiva(),
+            $request->boolean('recuperar_insumos'),
         ), 'motivo');
 
         return back()->with('success', "{$anulado->nombre_producto} se quitó de la cuenta.");
@@ -105,6 +152,7 @@ class PedidoController extends Controller
             $usuario->hasPermission('pedidos.anular'),
             $usuario->id_usuario,
             $usuario->idSucursalActiva(),
+            $request->boolean('recuperar_insumos'),
         ), 'motivo');
 
         return to_route('restaurante.salon')->with('success', "Cuenta #{$anulado->numero} anulada.");

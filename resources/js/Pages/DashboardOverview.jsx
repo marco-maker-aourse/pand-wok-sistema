@@ -42,6 +42,7 @@ export default function DashboardOverview({
     sucursalActual = 'Sede principal',
     periodoActual = 'hoy',
     filtrosFecha = {},
+    puedeVerReportesRestaurante = false,
     terminales = [],
 }) {
     const [mostrarApertura, setMostrarApertura] = useState(false);
@@ -108,6 +109,7 @@ export default function DashboardOverview({
                         <>
                             <SelectorPeriodo periodoActual={periodoActual} onCambiar={cambiarPeriodo} onFechas={() => setMostrarFechas((actual) => !actual)} />
                             <Button href="/ventas/create" icon={ShoppingCart}>Punto de venta</Button>
+                            {puedeVerReportesRestaurante && <Button href="/reportes/restaurante" variant="secondary">Reportes del restaurante</Button>}
                             <Button href="/ingresos" variant="secondary" icon={PackagePlus}>Entrada de stock</Button>
                         </>
                     }

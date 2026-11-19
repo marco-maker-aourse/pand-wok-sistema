@@ -21,6 +21,12 @@ final class OrigenMovimiento
 
     public const AJUSTE = 'AJUSTE';
 
+    public const CONSUMO_RECETA = 'CONSUMO_RECETA';
+
+    public const REVERSION_RECETA = 'REVERSION_RECETA';
+
+    public const MERMA = 'MERMA';
+
     public function __construct(
         public readonly string $tipo,
         public readonly ?int $idReferencia = null,

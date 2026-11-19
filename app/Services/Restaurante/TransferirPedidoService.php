@@ -19,6 +19,7 @@ class TransferirPedidoService
     public function __construct(
         private readonly BloqueoSalonService $bloqueo,
         private readonly RegistrarEventoPedido $eventos,
+        private readonly CocinaService $cocina,
     ) {}
 
     /** Lleva la cuenta a una mesa libre; la mesa anterior queda disponible. */
@@ -61,6 +62,8 @@ class TransferirPedidoService
 
             $items = $this->itemsMovibles($origen, null);
             PedidoDetalle::query()->whereKey($items->modelKeys())->update(['id_pedido' => $destino->id_pedido]);
+            // La cocina muestra la cuenta/mesa donde quedaron los ítems.
+            $this->cocina->sincronizarPedidos($items->pluck('id_comanda')->all());
 
             $origen->update([
                 'estado' => Pedido::UNIDO,
@@ -101,6 +104,7 @@ class TransferirPedidoService
             }
 
             PedidoDetalle::query()->whereKey($detalleIds)->update(['id_pedido' => $destino->id_pedido]);
+            $this->cocina->sincronizarPedidos($items->pluck('id_comanda')->all());
             $origen->touch();
             $destino->touch();
 

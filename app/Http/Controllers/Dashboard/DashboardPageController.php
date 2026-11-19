@@ -44,6 +44,7 @@ class DashboardPageController extends Controller
 
         return Inertia::render('DashboardOverview', [
             'metrics'             => $data,
+            'puedeVerReportesRestaurante' => $user->hasPermission('reportes.restaurante'),
             'sucursalActual'      => $sucursalNombre,
             'periodoActual'       => $periodo,
             'filtrosFecha'        => ['desde' => $filtros['desde'] ?? null, 'hasta' => $filtros['hasta'] ?? null],

@@ -43,6 +43,7 @@ class HandleInertiaRequests extends Middleware
             $permisos = DB::table('seguridad.rol_permisos as rp')
                 ->join('seguridad.permisos as p', 'p.id_permiso', '=', 'rp.id_permiso')
                 ->where('rp.id_rol', $user->id_rol)
+                ->where('p.estado', true)
                 ->pluck('p.codigo')
                 ->toArray();
         }

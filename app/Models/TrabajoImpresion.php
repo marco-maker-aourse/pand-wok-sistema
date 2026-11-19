@@ -14,7 +14,7 @@ class TrabajoImpresion extends Model
     protected $primaryKey = 'id_trabajo_impresion';
 
     protected $fillable = [
-        'id_sucursal', 'id_terminal', 'id_venta', 'tipo', 'estado', 'clave_idempotencia',
+        'id_sucursal', 'id_terminal', 'id_impresora_cloudprnt', 'id_venta', 'id_comanda', 'tipo', 'estado', 'clave_idempotencia',
         'contenido', 'intentos', 'max_intentos', 'disponible_desde', 'reclamado_en',
         'procesado_en', 'resultado_dispositivo', 'detalle_error',
     ];

@@ -15,6 +15,7 @@ class AgregarItemsPedidoRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'clave_envio' => [$this->routeIs('restaurante.pedidos.guardar-y-enviar') ? 'required' : 'sometimes', 'alpha_num:ascii', 'min:16', 'max:80'],
             'items' => ['required', 'array', 'min:1', 'max:60'],
             'items.*.clave' => ['required', 'string', 'min:16', 'max:80', 'distinct'],
             'items.*.id_precio' => ['required', 'integer'],

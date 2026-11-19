@@ -16,6 +16,14 @@ export const ESTADO_ITEM = {
     ANULADO: { etiqueta: 'Anulado', tono: 'danger' },
 };
 
+export const ESTADO_COMANDA = {
+    PENDIENTE: { etiqueta: 'Pendiente', tono: 'warning' },
+    EN_PREPARACION: { etiqueta: 'En preparación', tono: 'info' },
+    LISTA: { etiqueta: 'Lista', tono: 'success' },
+    ENTREGADA: { etiqueta: 'Entregada', tono: 'neutral' },
+    ANULADA: { etiqueta: 'Anulada', tono: 'danger' },
+};
+
 export const ESTADO_PEDIDO = {
     ABIERTO: { etiqueta: 'Abierta', tono: 'success' },
     CERRADO: { etiqueta: 'Cerrada', tono: 'neutral' },
@@ -43,6 +51,9 @@ export function describirEvento(evento) {
         case 'CUENTA_ABSORBIDA': return `Recibió la cuenta #${d.pedido_origen} (${d.items} ítems)`;
         case 'ITEMS_MOVIDOS': return `Movió a la cuenta #${d.pedido_destino}: ${(d.productos ?? []).join(', ')}`;
         case 'ITEMS_RECIBIDOS': return `Recibió de la cuenta #${d.pedido_origen}: ${(d.productos ?? []).join(', ')}`;
+        case 'COBRO_REGISTRADO': return `Registró el cobro ${d.comprobante}`;
+        case 'PEDIDO_CERRADO': return 'Cerró la cuenta';
+        case 'COMANDA_ENVIADA': return d.comandas?.length ? `Envió a cocina ${d.comandas.map((numero) => `#${numero}`).join(', ')}` : 'Registró los ítems de entrega directa';
         default: return evento.tipo;
     }
 }

@@ -85,7 +85,7 @@ export default function BarraLateral({ modulos, url, organizacion, compacto, onT
                             {(abierto || compacto) && (
                                 <div className="space-y-0.5">
                                     {grupo.items.map((item) => (
-                                        <ItemNavegacion key={item.href} item={item} activo={esRutaActiva(url, item.href)} compacto={compacto} onNavigate={onCerrarMovil} />
+                                        <ItemNavegacion key={item.href} item={item} activo={esRutaActiva(url, item.href, item.exacta)} compacto={compacto} onNavigate={onCerrarMovil} />
                                     ))}
                                 </div>
                             )}

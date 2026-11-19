@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Head, router, usePage } from '@inertiajs/react';
-import { ArrowLeft, ArrowRightLeft, Ban, History, Minus, Plus, Save, Trash2, X } from 'lucide-react';
+import { ArrowLeft, ArrowRightLeft, Ban, History, Minus, Plus, ReceiptText, Save, Send, Trash2, X } from 'lucide-react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Badge, Button, Card, IconButton, cx, toast } from '@/Components/ui';
 import CartaPedido from '@/Components/Restaurante/CartaPedido';
+import ComandasPedido from '@/Components/Restaurante/ComandasPedido';
 import DialogoMotivo from '@/Components/Restaurante/DialogoMotivo';
 import DialogoPlato from '@/Components/Restaurante/DialogoPlato';
 import DialogoTransferir from '@/Components/Restaurante/DialogoTransferir';
@@ -18,6 +19,7 @@ import { hora, nuevaClave, primerError, soles, tiempoDesde, tituloCuenta } from 
  */
 export default function Pedido({ pedido, carta, destinos, puede }) {
     const { flash = {} } = usePage().props;
+    const claveEnvio = useRef(null);
     const [borrador, setBorrador] = useState([]);
     const [platoAbierto, setPlatoAbierto] = useState(null);
     const [ocupado, setOcupado] = useState(false);
@@ -47,6 +49,7 @@ export default function Pedido({ pedido, carta, destinos, puede }) {
     const anulados = pedido.detalles.filter((d) => d.estado === 'ANULADO');
     const totalBorrador = useMemo(() => borrador.reduce((s, l) => s + l.precio_estimado * l.cantidad, 0), [borrador]);
     const editable = puede.editar;
+    const tienePendientes = vigentes.some((item) => item.estado === 'PENDIENTE');
     const estadoPedido = ESTADO_PEDIDO[pedido.estado] ?? ESTADO_PEDIDO.ABIERTO;
 
     const elegir = (producto) => {
@@ -72,15 +75,32 @@ export default function Pedido({ pedido, carta, destinos, puede }) {
         .map((l) => (l.clave === clave ? { ...l, cantidad: l.cantidad + delta } : l))
         .filter((l) => l.cantidad > 0));
 
-    const guardar = () => {
-        router.post(`/pedidos/${pedido.id_pedido}/items`, {
-            items: borrador.map(({ clave, id_precio, cantidad, observacion, opciones }) => ({ clave, id_precio, cantidad, observacion, opciones })),
-        }, {
+    const guardar = (accion) => {
+        const enviar = accion !== 'items';
+        const datos = {};
+        if (accion !== 'enviar-cocina') {
+            datos.items = borrador.map(({ clave, id_precio, cantidad, observacion, opciones }) => ({ clave, id_precio, cantidad, observacion, opciones }));
+        }
+        if (enviar) {
+            const firma = JSON.stringify([pedido.id_pedido, accion, datos.items]);
+            if (claveEnvio.current?.firma !== firma) {
+                claveEnvio.current = { firma, clave: nuevaClave() };
+            }
+            datos.clave_envio = claveEnvio.current.clave;
+        }
+        router.post(`/pedidos/${pedido.id_pedido}/${accion}`, datos, {
             preserveScroll: true,
             onStart: () => setOcupado(true),
             onFinish: () => setOcupado(false),
-            onSuccess: () => { setBorrador([]); setVista('cuenta'); },
-            onError: (errores) => toast.error('No se guardó el pedido', primerError(errores)),
+            onSuccess: () => {
+                if (enviar) claveEnvio.current = null;
+                if (accion !== 'enviar-cocina') setBorrador([]);
+                setVista('cuenta');
+            },
+            onError: (errores) => {
+                if (enviar) claveEnvio.current = null;
+                toast.error(enviar ? 'No se pudo enviar a cocina' : 'No se guardó el pedido', primerError(errores));
+            },
         });
     };
 
@@ -106,9 +126,9 @@ export default function Pedido({ pedido, carta, destinos, puede }) {
         setAnulacion({ item });
     };
 
-    const enviarAnulacion = (objetivo, motivo) => {
+    const enviarAnulacion = (objetivo, motivo, recuperar = false) => {
         const url = objetivo.item ? `/pedidos/items/${objetivo.item.id_detalle_pedido}/anular` : `/pedidos/${pedido.id_pedido}/anular`;
-        router.post(url, { motivo }, {
+        router.post(url, { motivo, recuperar_insumos: recuperar }, {
             preserveScroll: true,
             onStart: () => setOcupado(true),
             onFinish: () => setOcupado(false),
@@ -143,6 +163,7 @@ export default function Pedido({ pedido, carta, destinos, puede }) {
                     {pedido.direccion_entrega && <p className="text-sm text-slate-600">Entrega: {pedido.direccion_entrega}{pedido.telefono_contacto && ` · ${pedido.telefono_contacto}`}</p>}
                     {pedido.observacion && <p className="text-sm text-amber-700">Nota: {pedido.observacion}</p>}
                 </div>
+                {puede.cobrar && <Button icon={ReceiptText} href={`/pedidos/${pedido.id_pedido}/cobrar`}>{editable ? 'Cobrar cuenta' : 'Ver cobros'}</Button>}
                 {editable && (
                     <div className="flex flex-wrap gap-2">
                         {puede.transferir && destinos && <Button variant="secondary" icon={ArrowRightLeft} onClick={() => setTransferir(true)}>Transferir</Button>}
@@ -211,6 +232,7 @@ export default function Pedido({ pedido, carta, destinos, puede }) {
                             </ul>
                         )}
 
+                        <ComandasPedido comandas={pedido.comandas} puedeReimprimir={puede.reimprimir} disabled={ocupado} />
                         {anulados.length > 0 && (
                             <details className="border-t border-slate-100">
                                 <summary className="cursor-pointer px-4 py-2.5 text-xs font-medium text-slate-500">{anulados.length} ítem(s) anulados</summary>
@@ -226,14 +248,23 @@ export default function Pedido({ pedido, carta, destinos, puede }) {
                             <span className="text-sm text-slate-600">Total de la cuenta</span>
                             <span className="font-mono text-2xl font-semibold tabular-nums text-slate-900">{soles(pedido.total)}</span>
                         </div>
+                        {pedido.saldo !== pedido.total && (
+                            <p className="flex justify-between text-sm text-slate-700"><span>Saldo por cobrar</span><strong>{soles(pedido.saldo)}</strong></p>
+                        )}
                         {borrador.length > 0 && (
                             <>
                                 <p className="text-right text-xs text-slate-500">+ {soles(totalBorrador)} por guardar (estimado)</p>
                                 <div className="grid grid-cols-[auto_1fr] gap-2">
                                     <Button variant="secondary" size="lg" icon={Trash2} onClick={() => setBorrador([])} disabled={ocupado} aria-label="Descartar lo no guardado" />
-                                    <Button size="lg" icon={Save} onClick={guardar} loading={ocupado} block>Guardar {borrador.reduce((s, l) => s + l.cantidad, 0)} en la cuenta</Button>
+                                    <Button size="lg" icon={Save} onClick={() => guardar('items')} loading={ocupado} block>Guardar {borrador.reduce((s, l) => s + l.cantidad, 0)} en la cuenta</Button>
                                 </div>
                             </>
+                        )}
+                        {puede.enviar && borrador.length > 0 && (
+                            <Button size="lg" icon={Send} onClick={() => guardar('guardar-y-enviar')} disabled={ocupado} block>Guardar y enviar</Button>
+                        )}
+                        {puede.enviar && tienePendientes && (
+                            <Button size="lg" variant="secondary" icon={Send} onClick={() => guardar('enviar-cocina')} disabled={ocupado} block>Enviar a cocina</Button>
                         )}
                         <button type="button" onClick={() => setVerHistorial((v) => !v)} className="flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-slate-800" aria-expanded={verHistorial}>
                             <History className="h-3.5 w-3.5" aria-hidden="true" /> Historial
@@ -262,7 +293,8 @@ export default function Pedido({ pedido, carta, destinos, puede }) {
                 enviando={ocupado}
                 error={errorAnulacion}
                 onCerrar={() => setAnulacion(null)}
-                onConfirmar={(motivo) => enviarAnulacion(anulacion, motivo)}
+                puedeRecuperar={puede.anular_enviados && (anulacion?.pedido ? vigentes.some((item) => item.estado === 'ENVIADO') : anulacion?.item?.estado === 'ENVIADO')}
+                onConfirmar={(motivo, recuperar) => enviarAnulacion(anulacion, motivo, recuperar)}
             />
 
             {destinos && (

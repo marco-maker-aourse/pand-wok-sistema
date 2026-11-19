@@ -65,7 +65,8 @@ export default function AuthenticatedLayout({ header, children, fullWidth = fals
 
     const rolNombre = user.rol_nombre || user.rol || '';
     const rolId = Number(user.id_rol || 0);
-    const modulos = useMemo(() => filtrarNavegacionPorRol(navigationModules, rolNombre, rolId), [rolNombre, rolId]);
+    const permisos = user.permissions;
+    const modulos = useMemo(() => filtrarNavegacionPorRol(navigationModules, rolNombre, rolId, permisos), [rolNombre, rolId, permisos]);
 
     const nombreUsuario = user.nombres || user.name || 'Usuario';
     const usuario = { nombre: nombreUsuario, email: user.email || '', rol: rolNombre, iniciales: iniciales(nombreUsuario) };

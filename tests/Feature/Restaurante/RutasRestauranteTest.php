@@ -5,6 +5,7 @@ namespace Tests\Feature\Restaurante;
 use App\Models\Rol;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
@@ -30,7 +31,7 @@ class RutasRestauranteTest extends TestCase
             ['id_rol' => 1, 'nombre' => 'Administrador General'],
             ['id_rol' => 5, 'nombre' => 'Mozo'],
         ]);
-        foreach (['mesas.ver', 'pedidos.registrar'] as $i => $codigo) {
+        foreach (['mesas.ver', 'pedidos.registrar', 'comandas.enviar'] as $i => $codigo) {
             DB::table('seguridad.permisos')->insert(['id_permiso' => $i + 1, 'codigo' => $codigo, 'nombre' => $codigo, 'modulo' => 'restaurante']);
             DB::table('seguridad.rol_permisos')->insert(['id_rol' => 5, 'id_permiso' => $i + 1]);
         }
@@ -47,7 +48,7 @@ class RutasRestauranteTest extends TestCase
 
     public function test_las_pantallas_del_restaurante_exigen_sesion(): void
     {
-        foreach (['/salon', '/salon/configuracion', '/carta', '/pedidos/1'] as $ruta) {
+        foreach (['/salon', '/salon/configuracion', '/carta', '/pedidos/1', '/cocina', '/cocina/estaciones'] as $ruta) {
             $this->get($ruta)->assertRedirect(route('login'));
         }
     }
@@ -109,6 +110,51 @@ class RutasRestauranteTest extends TestCase
         $this->actingAs($mozo)->get('/salon/configuracion')->assertForbidden();
         $this->actingAs($mozo)->get('/carta')->assertForbidden();
         $this->assertSame('OCUPADA', $this->estadoMesa(1));
+    }
+
+    public function test_mozo_guarda_y_envia_pero_solo_cocina_actualiza_el_estado(): void
+    {
+        $this->actingAs($this->usuario(20))->post('/pedidos', ['tipo' => 'MESA', 'id_mesa' => 1, 'clave_idempotencia' => str_repeat('k', 32)]);
+        $pedido = (int) DB::table('restaurante.pedidos')->value('id_pedido');
+        $datos = ['items' => [$this->lomo(str_repeat('l', 32))], 'clave_envio' => str_repeat('e', 32)];
+        $this->post("/pedidos/{$pedido}/guardar-y-enviar", $datos)->assertSessionHasNoErrors();
+        $this->post("/pedidos/{$pedido}/guardar-y-enviar", $datos)->assertSessionHasNoErrors();
+        $comanda = (int) DB::table('restaurante.comandas')->value('id_comanda');
+        $this->assertDatabaseCount('restaurante.comandas', 1);
+        $this->assertDatabaseCount('restaurante.pedido_detalles', 1);
+        $this->get('/cocina')->assertForbidden();
+        $this->put("/cocina/comandas/{$comanda}/estado", ['estado' => 'LISTA'])->assertForbidden();
+
+        $this->actingAs($this->usuario(10))->get('/cocina')->assertInertia(fn (Assert $page) => $page
+            ->component('Restaurante/Cocina')->where('comandas.0.pedido.mesa', 'M1'));
+        $this->put("/cocina/comandas/{$comanda}/estado", ['estado' => 'LISTA'])->assertSessionHasNoErrors();
+        $this->get("/pedidos/{$pedido}")->assertInertia(fn (Assert $page) => $page->where('pedido.comandas.0.estado', 'LISTA'));
+        $this->actingAs($this->usuario(10))->withSession(['sucursal_activa' => 2])->put("/cocina/comandas/{$comanda}/estado", ['estado' => 'ENTREGADA'])->assertNotFound();
+    }
+
+    public function test_administrador_configura_estaciones_y_categorias_de_la_sucursal(): void
+    {
+        DB::table('catalogos.categorias')->insert(['id_categoria' => 1, 'nombre' => 'Bebidas']);
+        $datos = ['nombre' => 'Bar', 'activo' => true, 'por_defecto' => false, 'orden' => 0, 'copias' => 1, 'categorias' => [1]];
+        $this->actingAs($this->usuario(20))->post('/cocina/estaciones', $datos)->assertForbidden();
+        $this->actingAs($this->usuario(10))->post('/cocina/estaciones', $datos)->assertSessionHasNoErrors();
+        $this->get('/cocina/estaciones')->assertInertia(fn (Assert $page) => $page
+            ->component('Restaurante/Estaciones')->where('estaciones.0.nombre', 'Bar')->where('estaciones.0.categorias', [1]));
+    }
+
+    public function test_el_rol_de_cocina_entra_directamente_al_tablero_al_iniciar_sesion(): void
+    {
+        DB::table('seguridad.roles')->insert(['id_rol' => 6, 'nombre' => 'Cocina']);
+        DB::table('seguridad.permisos')->insert(['id_permiso' => 6, 'codigo' => 'cocina.ver', 'nombre' => 'Ver cocina', 'modulo' => 'restaurante']);
+        DB::table('seguridad.rol_permisos')->insert(['id_rol' => 6, 'id_permiso' => 6]);
+        DB::table('seguridad.usuarios')->insert([
+            'id_usuario' => 30, 'id_rol' => 6, 'id_sucursal' => 1, 'nombres' => 'Cocina', 'email' => 'c@x.test',
+            'password' => Hash::make('clave-temporal-de-prueba'),
+        ]);
+
+        $this->post('/login', ['email' => 'c@x.test', 'password' => 'clave-temporal-de-prueba'])
+            ->assertRedirect(route('restaurante.cocina'));
+        $this->get('/cocina')->assertInertia(fn (Assert $page) => $page->component('Restaurante/Cocina'));
     }
 
     public function test_un_pedido_de_otra_sucursal_da_404(): void

@@ -3,6 +3,7 @@
  * real sigue en los middleware y policies del servidor.
  */
 const PERMISOS_POR_ROL = {
+    COCINA: { grupos: [], items: [] },
     CAJERO: {
         grupos: ['Principal', 'Restaurante', 'Operaciones', 'Gestión'],
         items: ['Inicio', 'Salón', 'Caja', 'Ventas', 'Productos', 'Clientes'],
@@ -34,11 +35,15 @@ const PERMISOS_POR_ROL = {
 
 const ROLES_ADMINISTRADOR = ['ADMINISTRADOR', 'ADMINISTRADOR GENERAL'];
 
-export function filtrarNavegacionPorRol(modulos = [], rolNombre = '', rolId = 0) {
+export function filtrarNavegacionPorRol(modulos = [], rolNombre = '', rolId = 0, permisos = []) {
     const rol = (rolNombre || '').trim().toUpperCase();
 
+    if (rol === 'ADMINISTRADOR GENERAL') return modulos;
     if (ROLES_ADMINISTRADOR.includes(rol) || rolId === 1) {
-        return modulos;
+        return modulos.map((grupo) => ({
+            ...grupo,
+            items: grupo.items.filter((item) => !item.permiso || permisos.includes(item.permiso)),
+        }));
     }
 
     let config = PERMISOS_POR_ROL[rol];
@@ -50,16 +55,17 @@ export function filtrarNavegacionPorRol(modulos = [], rolNombre = '', rolId = 0)
     const items = config.items.map((i) => i.toLowerCase());
 
     return modulos
-        .filter((grupo) => grupos.includes((grupo?.label || '').toLowerCase()))
         .map((grupo) => ({
             ...grupo,
-            items: (grupo.items || []).filter((item) => items.includes((item?.label || '').toLowerCase())),
+            items: (grupo.items || []).filter((item) => item.permiso
+                ? permisos.includes(item.permiso)
+                : grupos.includes(grupo.label.toLowerCase()) && items.includes(item.label.toLowerCase())),
         }))
         .filter((grupo) => grupo.items.length > 0);
 }
 
-export function esRutaActiva(url, href) {
+export function esRutaActiva(url, href, exacta = false) {
     if (!href) return false;
     const ruta = url.split('?')[0];
-    return ruta === href || (href !== '/' && ruta.startsWith(`${href}/`));
+    return ruta === href || (!exacta && href !== '/' && ruta.startsWith(`${href}/`));
 }

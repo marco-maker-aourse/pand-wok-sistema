@@ -14,6 +14,8 @@ class Impresora extends Model
     protected $table = 'catalogos.impresoras';
     protected $primaryKey = 'id_impresora';
 
+    protected $hidden = ['cloudprnt_clave_hash'];
+
     protected $fillable = [
         'id_sucursal', 'nombre', 'marca', 'modelo', 'tipo_conexion', 'identificador',
         'puerto', 'ancho_papel_mm', 'soporta_escpos', 'corte_automatico', 'abre_cajon',

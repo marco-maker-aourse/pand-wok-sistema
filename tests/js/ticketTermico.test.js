@@ -4,7 +4,7 @@
  *   node --test tests/js        (npm run test:js)
  *
  * Usa datos ficticios (fixtures): no consulta la base de datos ni emite nada a SUNAT.
- * Si el agente compilado está disponible (../agente-impresion/build o AGENTE_IMPRESION_DIR),
+ * Si el agente compilado está disponible (../agente-impresion-restaurante/build o AGENTE_IMPRESION_RESTAURANTE_DIR),
  * se compara su salida con la del sistema web para los mismos datos.
  */
 import assert from 'node:assert/strict';
@@ -146,7 +146,7 @@ test('contenidoDesdeComprobante arma el mismo trabajo que Laravel envía al agen
 
 // ------------------------------------------------------------------ Equivalencia con el agente
 
-const dirAgente = process.env.AGENTE_IMPRESION_DIR || path.resolve(aqui, '../../../agente-impresion');
+const dirAgente = process.env.AGENTE_IMPRESION_RESTAURANTE_DIR || path.resolve(aqui, '../../../agente-impresion-restaurante');
 const impresoras = path.join(dirAgente, 'build/src/infrastructure/printers');
 const hayAgente = existsSync(path.join(impresoras, 'HtmlTicket.js')) && existsSync(path.join(impresoras, 'EstilosTicket.js'));
 const requerir = createRequire(import.meta.url);

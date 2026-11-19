@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Impresora;
 use App\Models\TerminalPos;
 use App\Models\TrabajoImpresion;
 use App\Services\Impresion\GestionarVinculacionAgenteService;
@@ -82,51 +83,55 @@ class AgenteImpresionController extends Controller
             'resultado_dispositivo' => ['nullable', 'string', 'max:30'],
         ]);
 
-        $job = TrabajoImpresion::withoutGlobalScopes()
-            ->whereKey($trabajo)
-            ->where('id_terminal', $terminal->id_terminal)
-            ->firstOrFail();
+        return DB::transaction(function () use ($trabajo, $terminal, $data, $request): JsonResponse {
+            $job = TrabajoImpresion::withoutGlobalScopes()
+                ->whereKey($trabajo)
+                ->where('id_terminal', $terminal->id_terminal)
+                ->lockForUpdate()->firstOrFail();
 
-        // La red puede perder la respuesta después de persistir el resultado. Repetir la
-        // misma confirmación es seguro; una transición distinta se rechaza explícitamente.
-        if (in_array($job->estado, ['ENVIADO_SO', 'CONFIRMADO', 'FALLIDO'], true)) {
-            abort_unless($job->estado === $data['estado'], 409, 'El trabajo ya fue cerrado con otro resultado.');
+            // La red puede perder la respuesta después de persistir el resultado. Repetir la
+            // misma confirmación es seguro; una transición distinta se rechaza explícitamente.
+            if (in_array($job->estado, ['ENVIADO_SO', 'CONFIRMADO', 'FALLIDO'], true)) {
+                abort_unless($job->estado === $data['estado'], 409, 'El trabajo ya fue cerrado con otro resultado.');
 
-            return response()->json(['data' => ['id_trabajo_impresion' => $job->id_trabajo_impresion, 'estado' => $job->estado, 'idempotente' => true]]);
-        }
+                return response()->json(['data' => ['id_trabajo_impresion' => $job->id_trabajo_impresion, 'estado' => $job->estado, 'idempotente' => true]]);
+            }
 
-        abort_unless($job->estado === 'ENTREGADO_AGENTE', 409, 'El trabajo no está disponible para confirmación.');
+            abort_unless($job->estado === 'ENTREGADO_AGENTE', 409, 'El trabajo no está disponible para confirmación.');
 
-        // CONFIRMADO se reserva a hardware capaz de reportarlo. ESC/POS común solo llega a ENVIADO_SO.
-        $job->update([
-            'estado' => $data['estado'],
-            'detalle_error' => $data['estado'] === 'FALLIDO' ? ($data['detalle_error'] ?? 'El agente reportó un fallo de impresión.') : null,
-            'resultado_dispositivo' => $data['resultado_dispositivo'] ?? null,
-            'procesado_en' => now(),
-        ]);
-
-        $impresora = $terminal->impresora;
-        if ($impresora && $job->tipo === 'DIAGNOSTICO') {
-            $estadoConexion = in_array($data['resultado_dispositivo'] ?? null, ['conectada', 'desconectada', 'error'], true)
-                ? $data['resultado_dispositivo']
-                : ($data['estado'] === 'FALLIDO' ? 'error' : 'desconocido');
-            $impresora->update([
-                'estado_conexion' => $estadoConexion,
-                'ultima_verificacion' => now(),
-                'ultimo_error_conexion' => $data['estado'] === 'FALLIDO' ? ($data['detalle_error'] ?? null) : null,
+            // CONFIRMADO se reserva a hardware capaz de reportarlo. ESC/POS común solo llega a ENVIADO_SO.
+            $job->update([
+                'estado' => $data['estado'],
+                'detalle_error' => $data['estado'] === 'FALLIDO' ? ($data['detalle_error'] ?? 'El agente reportó un fallo de impresión.') : null,
+                'resultado_dispositivo' => $data['resultado_dispositivo'] ?? null,
+                'procesado_en' => now(),
             ]);
-        } elseif ($impresora) {
-            $impresora->update([
-                'ultima_impresion' => now(),
-                'ultimo_resultado_impresion' => match ($data['estado']) {
-                    'CONFIRMADO' => 'correcta', 'FALLIDO' => 'fallida', default => 'desconocida',
-                },
-                'ultimo_error_impresion' => $data['estado'] === 'FALLIDO' ? ($data['detalle_error'] ?? null) : null,
-            ]);
-        }
-        $this->registrarContacto($terminal, $request->string('version')->toString());
 
-        return response()->json(['data' => ['id_trabajo_impresion' => $job->id_trabajo_impresion, 'estado' => $data['estado']]]);
+            $impresora = $job->tipo === 'COMANDA'
+                ? Impresora::withoutGlobalScopes()->where('id_sucursal', $job->id_sucursal)->find(data_get($job->contenido, 'impresora.id'))
+                : $terminal->impresora;
+            if ($impresora && $job->tipo === 'DIAGNOSTICO') {
+                $estadoConexion = in_array($data['resultado_dispositivo'] ?? null, ['conectada', 'desconectada', 'error'], true)
+                    ? $data['resultado_dispositivo']
+                    : ($data['estado'] === 'FALLIDO' ? 'error' : 'desconocido');
+                $impresora->update([
+                    'estado_conexion' => $estadoConexion,
+                    'ultima_verificacion' => now(),
+                    'ultimo_error_conexion' => $data['estado'] === 'FALLIDO' ? ($data['detalle_error'] ?? null) : null,
+                ]);
+            } elseif ($impresora) {
+                $impresora->update([
+                    'ultima_impresion' => now(),
+                    'ultimo_resultado_impresion' => match ($data['estado']) {
+                        'CONFIRMADO' => 'correcta', 'FALLIDO' => 'fallida', default => 'desconocida',
+                    },
+                    'ultimo_error_impresion' => $data['estado'] === 'FALLIDO' ? ($data['detalle_error'] ?? null) : null,
+                ]);
+            }
+            $this->registrarContacto($terminal, $request->string('version')->toString());
+
+            return response()->json(['data' => ['id_trabajo_impresion' => $job->id_trabajo_impresion, 'estado' => $data['estado']]]);
+        }, 3);
     }
 
     /** Sincroniza únicamente el nombre de cola detectado por su propio agente local. */
