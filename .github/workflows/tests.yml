@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - desarrollo
       - '*.x'
   pull_request:
   schedule:

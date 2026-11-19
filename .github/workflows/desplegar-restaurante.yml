@@ -12,7 +12,11 @@ name: Desplegar restaurante
 #   manual con "solo_probar_conexion" funciona siempre y nunca publica.
 
 on:
+  # main publica; desarrollo y los pull requests hacia main solo verifican (el job
+  # "decidir" y "desplegar" exigen refs/heads/main).
   push:
+    branches: [main, desarrollo]
+  pull_request:
     branches: [main]
   workflow_dispatch:
     inputs:
@@ -33,7 +37,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: restaurante-produccion
+  # main comparte grupo con "Operaciones del restaurante": nunca dos cambios al host a la vez.
+  group: ${{ github.ref == 'refs/heads/main' && 'restaurante-produccion' || format('verificar-{0}', github.ref) }}
   cancel-in-progress: false
 
 jobs:
