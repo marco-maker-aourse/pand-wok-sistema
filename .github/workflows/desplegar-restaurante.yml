@@ -100,7 +100,8 @@ jobs:
       SSH_PORT: ${{ secrets.SSH_PORT }}
       SSH_USER: ${{ secrets.SSH_USER }}
       SSH_HOST_FINGERPRINT: ${{ secrets.SSH_HOST_FINGERPRINT }}
-      HEALTH_URL: ${{ vars.DEPLOY_HEALTHCHECK_URL }}
+      # Se acepta como variable (recomendado) o como secreto.
+      HEALTH_URL: ${{ vars.DEPLOY_HEALTHCHECK_URL || secrets.DEPLOY_HEALTHCHECK_URL }}
       # Rutas relativas al $HOME del usuario SSH.
       APP_DIR: ${{ vars.DEPLOY_APP_DIR || 'restaurante' }}
       # Vacío = el dominio apunta a APP_DIR/public. Con valor (p. ej. public_html), se
@@ -127,9 +128,18 @@ jobs:
       - name: Validar configuración y autorización de migraciones
         run: |
           set -euo pipefail
-          for variable in SSH_HOST SSH_PORT SSH_USER SSH_HOST_FINGERPRINT HEALTH_URL; do
-            test -n "${!variable}" || { echo "Falta configurar $variable en GitHub." >&2; exit 1; }
+          # Nombre de cada dato tal como se crea en GitHub (Settings → Secrets and variables → Actions).
+          faltan=0
+          for par in SSH_HOST:SSH_HOST SSH_PORT:SSH_PORT SSH_USER:SSH_USER SSH_HOST_FINGERPRINT:SSH_HOST_FINGERPRINT; do
+            interno=${par%%:*}; nombre=${par#*:}
+            if [ -z "${!interno}" ]; then echo "::error::Falta el secreto $nombre en GitHub."; faltan=1; fi
           done
+          # La URL de salud solo se usa al publicar; la prueba de conexión no la necesita.
+          if [ "$SOLO_CONEXION" != true ] && [ -z "$HEALTH_URL" ]; then
+            echo "::error::Falta la variable DEPLOY_HEALTHCHECK_URL (pestaña Variables), p. ej. https://chifapandwok.online/salud"
+            faltan=1
+          fi
+          [ "$faltan" = 0 ] || exit 1
           case "$APP_DIR" in /*|*..*|'') echo 'DEPLOY_APP_DIR debe ser una ruta relativa al HOME, sin "..".' >&2; exit 1;; esac
           case "$PUBLIC_DIR" in /*|*..*) echo 'DEPLOY_PUBLIC_DIR debe ser relativa al HOME, sin "..".' >&2; exit 1;; esac
           if [ "$APLICAR_MIGRACIONES" = true ] && [ "$RESPALDO_CONFIRMADO" != true ]; then
