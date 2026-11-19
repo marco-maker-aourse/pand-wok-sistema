@@ -82,14 +82,38 @@ jobs:
           if-no-files-found: error
           retention-days: 3
 
+  # GitHub no permite leer secretos ni variables del environment en el `if` de un job;
+  # este paso sí, así que DEPLOY_HABILITADO funciona como variable o secreto, del
+  # repositorio o del environment.
+  decidir:
+    name: ¿Despliegue habilitado?
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: restaurante-produccion
+    outputs:
+      habilitado: ${{ steps.leer.outputs.habilitado }}
+    steps:
+      - id: leer
+        env:
+          VALOR: ${{ vars.DEPLOY_HABILITADO || secrets.DEPLOY_HABILITADO }}
+        run: |
+          valor=$(printf '%s' "$VALOR" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')
+          if [ "$valor" = true ]; then
+            echo "habilitado=true" >> "$GITHUB_OUTPUT"
+            echo 'DEPLOY_HABILITADO = true: se publicará.'
+          else
+            echo "habilitado=false" >> "$GITHUB_OUTPUT"
+            echo 'DEPLOY_HABILITADO no es "true": solo se verifica.'
+          fi
+
   desplegar:
     name: Publicar en el host del restaurante
-    needs: verificar
+    needs: [verificar, decidir]
     # Publica solo con DEPLOY_HABILITADO. La prueba de conexión manual corre siempre:
     # sirve justamente para validar SSH antes de habilitar el despliegue, y no publica nada.
     if: >-
       github.ref == 'refs/heads/main' &&
-      (vars.DEPLOY_HABILITADO == 'true' ||
+      (needs.decidir.outputs.habilitado == 'true' ||
        (github.event_name == 'workflow_dispatch' && inputs.solo_probar_conexion == true))
     runs-on: ubuntu-latest
     timeout-minutes: 25
