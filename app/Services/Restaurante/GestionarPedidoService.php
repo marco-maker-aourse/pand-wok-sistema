@@ -100,7 +100,7 @@ class GestionarPedidoService
                     'producto' => $nuevo->nombre_producto,
                     'cantidad' => (float) $nuevo->cantidad,
                     'precio_unitario' => (float) $nuevo->precio_unitario,
-                    'opciones' => array_column($modificadores, 'nombre_opcion'),
+                    'opciones' => array_map(fn (array $m): string => PedidoDetalleModificador::etiquetaDe($m['nombre_opcion'], $m['cantidad'], (float) $nuevo->cantidad), $modificadores),
                 ], $nuevo->id_detalle_pedido);
 
                 $registrados[] = $nuevo;
@@ -112,7 +112,11 @@ class GestionarPedidoService
         });
     }
 
-    /** Cambia cantidad u observación de un ítem que todavía no salió a cocina. */
+    /**
+     * Cambia cantidad, observación u opciones de un ítem que todavía no salió a cocina.
+     * Lo enviado a cocina no se altera: para eso hay que anular y volver a pedir.
+     * El precio base queda congelado; las opciones se revalidan y cotizan en el servidor.
+     */
     public function actualizarItem(int $detalleId, array $cambios, int $usuarioId, int $sucursalId): PedidoDetalle
     {
         return DB::transaction(function () use ($detalleId, $cambios, $usuarioId, $sucursalId): PedidoDetalle {
@@ -121,14 +125,37 @@ class GestionarPedidoService
                 throw new DomainException('Solo se pueden editar ítems pendientes y sin cobros.');
             }
 
-            $antes = ['cantidad' => (float) $detalle->cantidad, 'observacion' => $detalle->observacion];
+            $actuales = $detalle->modificadores()->get();
+            $antes = ['cantidad' => (float) $detalle->cantidad, 'observacion' => $detalle->observacion,
+                'opciones' => $actuales->map->etiqueta((float) $detalle->cantidad)->all()];
             $nuevos = [];
 
-            if (array_key_exists('cantidad', $cambios)) {
-                $cantidad = round((float) $cambios['cantidad'], 3);
-                if ($cantidad <= 0 || $cantidad > ArmarItemPedidoService::CANTIDAD_MAXIMA) {
-                    throw new DomainException('La cantidad debe ser mayor que cero y no superar '.ArmarItemPedidoService::CANTIDAD_MAXIMA.'.');
+            $cantidad = array_key_exists('cantidad', $cambios) ? round((float) $cambios['cantidad'], 3) : (float) $detalle->cantidad;
+            if ($cantidad <= 0 || $cantidad > ArmarItemPedidoService::CANTIDAD_MAXIMA) {
+                throw new DomainException('La cantidad debe ser mayor que cero y no superar '.ArmarItemPedidoService::CANTIDAD_MAXIMA.'.');
+            }
+            $cambiaCantidad = $cantidad !== round((float) $detalle->cantidad, 3);
+            $selecciones = $cambios['selecciones'] ?? null;
+            if ($selecciones === null && $cambiaCantidad && $actuales->isNotEmpty()) {
+                // Si cada opción iba en todas las unidades, acompaña a la nueva cantidad.
+                if ($actuales->contains(fn ($m) => round((float) $m->cantidad, 3) !== round((float) $detalle->cantidad, 3))) {
+                    throw new DomainException('Las opciones están repartidas entre unidades: vuelve a elegirlas para la nueva cantidad.');
                 }
+                $selecciones = $actuales->map(fn ($m): array => ['id_opcion' => (int) $m->id_opcion, 'cantidad' => $cantidad])->all();
+            }
+
+            if ($selecciones !== null) {
+                ['detalle' => $armado, 'modificadores' => $modificadores] = $this->items->armar([
+                    'id_precio' => $detalle->id_precio, 'cantidad' => $cantidad, 'selecciones' => $selecciones,
+                ], $sucursalId);
+                $precioUnitario = round((float) $detalle->precio_base + $armado['precio_modificadores'], 4);
+                $nuevos += ['cantidad' => $cantidad, 'precio_modificadores' => $armado['precio_modificadores'],
+                    'precio_unitario' => $precioUnitario, 'subtotal' => ArmarItemPedidoService::subtotal($cantidad, $precioUnitario)];
+                $detalle->modificadores()->delete();
+                foreach ($modificadores as $modificador) {
+                    PedidoDetalleModificador::query()->create([...$modificador, 'id_detalle_pedido' => $detalle->id_detalle_pedido]);
+                }
+            } elseif ($cambiaCantidad) {
                 $nuevos['cantidad'] = $cantidad;
                 $nuevos['subtotal'] = ArmarItemPedidoService::subtotal($cantidad, (float) $detalle->precio_unitario);
             }
@@ -143,7 +170,8 @@ class GestionarPedidoService
             $this->eventos->registrar($detalle->id_pedido, $usuarioId, RegistrarEventoPedido::ITEM_MODIFICADO, [
                 'producto' => $detalle->nombre_producto,
                 'antes' => $antes,
-                'despues' => ['cantidad' => (float) $detalle->cantidad, 'observacion' => $detalle->observacion],
+                'despues' => ['cantidad' => (float) $detalle->cantidad, 'observacion' => $detalle->observacion,
+                    'opciones' => $detalle->modificadores()->get()->map->etiqueta((float) $detalle->cantidad)->all()],
             ], $detalle->id_detalle_pedido);
 
             return $detalle->refresh();

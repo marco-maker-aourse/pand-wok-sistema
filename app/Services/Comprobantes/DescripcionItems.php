@@ -2,6 +2,7 @@
 
 namespace App\Services\Comprobantes;
 
+use App\Models\Restaurante\PedidoDetalleModificador;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -26,12 +27,16 @@ final class DescripcionItems
             return [];
         }
 
-        return DB::table('restaurante.pedido_detalle_modificadores')
-            ->whereIn('id_detalle_pedido', $ids)
-            ->orderBy('id_detalle_modificador')
-            ->get(['id_detalle_pedido', 'nombre_opcion'])
+        return DB::table('restaurante.pedido_detalle_modificadores as m')
+            ->join('restaurante.pedido_detalles as d', 'd.id_detalle_pedido', '=', 'm.id_detalle_pedido')
+            ->whereIn('m.id_detalle_pedido', $ids)
+            ->orderBy('m.id_detalle_modificador')
+            ->get(['m.id_detalle_pedido', 'm.nombre_opcion', 'm.cantidad', 'd.cantidad as cantidad_item'])
             ->groupBy('id_detalle_pedido')
-            ->map(fn ($filas) => $filas->pluck('nombre_opcion')->implode(', '))
+            // "2 × Menú": "1 × Sopa wantán, 1 × Sopa de pollo" cuando se repartieron.
+            ->map(fn ($filas) => $filas->map(fn (object $f): string => PedidoDetalleModificador::etiquetaDe(
+                $f->nombre_opcion, (float) $f->cantidad, (float) $f->cantidad_item,
+            ))->implode(', '))
             ->mapWithKeys(fn (string $texto, $id) => [(int) $id => $texto])
             ->all();
     }

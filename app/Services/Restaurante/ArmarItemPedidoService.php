@@ -4,7 +4,6 @@ namespace App\Services\Restaurante;
 
 use App\Models\Producto;
 use App\Models\ProductoPresentacion;
-use App\Models\Restaurante\GrupoModificador;
 use DomainException;
 use Illuminate\Support\Facades\DB;
 
@@ -16,17 +15,22 @@ use Illuminate\Support\Facades\DB;
  * - La presentación y el producto deben estar activos; los insumos no se venden.
  * - El producto no debe estar agotado en la sucursal.
  * - El precio base es el de la sucursal (PrecioSucursalService), no el general.
- * - Cada opción debe estar activa y pertenecer a un grupo asignado al producto.
- * - Se respeta el mínimo y máximo de selección de cada grupo (obligatorios incluidos).
+ * - Cada opción debe pertenecer a un grupo del plato y estar disponible en la sucursal
+ *   (OpcionesSucursalService): ni desactivada ni agotada. Su recargo es el de la sucursal.
+ * - Se respeta el mínimo y máximo de cada grupo por unidad (obligatorios incluidos).
+ * - Una opción incluida (recargo 0) no se cobra aparte: va dentro del precio del plato.
  */
 class ArmarItemPedidoService
 {
     public const CANTIDAD_MAXIMA = 999;
 
-    public function __construct(private readonly PrecioSucursalService $precios) {}
+    public function __construct(
+        private readonly PrecioSucursalService $precios,
+        private readonly OpcionesSucursalService $opcionesSucursal,
+    ) {}
 
     /**
-     * @param  array{id_precio:int, cantidad:float|int|string, observacion?:?string, opciones?:array<int>}  $item
+     * @param  array{id_precio:int, cantidad:float|int|string, observacion?:?string, opciones?:array<int>, selecciones?:array<int, array{id_opcion:int, cantidad:float}>}  $item
      * @return array{detalle: array<string, mixed>, modificadores: array<int, array<string, mixed>>}
      */
     public function armar(array $item, int $sucursalId): array
@@ -57,10 +61,10 @@ class ArmarItemPedidoService
             throw new DomainException("{$producto->nombre} está agotado en esta sucursal.");
         }
 
-        $modificadores = $this->modificadores($producto, $item['opciones'] ?? []);
+        $modificadores = $this->modificadores($producto, $item, $cantidad, $sucursalId);
         // Cada sucursal puede tener su propio precio (o no vender el plato).
         $precioBase = round($this->precios->precio($precio, $sucursalId), 4);
-        $precioModificadores = round(array_sum(array_column($modificadores, 'precio_adicional')), 4);
+        $precioModificadores = self::recargoUnitario($modificadores, $cantidad);
         $precioUnitario = round($precioBase + $precioModificadores, 4);
 
         return [
@@ -92,59 +96,104 @@ class ArmarItemPedidoService
         return $limpio === '' ? null : mb_substr($limpio, 0, 255);
     }
 
-    /** @return array<int, array{id_opcion:int, nombre_grupo:string, nombre_opcion:string, precio_adicional:float}> */
-    private function modificadores(Producto $producto, array $opcionesElegidas): array
+    /**
+     * Valida y congela las opciones elegidas.
+     *
+     * Acepta "opciones" (ids; cada una aplica a todas las unidades, formato anterior) y
+     * "selecciones" ([{id_opcion, cantidad}], para repartir: 2 menús, 1 sopa wantán y 1 de
+     * pollo). Por grupo, la suma de cantidades debe quedar entre mínimo × cantidad y
+     * máximo × cantidad del ítem, y una opción no puede superar la cantidad del ítem.
+     *
+     * @return array<int, array{id_opcion:int, id_precio:?int, nombre_grupo:string, nombre_opcion:string, precio_adicional:float, cantidad:float}>
+     */
+    private function modificadores(Producto $producto, array $item, float $cantidadItem, int $sucursalId): array
     {
-        $ids = array_map('intval', $opcionesElegidas);
-        if (count($ids) !== count(array_unique($ids))) {
-            throw new DomainException('Una opción se eligió más de una vez.');
-        }
+        $elegidas = $this->selecciones($item, $cantidadItem);
+        $reglas = $this->opcionesSucursal->reglas([$producto->id_producto])->get($producto->id_producto, collect());
+        $opciones = $this->opcionesSucursal->opciones($reglas->pluck('id_grupo')->all(), $sucursalId);
+        $grupos = $reglas->keyBy('id_grupo');
 
-        // Dos consultas simples en vez de la relación muchos-a-muchos: así no dependen
-        // de nombres de tres partes (esquema.tabla.*), que SQLite no admite.
-        $orden = DB::table('restaurante.producto_grupo_modificador')
-            ->where('id_producto', $producto->id_producto)
-            ->orderBy('orden')
-            ->pluck('id_grupo')
-            ->map(fn ($id) => (int) $id);
-
-        $grupos = GrupoModificador::query()
-            ->whereKey($orden->all())
-            ->where('activo', true)
-            ->with(['opciones' => fn ($query) => $query->where('activo', true)])
-            ->get()
-            ->sortBy(fn (GrupoModificador $grupo) => $orden->search((int) $grupo->id_grupo))
-            ->values();
-
-        $opcionesValidas = $grupos->flatMap(fn (GrupoModificador $grupo) => $grupo->opciones->map(
-            fn ($opcion) => ['opcion' => $opcion, 'grupo' => $grupo]
-        ))->keyBy(fn (array $par) => $par['opcion']->id_opcion);
-
-        foreach ($ids as $id) {
-            if (! $opcionesValidas->has($id)) {
+        foreach ($elegidas as $id => $cantidad) {
+            $opcion = $opciones->get($id);
+            if (! $opcion) {
                 throw new DomainException("Una de las opciones elegidas no corresponde a {$producto->nombre}.");
+            }
+            if ($opcion->estado === OpcionesSucursalService::AGOTADA) {
+                throw new DomainException("{$opcion->nombre} está agotado en esta sucursal.");
+            }
+            if ($opcion->estado !== OpcionesSucursalService::DISPONIBLE) {
+                throw new DomainException("{$opcion->nombre} no está disponible en esta sucursal.");
+            }
+            if ($opcion->id_precio !== null && $producto->tipo_producto !== Producto::PREPARADO) {
+                throw new DomainException("Las opciones con producto propio solo se ofrecen en platos preparados ({$opcion->nombre}).");
+            }
+            if ($cantidad > $cantidadItem) {
+                throw new DomainException("{$opcion->nombre} no puede elegirse más veces que la cantidad del plato.");
             }
         }
 
         foreach ($grupos as $grupo) {
-            $elegidas = collect($ids)->filter(fn (int $id) => (int) $opcionesValidas[$id]['grupo']->id_grupo === (int) $grupo->id_grupo)->count();
-            if ($elegidas < $grupo->seleccion_minima) {
-                throw new DomainException("Elige al menos {$grupo->seleccion_minima} opción(es) en «{$grupo->nombre}».");
+            $total = round(collect($elegidas)->filter(fn (float $c, int $id) => $opciones[$id]->id_grupo === $grupo->id_grupo)->sum(), 3);
+            $minimo = round($grupo->seleccion_minima * $cantidadItem, 3);
+            $maximo = round($grupo->seleccion_maxima * $cantidadItem, 3);
+            if ($total < $minimo) {
+                throw new DomainException("Elige al menos {$grupo->seleccion_minima} opción(es) en «{$grupo->nombre}» por cada plato.");
             }
-            if ($elegidas > $grupo->seleccion_maxima) {
-                throw new DomainException("Puedes elegir como máximo {$grupo->seleccion_maxima} opción(es) en «{$grupo->nombre}».");
+            if ($total > $maximo) {
+                throw new DomainException("Puedes elegir como máximo {$grupo->seleccion_maxima} opción(es) en «{$grupo->nombre}» por cada plato.");
             }
         }
 
-        return array_map(function (int $id) use ($opcionesValidas): array {
-            ['opcion' => $opcion, 'grupo' => $grupo] = $opcionesValidas[$id];
+        // Orden estable para cocina y tickets: el de los grupos del plato y el de sus opciones.
+        $posicion = $reglas->pluck('id_grupo')->flip();
+        uksort($elegidas, fn (int $a, int $b) => [$posicion[$opciones[$a]->id_grupo], $opciones[$a]->orden, $a]
+            <=> [$posicion[$opciones[$b]->id_grupo], $opciones[$b]->orden, $b]);
 
-            return [
+        $resultado = [];
+        foreach ($elegidas as $id => $cantidad) {
+            $opcion = $opciones[$id];
+            $resultado[] = [
                 'id_opcion' => $opcion->id_opcion,
-                'nombre_grupo' => $grupo->nombre,
-                'nombre_opcion' => $opcion->nombre,
-                'precio_adicional' => round((float) $opcion->precio_adicional, 2),
+                'id_precio' => $opcion->id_precio,
+                'nombre_grupo' => mb_substr($grupos[$opcion->id_grupo]->nombre, 0, 80),
+                'nombre_opcion' => mb_substr($opcion->nombre, 0, 80),
+                'precio_adicional' => $opcion->precio_adicional,
+                'cantidad' => $cantidad,
             ];
-        }, $ids);
+        }
+
+        return $resultado;
+    }
+
+    /** @return array<int, float> cantidad por id_opcion */
+    private function selecciones(array $item, float $cantidadItem): array
+    {
+        $elegidas = [];
+        $sumar = function (int $id, float $cantidad) use (&$elegidas): void {
+            if (isset($elegidas[$id])) {
+                throw new DomainException('Una opción se eligió más de una vez.');
+            }
+            if ($cantidad <= 0) {
+                throw new DomainException('La cantidad de cada opción debe ser mayor que cero.');
+            }
+            $elegidas[$id] = $cantidad;
+        };
+
+        foreach ($item['opciones'] ?? [] as $id) {
+            $sumar((int) $id, $cantidadItem);
+        }
+        foreach ($item['selecciones'] ?? [] as $seleccion) {
+            $sumar((int) ($seleccion['id_opcion'] ?? 0), round((float) ($seleccion['cantidad'] ?? 0), 3));
+        }
+
+        return $elegidas;
+    }
+
+    /** Recargo por unidad: suma de recargo × veces elegida, repartida entre las unidades del ítem. */
+    public static function recargoUnitario(array $modificadores, float $cantidadItem): float
+    {
+        $total = array_sum(array_map(fn (array $m): float => $m['precio_adicional'] * $m['cantidad'], $modificadores));
+
+        return round($total / $cantidadItem, 4);
     }
 }

@@ -16,6 +16,10 @@ class ActualizarItemPedidoRequest extends FormRequest
         return [
             'cantidad' => ['sometimes', 'numeric', 'gt:0', 'max:999'],
             'observacion' => ['sometimes', 'nullable', 'string', 'max:255'],
+            // Cambiar la sopa o los acompañamientos antes de enviar la comanda.
+            'selecciones' => ['sometimes', 'array', 'max:40'],
+            'selecciones.*.id_opcion' => ['required', 'integer', 'min:1'],
+            'selecciones.*.cantidad' => ['required', 'numeric', 'gt:0', 'max:999'],
         ];
     }
 }

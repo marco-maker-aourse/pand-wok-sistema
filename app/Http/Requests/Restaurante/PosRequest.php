@@ -41,6 +41,9 @@ class PosRequest extends FormRequest
             'items.*.observacion' => ['nullable', 'string', 'max:255'],
             'items.*.opciones' => ['nullable', 'array', 'max:20'],
             'items.*.opciones.*' => ['integer'],
+            'items.*.selecciones' => ['nullable', 'array', 'max:40'],
+            'items.*.selecciones.*.id_opcion' => ['required', 'integer', 'min:1'],
+            'items.*.selecciones.*.cantidad' => ['required', 'numeric', 'gt:0', 'max:999'],
 
             'tipo_comprobante' => [$cobrar ? 'required' : 'prohibited', Rule::in(['BOLETA', 'FACTURA'])],
             'id_cliente' => ['nullable', 'integer', 'min:1'],
@@ -69,6 +72,7 @@ class PosRequest extends FormRequest
             'cantidad' => $item['cantidad'],
             'observacion' => $item['observacion'] ?? null,
             'opciones' => array_map('intval', $item['opciones'] ?? []),
+            'selecciones' => array_map(fn (array $s): array => ['id_opcion' => (int) $s['id_opcion'], 'cantidad' => (float) $s['cantidad']], $item['selecciones'] ?? []),
         ], $datos['items'] ?? []);
 
         return $datos;

@@ -58,7 +58,7 @@ class PedidoDetalle extends Model
 
     public function modificadores(): HasMany
     {
-        return $this->hasMany(PedidoDetalleModificador::class, 'id_detalle_pedido', 'id_detalle_pedido');
+        return $this->hasMany(PedidoDetalleModificador::class, 'id_detalle_pedido', 'id_detalle_pedido')->orderBy('id_detalle_modificador');
     }
 
     public function tipoRestaurante(): ?string

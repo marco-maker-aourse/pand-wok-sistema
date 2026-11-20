@@ -92,7 +92,7 @@ class CocinaService
                 'id_detalle_pedido' => $detalle->id_detalle_pedido,
                 'cantidad' => (float) $detalle->cantidad,
                 'nombre' => $detalle->nombre_producto,
-                'opciones' => $detalle->modificadores->pluck('nombre_opcion')->values()->all(),
+                'opciones' => $detalle->modificadores->map->etiqueta((float) $detalle->cantidad)->values()->all(),
                 'observacion' => $detalle->observacion,
                 'anulado' => $detalle->estaAnulado(),
                 'cuenta' => (int) $detalle->id_pedido === (int) $comanda->id_pedido ? null : [

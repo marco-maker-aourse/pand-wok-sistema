@@ -3,6 +3,7 @@
 namespace App\Services\Restaurante;
 
 use App\Models\Categoria;
+use App\Models\Kardex;
 use App\Models\Producto;
 use App\Models\ProductoPresentacion;
 use App\Models\Restaurante\Area;
@@ -29,6 +30,7 @@ class PresentarRestauranteService
     public function __construct(
         private readonly GestionarCartaService $carta,
         private readonly PrecioSucursalService $precios,
+        private readonly OpcionesSucursalService $opciones,
         private readonly ImprimirComandaService $impresion,
     ) {}
 
@@ -138,9 +140,13 @@ class PresentarRestauranteService
                 'estado' => $detalle->estado,
                 'cantidad_cobrada' => (float) $detalle->cantidad_cobrada,
                 'motivo_anulacion' => $detalle->motivo_anulacion,
+                'id_precio' => $detalle->id_precio,
                 'modificadores' => $detalle->modificadores->map(fn ($m): array => [
+                    'id_opcion' => $m->id_opcion,
                     'nombre_grupo' => $m->nombre_grupo,
                     'nombre_opcion' => $m->nombre_opcion,
+                    'etiqueta' => $m->etiqueta((float) $detalle->cantidad),
+                    'cantidad' => (float) $m->cantidad,
                     'precio_adicional' => (float) $m->precio_adicional,
                 ])->values(),
             ])->values(),
@@ -204,23 +210,33 @@ class PresentarRestauranteService
             ->with(['presentaciones' => fn ($query) => $query->where('estado', true)->with('presentacion:id_presentacion,nombre')->orderBy('factor_conversion')])
             ->orderBy('nombre')
             ->limit(1500)
-            ->get(['id_producto', 'id_categoria', 'nombre', 'tipo_producto', 'codigo_carta'])
+            ->get(['id_producto', 'id_categoria', 'nombre', 'tipo_producto', 'codigo_carta', 'es_servicio'])
             ->sortBy(fn (Producto $producto) => self::ordenCarta($producto))
             ->values();
 
-        $gruposPorProducto = $this->gruposPorProducto($productos->modelKeys());
+        $reglas = $this->opciones->reglas($productos->modelKeys());
+        $idsGrupos = $reglas->flatten(1)->pluck('id_grupo')->unique()->values()->all();
+        // Solo lo que se puede elegir en esta sucursal: ni desactivado ni agotado.
+        $disponibles = $this->opciones->opciones($idsGrupos, $sucursalId)
+            ->where('estado', OpcionesSucursalService::DISPONIBLE)->groupBy('id_grupo');
         $agotados = array_flip($this->carta->agotados($sucursalId));
         $ajustes = $this->precios->ajustes($productos->flatMap->presentaciones->pluck('id_precio')->all(), $sucursalId);
+        $stock = $this->stockPresentaciones($productos, $sucursalId);
 
         // Precio de la sucursal; se ocultan las presentaciones que no se venden aquí.
-        $productos = $productos->map(function (Producto $producto) use ($agotados, $ajustes, $gruposPorProducto): ?array {
+        $productos = $productos->map(function (Producto $producto) use ($agotados, $ajustes, $reglas, $disponibles, $stock): ?array {
             $presentaciones = $producto->presentaciones
                 ->reject(fn (ProductoPresentacion $precio) => ($ajuste = $ajustes->get($precio->id_precio)) && ! $ajuste->disponible)
                 ->map(fn (ProductoPresentacion $precio): array => [
                     'id_precio' => $precio->id_precio,
                     'nombre' => $precio->presentacion?->nombre ?? 'Unidad',
                     'precio_venta' => round((float) ($ajustes->get($precio->id_precio)?->precio_venta ?? $precio->precio_venta), 2),
+                    // Existencias en unidades de esta presentación (null = se prepara, sin stock propio).
+                    'stock' => $stock[$precio->id_precio] ?? null,
                 ])->values();
+            $suyas = $reglas->get($producto->id_producto, collect());
+            // Un grupo obligatorio sin alternativas disponibles deja el plato fuera de venta.
+            $sinOpciones = $suyas->contains(fn (object $r) => $r->seleccion_minima > 0 && $disponibles->get($r->id_grupo, collect())->isEmpty());
 
             return $presentaciones->isEmpty() ? null : [
                 'id_producto' => $producto->id_producto,
@@ -228,13 +244,14 @@ class PresentarRestauranteService
                 'nombre' => $producto->nombre,
                 'codigo_carta' => $producto->codigo_carta,
                 'tipo_producto' => $producto->tipo_producto,
-                'agotado' => isset($agotados[$producto->id_producto]),
-                'grupos' => $gruposPorProducto->get($producto->id_producto, []),
+                'agotado' => isset($agotados[$producto->id_producto]) || $sinOpciones,
+                'grupos' => $suyas->pluck('id_grupo')->all(),
+                'reglas' => $suyas->map(fn (object $r): array => [
+                    'id_grupo' => $r->id_grupo, 'seleccion_minima' => $r->seleccion_minima, 'seleccion_maxima' => $r->seleccion_maxima,
+                ])->values()->all(),
                 'presentaciones' => $presentaciones,
             ];
         })->filter()->values();
-
-        $idsGrupos = $productos->pluck('grupos')->flatten()->unique()->values()->all();
         $orden = DB::table('restaurante.categorias_carta')->pluck('orden', 'id_categoria');
 
         return [
@@ -244,8 +261,60 @@ class PresentarRestauranteService
                 ->sortBy(fn (Categoria $categoria) => [(int) ($orden[$categoria->id_categoria] ?? 999), $categoria->nombre])
                 ->values(),
             'productos' => $productos,
-            'grupos' => $this->gruposConOpciones($idsGrupos, true),
+            'grupos' => $this->gruposSucursal($idsGrupos, $disponibles),
         ];
+    }
+
+    /** Grupos con las opciones que rigen en la sucursal (nombre, recargo, producto vinculado). */
+    private function gruposSucursal(array $ids, Collection $disponibles): array
+    {
+        if ($ids === []) {
+            return [];
+        }
+
+        return GrupoModificador::query()->whereKey($ids)->where('activo', true)->orderBy('nombre')->get()
+            ->map(fn (GrupoModificador $grupo): array => [
+                'id_grupo' => $grupo->id_grupo,
+                'nombre' => $grupo->nombre,
+                'seleccion_minima' => $grupo->seleccion_minima,
+                'seleccion_maxima' => $grupo->seleccion_maxima,
+                'activo' => true,
+                'opciones' => $disponibles->get($grupo->id_grupo, collect())->map(fn (object $o): array => [
+                    'id_opcion' => $o->id_opcion,
+                    'nombre' => $o->nombre,
+                    'precio_adicional' => $o->precio_adicional,
+                    'id_producto' => $o->id_producto,
+                    'orden' => $o->orden,
+                    'activo' => true,
+                ])->values()->all(),
+            ])->values()->all();
+    }
+
+    /**
+     * Existencias de cada presentación que se vende tal cual, en sus propias unidades:
+     * saldo del producto de inventario (el de la variante si tiene stock propio) ÷ conversión.
+     *
+     * @return array<int, float>
+     */
+    private function stockPresentaciones(Collection $productos, int $sucursalId): array
+    {
+        $precios = $productos->filter(fn (Producto $p) => $p->tipo_producto === Producto::DIRECTO && ! $p->es_servicio)
+            ->flatMap->presentaciones;
+        if ($precios->isEmpty()) {
+            return [];
+        }
+
+        $inventario = fn (ProductoPresentacion $precio): int => (int) ($precio->id_producto_stock ?? $precio->id_producto);
+        $ultimos = Kardex::query()->where('id_sucursal', $sucursalId)->whereIn('id_producto', $precios->map($inventario)->unique()->values())
+            ->groupBy('id_producto')->selectRaw('MAX(id_kardex)');
+        $saldos = Kardex::query()->whereIn('id_kardex', $ultimos)->pluck('stock_actual', 'id_producto');
+
+        return $precios->mapWithKeys(function (ProductoPresentacion $precio) use ($saldos, $inventario): array {
+            $factor = (float) $precio->factor_conversion;
+            $saldo = (float) ($saldos[$inventario($precio)] ?? 0);
+
+            return [$precio->id_precio => $factor > 0 ? floor($saldo / $factor * 1000) / 1000 : 0.0];
+        })->all();
     }
 
     /** Catálogo para administrar la carta, paginado y con filtros. */

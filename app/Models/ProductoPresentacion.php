@@ -19,6 +19,7 @@ class ProductoPresentacion extends Model
         'precio_venta',
         'porcentaje_utilidad',
         'estado',
+        'id_producto_stock',
     ];
 
     /** Mantiene el contrato de pantallas ya construidas mientras la UI adopta id_precio. */
@@ -37,6 +38,21 @@ class ProductoPresentacion extends Model
     public function producto(): BelongsTo
     {
         return $this->belongsTo(Producto::class, 'id_producto', 'id_producto');
+    }
+
+    /**
+     * Variante física con stock propio (Inca Kola 1 L): al venderla se descuenta este
+     * producto de inventario. Sin él, se descuenta el inventario base del producto.
+     */
+    public function productoStock(): BelongsTo
+    {
+        return $this->belongsTo(Producto::class, 'id_producto_stock', 'id_producto');
+    }
+
+    /** Producto cuyo inventario se mueve al vender esta presentación. */
+    public function productoInventario(): ?Producto
+    {
+        return $this->id_producto_stock ? $this->productoStock : $this->producto;
     }
 
     public function presentacion(): BelongsTo

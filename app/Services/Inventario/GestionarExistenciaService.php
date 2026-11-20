@@ -13,7 +13,8 @@ class GestionarExistenciaService
     /** El saldo está en Kardex; los lotes detallan el stock con vencimiento. */
     public function decrease(ProductoPresentacion $precio, int $sucursalId, float $cantidad, OrigenMovimiento $origen, ?string $codigoLote = null): void
     {
-        $this->disminuirBase($precio->producto, $sucursalId, $this->toBaseQuantity($precio, $cantidad), $origen, $codigoLote);
+        // Una variante física (id_producto_stock) descuenta su propio inventario.
+        $this->disminuirBase($precio->productoInventario(), $sucursalId, $this->toBaseQuantity($precio, $cantidad), $origen, $codigoLote);
     }
 
     /** Devuelve el costo y los lotes para que una devolución del restaurante sea exacta. */
@@ -38,7 +39,7 @@ class GestionarExistenciaService
 
     public function increase(ProductoPresentacion $precio, int $sucursalId, float $cantidad, OrigenMovimiento $origen, float $costo = 0): void
     {
-        $this->aumentarSaldo($precio->id_producto, $sucursalId, $this->toBaseQuantity($precio, $cantidad), $origen, $costo);
+        $this->aumentarSaldo((int) ($precio->id_producto_stock ?? $precio->id_producto), $sucursalId, $this->toBaseQuantity($precio, $cantidad), $origen, $costo);
     }
 
     public function reponerConsumo(int $producto, int $sucursal, float $cantidadBase, float $costo, array $lotes, OrigenMovimiento $origen): void

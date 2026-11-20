@@ -147,7 +147,7 @@ class ImprimirComandaService
                 'items' => $items->map(fn (PedidoDetalle $detalle): array => [
                     'cantidad' => rtrim(rtrim(number_format((float) $detalle->cantidad, 3, '.', ''), '0'), '.'),
                     'nombre' => $detalle->nombre_producto,
-                    'opciones' => $detalle->modificadores->pluck('nombre_opcion')->values()->all(),
+                    'opciones' => $detalle->modificadores->map->etiqueta((float) $detalle->cantidad)->values()->all(),
                     'observacion' => $detalle->observacion,
                     'cuenta' => (int) $detalle->id_pedido === (int) $pedido->id_pedido ? null : [
                         'numero' => $detalle->pedido->numero,
