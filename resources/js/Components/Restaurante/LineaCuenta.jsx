@@ -20,7 +20,7 @@ export default function LineaCuenta({ item, editable, ocupado, onCantidad, onQui
                         <span className="font-mono tabular-nums">{fmtCantidad(item.cantidad)}</span> × {item.nombre_producto}
                     </p>
                     {item.modificadores?.length > 0 && (
-                        <p className="text-xs text-slate-600">{item.modificadores.map((m) => m.nombre_opcion).join(' · ')}</p>
+                        <p className="text-xs text-slate-600">{item.modificadores.map((m) => m.etiqueta ?? m.nombre_opcion).join(' · ')}</p>
                     )}
                     {item.observacion && <p className="text-xs text-amber-700 italic">“{item.observacion}”</p>}
                     {anulado && item.motivo_anulacion && <p className="text-xs text-rose-600">Anulado: {item.motivo_anulacion}</p>}

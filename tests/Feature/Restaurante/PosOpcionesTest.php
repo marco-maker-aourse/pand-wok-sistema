@@ -119,4 +119,22 @@ class PosOpcionesTest extends TestCase
         $this->assertSame(2, DB::table('operaciones.detalle_ventas')->count());
         $this->assertSame(Pedido::CERRADO, Pedido::query()->sole()->estado);
     }
+
+    public function test_las_sugerencias_salen_de_pedidos_reales_y_estan_vacias_sin_historial(): void
+    {
+        $sugerencias = app(\App\Services\Restaurante\SugerenciasPosService::class);
+        $this->assertSame(['frecuentes' => [], 'ultimos' => [], 'acompanan' => []], $sugerencias->calcular(1, 10));
+
+        $pedidos = app(\App\Services\Restaurante\GestionarPedidoService::class);
+        $a = $pedidos->abrir(['tipo' => Pedido::MESA, 'id_mesa' => 1, 'clave_idempotencia' => 'sa'], 10, 1);
+        $pedidos->agregarItems($a->id_pedido, [$this->menu('s1', 3, [13 => 3]), $this->gaseosa('s2')], 10, 1);
+        $b = $pedidos->abrir(['tipo' => Pedido::MESA, 'id_mesa' => 2, 'clave_idempotencia' => 'sb'], 30, 1);
+        $pedidos->agregarItems($b->id_pedido, [$this->combinacion('s3'), $this->gaseosa('s4')], 30, 1);
+
+        $resultado = $sugerencias->calcular(1, 30);
+        $this->assertSame([10, 2, 20], $resultado['frecuentes'], 'Por unidades pedidas: 3 menús, 2 gaseosas, 1 combinación.');
+        $this->assertSame([2, 20], $resultado['ultimos']);
+        $this->assertSame([10, 20], $resultado['acompanan'][2]);
+        $this->assertSame([], $sugerencias->calcular(2, 10)['frecuentes'], 'Cada sucursal con su propio historial.');
+    }
 }

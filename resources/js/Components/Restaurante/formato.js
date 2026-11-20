@@ -43,3 +43,15 @@ export function tituloCuenta(cuenta) {
     const base = TIPOS_PEDIDO[cuenta.tipo] ?? cuenta.tipo;
     return cuenta.nombre_contacto ? `${base} · ${cuenta.nombre_contacto}` : `${base} #${cuenta.numero}`;
 }
+
+/**
+ * Cambia la cantidad de una línea del borrador. Si cada opción acompaña a todas las unidades
+ * (1 menú con sopa wantán), las opciones suben con ella; si se repartieron entre unidades
+ * (1 sopa wantán y 1 de pollo) se devuelve la línea sin cambios: hay que reabrir el plato.
+ */
+export function cambiarCantidadLinea(linea, delta) {
+    const nueva = linea.cantidad + delta;
+    const selecciones = linea.selecciones ?? [];
+    if (selecciones.some((s) => s.cantidad !== linea.cantidad)) return { linea, repartida: true };
+    return { linea: { ...linea, cantidad: nueva, selecciones: selecciones.map((s) => ({ ...s, cantidad: nueva })) }, repartida: false };
+}

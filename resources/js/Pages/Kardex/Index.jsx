@@ -164,7 +164,7 @@ export default function Index({ auth, productos = [], kardex = [] }) {
 
             <div className="space-y-4">
                 <PageHeader
-                    breadcrumbs={[{ label: 'Operaciones' }, { label: 'Kardex valorizado' }]}
+                    breadcrumbs={[{ label: 'Inventario' }, { label: 'Movimientos de existencias' }]}
                     title="Kardex valorizado"
                     description="Supervisa el stock físico central, consulta lotes FIFO y edita el precio de cada presentación."
                 />

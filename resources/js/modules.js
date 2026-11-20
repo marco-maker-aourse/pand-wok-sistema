@@ -12,16 +12,19 @@ export const navigationModules = [
         { label: 'Carta', href: '/carta', icon: FiBookOpen },
         { label: 'Cocina', href: '/cocina', icon: FiCoffee, exacta: true, permiso: 'cocina.ver' },
         { label: 'Estaciones de cocina', href: '/cocina/estaciones', icon: FiSliders, permiso: 'cocina.configurar' },
-        { label: 'Recetas', href: '/recetas', icon: FiBookOpen, permiso: 'recetas.gestionar' },
-        { label: 'Mermas de insumos', href: '/mermas', icon: FiArchive, permiso: 'mermas.registrar' },
         { label: 'Reportes del restaurante', href: '/reportes/restaurante', icon: FiBarChart2, permiso: 'reportes.restaurante' },
     ] },
     { label: 'Operaciones', items: [
         { label: 'Caja', href: '/caja', icon: FiDollarSign },
         { label: 'Comprobantes', href: '/ventas', icon: FiShoppingCart, exacta: true },
+    ] },
+    // Inventario con lenguaje de restaurante, sobre el kardex existente.
+    { label: 'Inventario', items: [
+        { label: 'Recetas e insumos', href: '/recetas', icon: FiBookOpen, permiso: 'recetas.gestionar' },
         { label: 'Entradas', href: '/ingresos', icon: FiArchive },
-        { label: 'Ajustes de inventario', href: '/salidas', icon: FiBox },
-        { label: 'Kardex', href: '/kardex', icon: FiBarChart2 },
+        { label: 'Salidas y ajustes', href: '/salidas', icon: FiBox },
+        { label: 'Mermas', href: '/mermas', icon: FiArchive, permiso: 'mermas.registrar' },
+        { label: 'Movimientos de existencias', href: '/kardex', icon: FiBarChart2 },
     ] },
     { label: 'Gestión', items: [
         { label: 'Productos', href: '/productos', icon: FiPackage },

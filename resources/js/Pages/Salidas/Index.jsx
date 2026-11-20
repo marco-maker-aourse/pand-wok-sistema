@@ -81,7 +81,7 @@ export default function Index({ auth, salidas = [] }) {
 
             <div className="space-y-4">
                 <PageHeader
-                    breadcrumbs={[{ label: 'Operaciones' }, { label: 'Ajustes de inventario' }]}
+                    breadcrumbs={[{ label: 'Inventario' }, { label: 'Salidas y ajustes' }]}
                     title="Ajustes de inventario"
                     description="Registro de bajas por roturas, vencimiento y ajustes con trazabilidad en Kardex."
                     actions={

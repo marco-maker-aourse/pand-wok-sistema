@@ -9,6 +9,7 @@ use App\Models\Cliente;
 use App\Models\Restaurante\Mesa;
 use App\Models\Restaurante\Pedido;
 use App\Services\Restaurante\PresentarRestauranteService;
+use App\Services\Restaurante\SugerenciasPosService;
 use App\Services\Restaurante\VentaPosService;
 use App\Services\Ventas\CatalogoPosService;
 use App\Services\Clientes\RegistrarClientePorDocumentoService;
@@ -33,7 +34,7 @@ class PosController extends Controller
         private readonly PresentarRestauranteService $presentar,
     ) {}
 
-    public function index(Request $request, CatalogoPosService $catalogoPos): Response|RedirectResponse
+    public function index(Request $request, CatalogoPosService $catalogoPos, SugerenciasPosService $sugerencias): Response|RedirectResponse
     {
         $usuario = $request->user();
         $sucursal = $usuario->idSucursalActiva();
@@ -58,6 +59,8 @@ class PosController extends Controller
 
         return Inertia::render('Restaurante/Pos', [
             'carta' => $this->presentar->cartaPedido($sucursal),
+            // Sugerencias deterministas con pedidos reales de la sucursal.
+            'sugerencias' => fn () => $sugerencias->calcular($sucursal, $usuario->id_usuario),
             'salon' => fn () => $this->presentar->salon($sucursal),
             'cuenta' => $cuenta,
             'inicio' => [

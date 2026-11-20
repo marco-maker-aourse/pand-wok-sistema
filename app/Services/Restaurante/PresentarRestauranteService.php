@@ -327,19 +327,20 @@ class PresentarRestauranteService
             ->when($buscar, fn (Builder $query, string $texto) => $query->whereRaw('LOWER(nombre) LIKE ?', ['%'.mb_strtolower($texto).'%']))
             ->with([
                 'categoria:id_categoria,nombre',
-                'presentaciones' => fn ($query) => $query->where('estado', true)->orderBy('factor_conversion'),
+                'presentaciones' => fn ($query) => $query->where('estado', true)->with('presentacion:id_presentacion,nombre')->orderBy('factor_conversion'),
             ])
             ->orderBy('nombre')
-            ->paginate(25, ['id_producto', 'id_categoria', 'nombre', 'tipo_producto', 'codigo_carta'])
+            ->paginate(25, ['id_producto', 'id_categoria', 'nombre', 'tipo_producto', 'codigo_carta', 'es_servicio'])
             ->withQueryString();
 
         $items = collect($pagina->items());
-        $gruposPorProducto = $this->gruposPorProducto($items->pluck('id_producto')->all());
+        $vinculos = DB::table('restaurante.producto_grupo_modificador')->whereIn('id_producto', $items->pluck('id_producto')->all())
+            ->orderBy('orden')->get()->groupBy('id_producto');
         $agotados = array_flip($this->carta->agotados($sucursalId));
         $ajustes = $this->precios->ajustes($items->flatMap->presentaciones->pluck('id_precio')->all(), $sucursalId);
 
         // Se administra el precio de la presentación base (la que muestra la carta).
-        $pagina->through(function (Producto $producto) use ($agotados, $ajustes, $gruposPorProducto): array {
+        $pagina->through(function (Producto $producto) use ($agotados, $ajustes, $vinculos): array {
             $base = $producto->presentaciones->first();
             $ajuste = $base ? $ajustes->get($base->id_precio) : null;
 
@@ -354,14 +355,50 @@ class PresentarRestauranteService
                 'precio_sucursal' => $ajuste?->precio_venta !== null ? (float) $ajuste->precio_venta : null,
                 'vende_en_sucursal' => ! $ajuste || (bool) $ajuste->disponible,
                 'agotado' => isset($agotados[$producto->id_producto]),
-                'grupos' => $gruposPorProducto->get($producto->id_producto, []),
+                'grupos' => $vinculos->get($producto->id_producto, collect())->pluck('id_grupo')->map(fn ($id) => (int) $id)->values()->all(),
+                // Obligatoriedad propia del plato (null = la del grupo).
+                'reglas' => $vinculos->get($producto->id_producto, collect())->map(fn (object $v): array => [
+                    'id_grupo' => (int) $v->id_grupo,
+                    'seleccion_minima' => $v->seleccion_minima !== null ? (int) $v->seleccion_minima : null,
+                    'seleccion_maxima' => $v->seleccion_maxima !== null ? (int) $v->seleccion_maxima : null,
+                ])->values()->all(),
+                // Presentaciones con su existencia: inventario base o variante con stock propio.
+                'vende_tal_cual' => $producto->tipo_producto === Producto::DIRECTO && ! $producto->es_servicio,
+                'presentaciones' => $producto->presentaciones->map(fn (ProductoPresentacion $p): array => [
+                    'id_precio' => $p->id_precio,
+                    'nombre' => $p->presentacion?->nombre ?? 'Unidad',
+                    'precio_venta' => (float) $p->precio_venta,
+                    'id_producto_stock' => $p->id_producto_stock,
+                ])->values()->all(),
             ];
         });
 
         return [
             'productos' => $pagina,
-            'grupos' => $this->gruposConOpciones(null, false),
+            'grupos' => $this->gruposAdministracion($sucursalId),
+            'vinculables' => fn () => $this->presentacionesPorTipo([Producto::PREPARADO, Producto::DIRECTO]),
+            'existencias' => fn () => $this->presentacionesPorTipo([Producto::INSUMO], soloBase: true),
         ];
+    }
+
+    /**
+     * Presentaciones activas para elegir en la administración: productos que pueden ser
+     * opción (platos y bebidas) o existencias para variantes (insumos).
+     *
+     * @return array<int, array{id_precio:int, id_producto:int, nombre:string}>
+     */
+    private function presentacionesPorTipo(array $tipos, bool $soloBase = false): array
+    {
+        return ProductoPresentacion::query()->where('estado', true)
+            ->whereIn('id_producto', Producto::query()->where('estado', true)->whereIn('tipo_producto', $tipos)->select('id_producto'))
+            ->with(['producto:id_producto,nombre', 'presentacion:id_presentacion,nombre'])
+            ->orderBy('id_producto')->orderBy('factor_conversion')->limit(2000)->get()
+            ->when($soloBase, fn (Collection $c) => $c->unique('id_producto'))
+            ->map(fn (ProductoPresentacion $p): array => [
+                'id_precio' => $p->id_precio,
+                'id_producto' => $p->id_producto,
+                'nombre' => $soloBase || ! $p->presentacion ? $p->producto->nombre : "{$p->producto->nombre} ({$p->presentacion->nombre})",
+            ])->sortBy('nombre')->values()->all();
     }
 
     /** Orden de carta: por número de plato (numérico: 2 antes que 10), luego sin número, por nombre. */
@@ -411,49 +448,40 @@ class PresentarRestauranteService
             ]);
     }
 
-    /** @return Collection<int, array<int>> ids de grupo por producto, en el orden configurado */
-    private function gruposPorProducto(array $productoIds): Collection
+    /** Todos los grupos (activos o no) con sus opciones y el ajuste de la sucursal activa. */
+    private function gruposAdministracion(int $sucursalId): array
     {
-        if ($productoIds === []) {
-            return collect();
-        }
+        $grupos = GrupoModificador::query()
+            ->with(['opciones' => fn ($query) => $query->with(['precio.producto:id_producto,nombre', 'precio.presentacion:id_presentacion,nombre'])
+                ->orderBy('orden')->orderBy('id_opcion')])
+            ->orderBy('nombre')->get();
+        $ajustes = DB::table('restaurante.opciones_sucursal')->where('id_sucursal', $sucursalId)
+            ->whereIn('id_opcion', $grupos->flatMap->opciones->pluck('id_opcion'))->get()->keyBy('id_opcion');
 
-        return DB::table('restaurante.producto_grupo_modificador')
-            ->whereIn('id_producto', $productoIds)
-            ->orderBy('orden')
-            ->get(['id_producto', 'id_grupo'])
-            ->groupBy('id_producto')
-            ->map(fn (Collection $filas) => $filas->pluck('id_grupo')->map(fn ($id) => (int) $id)->values()->all());
-    }
+        return $grupos->map(fn (GrupoModificador $grupo): array => [
+            'id_grupo' => $grupo->id_grupo,
+            'nombre' => $grupo->nombre,
+            'seleccion_minima' => $grupo->seleccion_minima,
+            'seleccion_maxima' => $grupo->seleccion_maxima,
+            'activo' => $grupo->activo,
+            'opciones' => $grupo->opciones->map(function ($opcion) use ($ajustes): array {
+                $ajuste = $ajustes->get($opcion->id_opcion);
+                $producto = $opcion->precio?->producto?->nombre;
 
-    /** @param  array<int>|null  $ids  null = todos los grupos */
-    private function gruposConOpciones(?array $ids, bool $soloActivos): array
-    {
-        if ($ids === []) {
-            return [];
-        }
-
-        return GrupoModificador::query()
-            ->when($ids !== null, fn ($query) => $query->whereKey($ids))
-            ->when($soloActivos, fn ($query) => $query->where('activo', true))
-            ->with(['opciones' => fn ($query) => $query
-                ->when($soloActivos, fn ($q) => $q->where('activo', true))
-                ->orderBy('orden')->orderBy('nombre')])
-            ->orderBy('nombre')
-            ->get()
-            ->map(fn (GrupoModificador $grupo): array => [
-                'id_grupo' => $grupo->id_grupo,
-                'nombre' => $grupo->nombre,
-                'seleccion_minima' => $grupo->seleccion_minima,
-                'seleccion_maxima' => $grupo->seleccion_maxima,
-                'activo' => $grupo->activo,
-                'opciones' => $grupo->opciones->map(fn ($opcion): array => [
+                return [
                     'id_opcion' => $opcion->id_opcion,
-                    'nombre' => $opcion->nombre,
+                    // El nombre propio solo existe en opciones sin producto; si no, se muestra el del producto.
+                    'nombre' => $opcion->nombre ?? $producto ?? 'Opción',
+                    'nombre_propio' => $opcion->nombre,
+                    'id_precio' => $opcion->id_precio,
+                    'producto' => $producto,
                     'precio_adicional' => (float) $opcion->precio_adicional,
+                    'precio_sucursal' => $ajuste?->precio_adicional !== null ? (float) $ajuste->precio_adicional : null,
+                    'disponible_sucursal' => ! $ajuste || (bool) $ajuste->disponible,
                     'orden' => $opcion->orden,
                     'activo' => $opcion->activo,
-                ])->values(),
-            ])->values()->all();
+                ];
+            })->values(),
+        ])->values()->all();
     }
 }

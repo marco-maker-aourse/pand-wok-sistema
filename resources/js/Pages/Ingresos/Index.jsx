@@ -81,7 +81,7 @@ export default function Index({ auth, ingresos = [] }) {
 
             <div className="space-y-4">
                 <PageHeader
-                    breadcrumbs={[{ label: 'Operaciones' }, { label: 'Entradas de mercadería' }]}
+                    breadcrumbs={[{ label: 'Inventario' }, { label: 'Entradas de mercadería' }]}
                     title="Entradas de mercadería"
                     description="Registro de facturas de proveedores e incremento automático de stock en Kardex."
                     actions={

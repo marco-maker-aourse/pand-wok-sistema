@@ -19,8 +19,9 @@ class GuardarOpcionModificadorRequest extends FormRequest
         $grupoId = $opcion?->id_grupo ?? $this->route('grupo')?->id_grupo;
 
         return [
+            'id_precio' => ['nullable', 'integer', 'min:1'],
             'nombre' => [
-                'required', 'string', 'max:80',
+                'nullable', 'required_without:id_precio', 'string', 'max:80',
                 Rule::unique(OpcionModificador::class, 'nombre')
                     ->where('id_grupo', $grupoId)
                     ->ignore($opcion?->id_opcion, 'id_opcion'),

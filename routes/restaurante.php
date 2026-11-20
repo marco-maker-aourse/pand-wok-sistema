@@ -74,3 +74,5 @@ Route::post('/carta/modificadores', [CartaController::class, 'guardarGrupo'])->m
 Route::put('/carta/modificadores/{grupo}', [CartaController::class, 'guardarGrupo'])->whereNumber('grupo')->middleware('permission:carta.gestionar')->name('restaurante.modificadores.update');
 Route::post('/carta/modificadores/{grupo}/opciones', [CartaController::class, 'guardarOpcion'])->whereNumber('grupo')->middleware('permission:carta.gestionar')->name('restaurante.opciones.store');
 Route::put('/carta/opciones/{opcion}', [CartaController::class, 'guardarOpcion'])->whereNumber('opcion')->middleware('permission:carta.gestionar')->name('restaurante.opciones.update');
+Route::put('/carta/opciones/{opcion}/sucursal', [CartaController::class, 'opcionSucursal'])->whereNumber('opcion')->middleware('permission:carta.gestionar')->name('restaurante.opciones.sucursal');
+Route::put('/carta/precios/{precio}/variante', [CartaController::class, 'variante'])->whereNumber('precio')->middleware('permission:carta.gestionar')->name('restaurante.carta.variante');

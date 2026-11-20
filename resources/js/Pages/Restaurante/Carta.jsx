@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Head, router, usePage } from '@inertiajs/react';
-import { BookOpen, Globe, Layers, Pencil, Plus, SlidersHorizontal } from 'lucide-react';
+import { BookOpen, Boxes, Globe, Layers, Pencil, Plus, SlidersHorizontal } from 'lucide-react';
 import AppLayout from '@/Layouts/AppLayout';
 import {
     Badge, Button, Card, CardHeader, CheckboxField, Dialog, EmptyState, Field, IconButton, Input, PageHeader,
@@ -13,11 +13,12 @@ import { primerError, soles } from '@/Components/Restaurante/formato';
  * Carta del restaurante. Los platos se crean en Productos (o con el importador);
  * aquí se decide cómo se venden en esta sucursal.
  */
-export default function Carta({ productos, grupos = [], filtros }) {
+export default function Carta({ productos, grupos = [], vinculables = [], existencias = [], filtros }) {
     const { flash = {}, sucursal } = usePage().props;
     const [pestana, setPestana] = useState('productos');
     const [buscar, setBuscar] = useState(filtros.buscar ?? '');
     const [modificadores, setModificadores] = useState(null);
+    const [variantes, setVariantes] = useState(null);
     const primeraCarga = useRef(true);
 
     useEffect(() => {
@@ -54,7 +55,7 @@ export default function Carta({ productos, grupos = [], filtros }) {
                 />
 
                 <div className="flex gap-1 border-b border-slate-200" role="tablist">
-                    {[['productos', 'Productos', BookOpen], ['modificadores', `Modificadores (${grupos.length})`, SlidersHorizontal]].map(([clave, etiqueta, Icono]) => (
+                    {[['productos', 'Productos', BookOpen], ['modificadores', `Opciones y acompañamientos (${grupos.length})`, SlidersHorizontal]].map(([clave, etiqueta, Icono]) => (
                         <button key={clave} type="button" role="tab" aria-selected={pestana === clave} onClick={() => setPestana(clave)} className={cx('flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-medium', pestana === clave ? 'border-brand text-brand-ink' : 'border-transparent text-slate-500 hover:text-slate-800')}>
                             <Icono className="h-4 w-4" aria-hidden="true" />{etiqueta}
                         </button>
@@ -114,11 +115,18 @@ export default function Carta({ productos, grupos = [], filtros }) {
                                                     )}
                                                 </Td>
                                                 <Td>
-                                                    {producto.tipo_producto !== 'INSUMO' && (
-                                                        <Button size="sm" variant="ghost" icon={Layers} onClick={() => setModificadores(producto)}>
-                                                            {producto.grupos.length ? `${producto.grupos.length} grupo(s)` : 'Asignar'}
-                                                        </Button>
-                                                    )}
+                                                    <span className="flex flex-wrap gap-1">
+                                                        {producto.tipo_producto !== 'INSUMO' && (
+                                                            <Button size="sm" variant="ghost" icon={Layers} onClick={() => setModificadores(producto)}>
+                                                                {producto.grupos.length ? `${producto.grupos.length} grupo(s)` : 'Asignar'}
+                                                            </Button>
+                                                        )}
+                                                        {producto.vende_tal_cual && (
+                                                            <Button size="sm" variant="ghost" icon={Boxes} onClick={() => setVariantes(producto)}>
+                                                                Existencias
+                                                            </Button>
+                                                        )}
+                                                    </span>
                                                 </Td>
                                             </Tr>
                                         ))}
@@ -129,11 +137,12 @@ export default function Carta({ productos, grupos = [], filtros }) {
                         <PaginacionServidor paginador={productos} entidad="productos" />
                     </Card>
                 ) : (
-                    <GruposModificadores grupos={grupos} />
+                    <GruposModificadores grupos={grupos} vinculables={vinculables} sucursal={sucursal?.activa?.nombre} accion={accion} />
                 )}
             </div>
 
             <DialogoGruposProducto producto={modificadores} grupos={grupos} onCerrar={() => setModificadores(null)} />
+            <DialogoVariantes producto={variantes} existencias={existencias} accion={accion} onCerrar={() => setVariantes(null)} />
         </AppLayout>
     );
 }
@@ -175,12 +184,48 @@ function PrecioSucursal({ producto, onGuardar }) {
     );
 }
 
+/**
+ * De qué existencia sale cada presentación al venderse. "Inventario del producto" convierte
+ * desde la unidad base (p. ej. un pack); una variante física (Inca Kola 1 L) descuenta su
+ * propio insumo, con stock independiente del de 500 ml.
+ */
+function DialogoVariantes({ producto, existencias, accion, onCerrar }) {
+    return (
+        <Dialog open={Boolean(producto)} onClose={onCerrar} title={`Existencias de ${producto?.nombre ?? ''}`} size="md"
+            description="Elige qué existencia se descuenta al vender cada presentación."
+            footer={<Button variant="secondary" onClick={onCerrar}>Cerrar</Button>}
+        >
+            <div className="space-y-3 p-5">
+                {producto?.presentaciones.map((p) => (
+                    <Field key={p.id_precio} label={`${p.nombre} · ${soles(p.precio_venta)}`}>
+                        <Select value={p.id_producto_stock ?? ''} onChange={(e) => accion('put', `/carta/precios/${p.id_precio}/variante`, { id_producto_stock: e.target.value ? Number(e.target.value) : null }, 'No se guardó la existencia')}>
+                            <option value="">Inventario del producto (convierte por presentación)</option>
+                            {existencias.map((x) => <option key={x.id_producto} value={x.id_producto}>{x.nombre}</option>)}
+                        </Select>
+                    </Field>
+                ))}
+            </div>
+        </Dialog>
+    );
+}
+
 function DialogoGruposProducto({ producto, grupos, onCerrar }) {
     const [seleccion, setSeleccion] = useState([]);
+    const [reglas, setReglas] = useState({});
     const [enviando, setEnviando] = useState(false);
-    useEffect(() => { if (producto) setSeleccion(producto.grupos); }, [producto]);
+    useEffect(() => {
+        if (!producto) return;
+        setSeleccion(producto.grupos);
+        setReglas(Object.fromEntries((producto.reglas ?? []).map((r) => [r.id_grupo, r])));
+    }, [producto]);
 
-    const guardar = () => router.put(`/carta/productos/${producto.id_producto}/modificadores`, { grupos: seleccion }, {
+    const regla = (id, campo, valor) => setReglas((r) => ({ ...r, [id]: { ...(r[id] ?? { id_grupo: id }), [campo]: valor === '' ? null : Number(valor) } }));
+    const datos = () => ({
+        grupos: seleccion,
+        reglas: seleccion.map((id) => ({ id_grupo: id, seleccion_minima: reglas[id]?.seleccion_minima ?? null, seleccion_maxima: reglas[id]?.seleccion_maxima ?? null })),
+    });
+
+    const guardar = () => router.put(`/carta/productos/${producto.id_producto}/modificadores`, datos(), {
         preserveScroll: true,
         preserveState: true,
         onStart: () => setEnviando(true),
@@ -194,7 +239,7 @@ function DialogoGruposProducto({ producto, grupos, onCerrar }) {
             open={Boolean(producto)}
             onClose={onCerrar}
             title={`Opciones de ${producto?.nombre ?? ''}`}
-            description="Marca los grupos que el mozo verá al pedir este plato, en el orden en que los marques."
+            description="Marca los grupos que el mozo verá al pedir este plato, en el orden en que los marques. Puedes cambiar la obligatoriedad solo para este plato."
             size="md"
             footer={<><Button variant="secondary" onClick={onCerrar}>Cancelar</Button><Button onClick={guardar} loading={enviando}>Guardar</Button></>}
         >
@@ -209,7 +254,14 @@ function DialogoGruposProducto({ producto, grupos, onCerrar }) {
                                 <span className="block text-sm font-medium">{grupo.nombre} {!grupo.activo && <Badge>Inactivo</Badge>}</span>
                                 <span className="block text-xs text-slate-500">{grupo.opciones.map((o) => o.nombre).join(', ') || 'Sin opciones'}</span>
                             </span>
-                            {posicion >= 0 && <span className="font-mono text-xs text-brand-ink">#{posicion + 1}</span>}
+                            {posicion >= 0 && (
+                                <span className="flex items-center gap-1">
+                                    <Input type="number" min={0} max={20} aria-label={`Mínimo de ${grupo.nombre} en este plato`} placeholder={String(grupo.seleccion_minima)} value={reglas[grupo.id_grupo]?.seleccion_minima ?? ''} onChange={(e) => regla(grupo.id_grupo, 'seleccion_minima', e.target.value)} className="w-16 text-center" />
+                                    <span className="text-xs text-slate-400">a</span>
+                                    <Input type="number" min={1} max={20} aria-label={`Máximo de ${grupo.nombre} en este plato`} placeholder={String(grupo.seleccion_maxima)} value={reglas[grupo.id_grupo]?.seleccion_maxima ?? ''} onChange={(e) => regla(grupo.id_grupo, 'seleccion_maxima', e.target.value)} className="w-16 text-center" />
+                                    <span className="ml-1 font-mono text-xs text-brand-ink">#{posicion + 1}</span>
+                                </span>
+                            )}
                         </label>
                     );
                 })}
@@ -218,14 +270,14 @@ function DialogoGruposProducto({ producto, grupos, onCerrar }) {
     );
 }
 
-function GruposModificadores({ grupos }) {
+function GruposModificadores({ grupos, vinculables, sucursal, accion }) {
     const [editor, setEditor] = useState(null);
 
     return (
         <div className="space-y-4">
             <div className="flex justify-end"><Button icon={Plus} onClick={() => setEditor({ tipo: 'grupo' })}>Nuevo grupo</Button></div>
             {grupos.length === 0 ? (
-                <Card><EmptyState icon={SlidersHorizontal} title="Sin modificadores" description="Crea grupos como «Término de la carne» (obligatorio, 1 opción) o «Adicionales» (opcional, varias)." /></Card>
+                <Card><EmptyState icon={SlidersHorizontal} title="Sin grupos de opciones" description="Crea grupos como «Sopa del menú» (obligatorio, 1), «Acompañamientos» (opcional, hasta 2) o «Término de la carne». También: php artisan restaurante:sopas-menu." /></Card>
             ) : (
                 <div className="grid gap-4 lg:grid-cols-2">
                     {grupos.map((grupo) => (
@@ -243,10 +295,14 @@ function GruposModificadores({ grupos }) {
                             <ul className="divide-y divide-slate-100">
                                 {grupo.opciones.length === 0 && <li className="px-5 py-4 text-sm text-slate-500">Sin opciones.</li>}
                                 {grupo.opciones.map((opcion) => (
-                                    <li key={opcion.id_opcion} className="flex items-center gap-3 px-5 py-2.5">
-                                        <span className="flex-1 text-sm">{opcion.nombre}</span>
+                                    <li key={opcion.id_opcion} className="flex flex-wrap items-center gap-x-3 gap-y-2 px-5 py-2.5">
+                                        <span className="min-w-32 flex-1 text-sm">
+                                            {opcion.nombre}
+                                            {opcion.producto && <span className="block text-xs text-slate-500">Producto de la carta · descuenta su receta</span>}
+                                        </span>
                                         {!opcion.activo && <StatusBadge active={false} />}
-                                        <span className="font-mono text-sm tabular-nums text-slate-600">{opcion.precio_adicional > 0 ? `+${soles(opcion.precio_adicional)}` : 'sin costo'}</span>
+                                        <span className="font-mono text-sm tabular-nums text-slate-600">{opcion.precio_adicional > 0 ? `+${soles(opcion.precio_adicional)}` : 'Incluido'}</span>
+                                        <AjusteOpcionSucursal opcion={opcion} sucursal={sucursal} accion={accion} />
                                         <IconButton icon={Pencil} label={`Editar ${opcion.nombre}`} onClick={() => setEditor({ tipo: 'opcion', grupo, valores: opcion })} />
                                     </li>
                                 ))}
@@ -255,12 +311,36 @@ function GruposModificadores({ grupos }) {
                     ))}
                 </div>
             )}
-            <EditorModificador editor={editor} onCerrar={() => setEditor(null)} />
+            <EditorModificador editor={editor} vinculables={vinculables} onCerrar={() => setEditor(null)} />
         </div>
     );
 }
 
-function EditorModificador({ editor, onCerrar }) {
+/** Recargo y disponibilidad de la opción solo en la sucursal activa (vacío = el general). */
+function AjusteOpcionSucursal({ opcion, sucursal, accion }) {
+    const [valor, setValor] = useState(opcion.precio_sucursal ?? '');
+    useEffect(() => setValor(opcion.precio_sucursal ?? ''), [opcion.precio_sucursal]);
+    const enviar = (precio, disponible) => accion('put', `/carta/opciones/${opcion.id_opcion}/sucursal`, { precio_adicional: precio, disponible }, 'No se guardó el ajuste');
+
+    return (
+        <span className="flex items-center gap-2">
+            <Input
+                type="number" min={0} step="0.10" inputMode="decimal"
+                value={valor}
+                placeholder={opcion.precio_adicional.toFixed(2)}
+                disabled={!opcion.disponible_sucursal}
+                onChange={(e) => setValor(e.target.value)}
+                onBlur={() => { const nuevo = valor === '' ? null : Number(valor); if (nuevo !== (opcion.precio_sucursal ?? null)) enviar(nuevo, true); }}
+                onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+                className="w-24 text-right font-mono"
+                aria-label={`Recargo de ${opcion.nombre} en ${sucursal ?? 'esta sucursal'}`}
+            />
+            <CheckboxField label="Aquí" checked={opcion.disponible_sucursal} onChange={(disponible) => enviar(disponible ? opcion.precio_sucursal : null, disponible)} />
+        </span>
+    );
+}
+
+function EditorModificador({ editor, vinculables = [], onCerrar }) {
     const esGrupo = editor?.tipo === 'grupo';
     const valores = editor?.valores;
     const [datos, setDatos] = useState({});
@@ -272,7 +352,7 @@ function EditorModificador({ editor, onCerrar }) {
         setErrores({});
         setDatos(esGrupo
             ? { nombre: valores?.nombre ?? '', seleccion_minima: valores?.seleccion_minima ?? 0, seleccion_maxima: valores?.seleccion_maxima ?? 1, activo: valores?.activo ?? true }
-            : { nombre: valores?.nombre ?? '', precio_adicional: valores?.precio_adicional ?? 0, orden: valores?.orden ?? 0, activo: valores?.activo ?? true });
+            : { nombre: valores?.nombre_propio ?? (valores?.id_precio ? '' : valores?.nombre ?? ''), id_precio: valores?.id_precio ?? '', precio_adicional: valores?.precio_adicional ?? 0, orden: valores?.orden ?? 0, activo: valores?.activo ?? true });
     }, [editor, esGrupo, valores]);
 
     const guardar = (e) => {
@@ -280,7 +360,8 @@ function EditorModificador({ editor, onCerrar }) {
         const url = esGrupo
             ? (valores ? `/carta/modificadores/${valores.id_grupo}` : '/carta/modificadores')
             : (valores ? `/carta/opciones/${valores.id_opcion}` : `/carta/modificadores/${editor.grupo.id_grupo}/opciones`);
-        router[valores ? 'put' : 'post'](url, datos, {
+        const enviar = esGrupo ? datos : { ...datos, id_precio: datos.id_precio ? Number(datos.id_precio) : null, nombre: datos.nombre || null };
+        router[valores ? 'put' : 'post'](url, enviar, {
             preserveScroll: true,
             preserveState: true,
             onStart: () => setEnviando(true),
@@ -301,7 +382,15 @@ function EditorModificador({ editor, onCerrar }) {
             footer={<><Button variant="secondary" onClick={onCerrar} disabled={enviando}>Cancelar</Button><Button type="submit" form="form-modificador" loading={enviando}>Guardar</Button></>}
         >
             <form id="form-modificador" onSubmit={guardar} className="space-y-4 p-5">
-                <Field label="Nombre" error={errores.nombre} required hint={esGrupo ? 'Ej.: Término de la carne, Adicionales' : 'Ej.: Jugoso, Huevo frito'}>
+                {!esGrupo && (
+                    <Field label="Producto de la carta" error={errores.id_precio} hint="Sopa, acompañamiento o bebida: usa su nombre, su agotado y su receta. Déjalo vacío para una opción simple (Jugoso, Sin hielo).">
+                        <Select value={datos.id_precio ?? ''} onChange={set('id_precio')}>
+                            <option value="">— Opción simple, sin producto —</option>
+                            {vinculables.map((v) => <option key={v.id_precio} value={v.id_precio}>{v.nombre}</option>)}
+                        </Select>
+                    </Field>
+                )}
+                <Field label="Nombre" error={errores.nombre} required={esGrupo || !datos.id_precio} hint={esGrupo ? 'Ej.: Sopa del menú, Acompañamientos' : (datos.id_precio ? 'Opcional: vacío = el nombre del producto' : 'Ej.: Jugoso, Papa frita')}>
                     <Input value={datos.nombre ?? ''} onChange={set('nombre')} maxLength={80} autoFocus />
                 </Field>
                 {esGrupo ? (
@@ -315,7 +404,7 @@ function EditorModificador({ editor, onCerrar }) {
                     </div>
                 ) : (
                     <div className="grid grid-cols-2 gap-4">
-                        <Field label="Precio adicional" error={errores.precio_adicional}>
+                        <Field label="Recargo general" error={errores.precio_adicional} hint="0 = incluido">
                             <Input type="number" min={0} step="0.10" value={datos.precio_adicional ?? 0} onChange={set('precio_adicional')} className="font-mono" />
                         </Field>
                         <Field label="Orden" error={errores.orden}>

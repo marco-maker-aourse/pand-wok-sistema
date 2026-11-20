@@ -9,7 +9,7 @@ import DialogoMotivo from '@/Components/Restaurante/DialogoMotivo';
 import DialogoPlato from '@/Components/Restaurante/DialogoPlato';
 import LineaCuenta from '@/Components/Restaurante/LineaCuenta';
 import SelectorMesa from '@/Components/Restaurante/SelectorMesa';
-import { nuevaClave, primerError, soles, tituloCuenta } from '@/Components/Restaurante/formato';
+import { cambiarCantidadLinea, nuevaClave, primerError, soles, tituloCuenta } from '@/Components/Restaurante/formato';
 import useImprimirTicket from '@/hooks/useImprimirTicket';
 
 const TIPOS = [
@@ -26,13 +26,14 @@ const centimos = (cantidad, precio) => Math.round(Math.round(cantidad * 1000) * 
  * pedido de la carta completa (platos y bebidas), enviarlo a cocina y cobrar, en una pantalla.
  * Una mesa queda como cuenta abierta; mostrador y delivery se cobran en un paso.
  */
-export default function Pos({ carta, salon, cuenta, inicio, metodosPago, turno, clienteInicial, puede, ultimaVenta }) {
+export default function Pos({ carta, sugerencias = null, salon, cuenta, inicio, metodosPago, turno, clienteInicial, puede, ultimaVenta }) {
     const { flash = {} } = usePage().props;
     const [tipo, setTipo] = useState(cuenta?.tipo ?? inicio?.tipo ?? 'PARA_LLEVAR');
     const [mesa, setMesa] = useState(inicio?.mesa ?? null);
     const [contacto, setContacto] = useState({ nombre_contacto: '', telefono_contacto: '', direccion_entrega: '' });
     const [borrador, setBorrador] = useState([]);
     const [platoAbierto, setPlatoAbierto] = useState(null);
+    const [ultimoElegido, setUltimoElegido] = useState(null);
     const [dialogo, setDialogo] = useState(null); // 'mesas' | 'cuentas' | 'contacto' | 'cobro'
     const [ocupado, setOcupado] = useState(false);
     const [errorCobro, setErrorCobro] = useState(null);
@@ -66,17 +67,18 @@ export default function Pos({ carta, salon, cuenta, inicio, metodosPago, turno, 
 
     // ---------- Ticket nuevo (borrador local) ----------
     const elegir = (producto) => {
+        setUltimoElegido(producto.id_producto);
         if (producto.grupos.length > 0 || producto.presentaciones.length > 1) {
             setPlatoAbierto(producto);
             return;
         }
         const p = producto.presentaciones[0];
-        agregar({ id_precio: p.id_precio, cantidad: 1, opciones: [], observacion: null, nombre: producto.nombre, detalle: [], precio_estimado: p.precio_venta });
+        agregar({ id_precio: p.id_precio, cantidad: 1, selecciones: [], observacion: null, nombre: producto.nombre, detalle: [], precio_estimado: p.precio_venta });
     };
 
     const agregar = (linea) => {
         setBorrador((actual) => {
-            const igual = actual.find((l) => l.id_precio === linea.id_precio && !l.observacion && !linea.observacion && !l.opciones.length && !linea.opciones.length);
+            const igual = actual.find((l) => l.id_precio === linea.id_precio && !l.observacion && !linea.observacion && !l.selecciones.length && !linea.selecciones.length);
             if (igual) return actual.map((l) => (l === igual ? { ...l, cantidad: l.cantidad + linea.cantidad } : l));
             return [...actual, { ...linea, clave: nuevaClave() }];
         });
@@ -84,7 +86,12 @@ export default function Pos({ carta, salon, cuenta, inicio, metodosPago, turno, 
     };
 
     const cambiarBorrador = (clave, delta) => setBorrador((actual) => actual
-        .map((l) => (l.clave === clave ? { ...l, cantidad: l.cantidad + delta } : l))
+        .map((l) => {
+            if (l.clave !== clave) return l;
+            const { linea, repartida } = cambiarCantidadLinea(l, delta);
+            if (repartida) toast.error('Opciones repartidas', 'Quita la línea y vuelve a elegir el plato para cambiar la cantidad.');
+            return linea;
+        })
         .filter((l) => l.cantidad > 0));
 
     // ---------- Operaciones con el servidor ----------
@@ -93,7 +100,7 @@ export default function Pos({ carta, salon, cuenta, inicio, metodosPago, turno, 
         tipo: cuenta ? null : tipo,
         id_mesa: !cuenta && tipo === 'MESA' ? mesa?.id_mesa : null,
         ...(!cuenta && tipo !== 'MESA' ? contacto : {}),
-        items: borrador.map(({ clave, id_precio, cantidad, observacion, opciones }) => ({ clave, id_precio, cantidad, observacion, opciones })),
+        items: borrador.map(({ clave, id_precio, cantidad, observacion, selecciones }) => ({ clave, id_precio, cantidad, observacion, selecciones })),
     });
 
     /** La misma operación reintentada (doble toque, red) reutiliza su clave: el servidor no duplica. */
@@ -234,7 +241,7 @@ export default function Pos({ carta, salon, cuenta, inicio, metodosPago, turno, 
 
             <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_25rem]">
                 <Card className={cx('flex h-[calc(100dvh-13rem)] min-h-[28rem] flex-col overflow-hidden', vista !== 'carta' && 'hidden lg:flex')}>
-                    <CartaPedido carta={carta} onElegir={elegir} />
+                    <CartaPedido carta={carta} onElegir={elegir} sugerencias={sugerencias} relacionados={sugerencias?.acompanan?.[ultimoElegido] ?? []} />
                 </Card>
 
                 <Card className={cx('flex flex-col overflow-hidden lg:h-[calc(100dvh-13rem)] lg:min-h-[28rem]', vista !== 'ticket' && 'hidden lg:flex')}>

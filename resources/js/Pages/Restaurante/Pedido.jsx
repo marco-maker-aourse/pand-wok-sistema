@@ -10,7 +10,7 @@ import DialogoPlato from '@/Components/Restaurante/DialogoPlato';
 import DialogoTransferir from '@/Components/Restaurante/DialogoTransferir';
 import LineaCuenta from '@/Components/Restaurante/LineaCuenta';
 import { ESTADO_PEDIDO, describirEvento } from '@/Components/Restaurante/estados';
-import { hora, nuevaClave, primerError, soles, tiempoDesde, tituloCuenta } from '@/Components/Restaurante/formato';
+import { cambiarCantidadLinea, hora, nuevaClave, primerError, soles, tiempoDesde, tituloCuenta } from '@/Components/Restaurante/formato';
 
 /**
  * Toma de pedido. Los platos elegidos van primero a un borrador local (rápido en tablet,
@@ -59,12 +59,12 @@ export default function Pedido({ pedido, carta, destinos, puede }) {
         }
         // Plato simple: se suma directo al borrador (o aumenta la línea igual).
         const presentacion = producto.presentaciones[0];
-        agregarAlBorrador({ id_precio: presentacion.id_precio, cantidad: 1, opciones: [], observacion: null, nombre: producto.nombre, detalle: [], precio_estimado: presentacion.precio_venta });
+        agregarAlBorrador({ id_precio: presentacion.id_precio, cantidad: 1, selecciones: [], observacion: null, nombre: producto.nombre, detalle: [], precio_estimado: presentacion.precio_venta });
     };
 
     const agregarAlBorrador = (linea) => {
         setBorrador((actual) => {
-            const igual = actual.find((l) => l.id_precio === linea.id_precio && !l.observacion && !linea.observacion && l.opciones.length === 0 && linea.opciones.length === 0);
+            const igual = actual.find((l) => l.id_precio === linea.id_precio && !l.observacion && !linea.observacion && l.selecciones.length === 0 && linea.selecciones.length === 0);
             if (igual) return actual.map((l) => (l === igual ? { ...l, cantidad: l.cantidad + linea.cantidad } : l));
             return [...actual, { ...linea, clave: nuevaClave() }];
         });
@@ -72,14 +72,19 @@ export default function Pedido({ pedido, carta, destinos, puede }) {
     };
 
     const cambiarBorrador = (clave, delta) => setBorrador((actual) => actual
-        .map((l) => (l.clave === clave ? { ...l, cantidad: l.cantidad + delta } : l))
+        .map((l) => {
+            if (l.clave !== clave) return l;
+            const { linea, repartida } = cambiarCantidadLinea(l, delta);
+            if (repartida) toast.error('Opciones repartidas', 'Quita la línea y vuelve a elegir el plato para cambiar la cantidad.');
+            return linea;
+        })
         .filter((l) => l.cantidad > 0));
 
     const guardar = (accion) => {
         const enviar = accion !== 'items';
         const datos = {};
         if (accion !== 'enviar-cocina') {
-            datos.items = borrador.map(({ clave, id_precio, cantidad, observacion, opciones }) => ({ clave, id_precio, cantidad, observacion, opciones }));
+            datos.items = borrador.map(({ clave, id_precio, cantidad, observacion, selecciones }) => ({ clave, id_precio, cantidad, observacion, selecciones }));
         }
         if (enviar) {
             const firma = JSON.stringify([pedido.id_pedido, accion, datos.items]);

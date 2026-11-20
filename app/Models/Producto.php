@@ -84,7 +84,7 @@ class Producto extends Model
     public function gruposModificadores(): BelongsToMany
     {
         return $this->belongsToMany(GrupoModificador::class, 'restaurante.producto_grupo_modificador', 'id_producto', 'id_grupo')
-            ->withPivot('orden')
+            ->withPivot('orden', 'seleccion_minima', 'seleccion_maxima')
             ->orderByPivot('orden');
     }
 }

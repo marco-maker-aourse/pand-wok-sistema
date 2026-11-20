@@ -13,16 +13,16 @@ const PERMISOS_POR_ROL = {
         items: ['Inicio', 'Punto de venta', 'Salón'],
     },
     VENDEDOR: {
-        grupos: ['Principal', 'Operaciones', 'Gestión'],
-        items: ['Inicio', 'Caja', 'Caja y ventas', 'Comprobantes', 'Kardex', 'Productos', 'Clientes'],
+        grupos: ['Principal', 'Operaciones', 'Inventario', 'Gestión'],
+        items: ['Inicio', 'Caja', 'Caja y ventas', 'Comprobantes', 'Movimientos de existencias', 'Productos', 'Clientes'],
     },
     ALMACENERO: {
-        grupos: ['Principal', 'Operaciones', 'Gestión', 'Catálogos'],
+        grupos: ['Principal', 'Operaciones', 'Inventario', 'Gestión', 'Catálogos'],
         items: [
             'Inicio',
             'Entradas',
-            'Ajustes de inventario',
-            'Kardex',
+            'Salidas y ajustes',
+            'Movimientos de existencias',
             'Productos',
             'Proveedores',
             'Categorías',
