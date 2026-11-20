@@ -10,11 +10,11 @@ export default function Dialog({ open, onClose, title, description, size = 'md',
     return (
         <HDialog open={open} onClose={dismissible ? onClose : () => {}} className="relative z-50">
             <DialogBackdrop transition className="fixed inset-0 bg-slate-900/45 transition-opacity duration-200 ease-out data-closed:opacity-0" />
-            <div className="fixed inset-0 flex items-end justify-center overflow-y-auto p-3 sm:items-center sm:p-6">
+            <div className="fixed inset-0 flex items-end justify-center overflow-y-auto sm:items-center sm:p-6">
                 <DialogPanel
                     transition
                     className={cx(
-                        'flex max-h-[calc(100dvh-1.5rem)] w-full flex-col overflow-hidden rounded-2xl bg-white shadow-[var(--shadow-flotante)] ring-1 ring-slate-900/5 transition duration-200 ease-[cubic-bezier(0.2,0,0,1)] data-closed:translate-y-3 data-closed:scale-[0.98] data-closed:opacity-0 sm:data-closed:translate-y-0',
+                        'flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-2xl bg-white sm:max-h-[calc(100dvh-3rem)] sm:rounded-2xl shadow-[var(--shadow-flotante)] ring-1 ring-slate-900/5 transition duration-200 ease-[cubic-bezier(0.2,0,0,1)] data-closed:translate-y-3 data-closed:scale-[0.98] data-closed:opacity-0 sm:data-closed:translate-y-0',
                         ANCHOS[size],
                     )}
                 >
@@ -32,7 +32,7 @@ export default function Dialog({ open, onClose, title, description, size = 'md',
                         </div>
                     )}
                     <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
-                    {footer && <div className="flex flex-wrap justify-end gap-2 border-t border-slate-200 bg-slate-50 px-5 py-3">{footer}</div>}
+                    {footer && <div className="flex flex-wrap justify-end gap-2 border-t border-slate-200 bg-slate-50 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-5">{footer}</div>}
                 </DialogPanel>
             </div>
         </HDialog>

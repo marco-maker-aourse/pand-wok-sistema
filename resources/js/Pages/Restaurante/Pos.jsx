@@ -34,6 +34,7 @@ export default function Pos({ carta, sugerencias = null, salon, cuenta, inicio, 
     const [borrador, setBorrador] = useState([]);
     const [platoAbierto, setPlatoAbierto] = useState(null);
     const [ultimoElegido, setUltimoElegido] = useState(null);
+    const [recien, setRecien] = useState(null);
     const [dialogo, setDialogo] = useState(null); // 'mesas' | 'cuentas' | 'contacto' | 'cobro'
     const [ocupado, setOcupado] = useState(false);
     const [errorCobro, setErrorCobro] = useState(null);
@@ -59,6 +60,7 @@ export default function Pos({ carta, sugerencias = null, salon, cuenta, inicio, 
     const totalBorrador = useMemo(() => borrador.reduce((suma, l) => suma + centimos(l.cantidad, l.precio_estimado), 0), [borrador]);
     const porCobrar = (porCobrarCuenta + totalBorrador) / 100;
     const unidades = borrador.reduce((suma, l) => suma + l.cantidad, 0);
+    const enTicket = useMemo(() => borrador.reduce((mapa, l) => (l.id_producto ? { ...mapa, [l.id_producto]: (mapa[l.id_producto] ?? 0) + l.cantidad } : mapa), {}), [borrador]);
     const hayPendientes = borrador.length > 0 || vigentes.some((d) => d.estado === 'PENDIENTE');
     const cuentasAbiertas = useMemo(() => [
         ...(salon?.areas ?? []).flatMap((a) => a.mesas.filter((m) => m.cuenta).map((m) => ({ ...m.cuenta, mesa: m.codigo }))),
@@ -73,10 +75,14 @@ export default function Pos({ carta, sugerencias = null, salon, cuenta, inicio, 
             return;
         }
         const p = producto.presentaciones[0];
-        agregar({ id_precio: p.id_precio, cantidad: 1, selecciones: [], observacion: null, nombre: producto.nombre, detalle: [], precio_estimado: p.precio_venta });
+        agregar({ id_producto: producto.id_producto, id_precio: p.id_precio, cantidad: 1, selecciones: [], observacion: null, nombre: producto.nombre, detalle: [], precio_estimado: p.precio_venta });
     };
 
     const agregar = (linea) => {
+        // Confirmación táctil y visual: el plato tocado parpadea y suma su contador.
+        try { navigator.vibrate?.(12); } catch { /* sin vibración */ }
+        setRecien(linea.id_producto ?? null);
+        setTimeout(() => setRecien(null), 450);
         setBorrador((actual) => {
             const igual = actual.find((l) => l.id_precio === linea.id_precio && !l.observacion && !linea.observacion && !l.selecciones.length && !linea.selecciones.length);
             if (igual) return actual.map((l) => (l === igual ? { ...l, cantidad: l.cantidad + linea.cantidad } : l));
@@ -196,7 +202,7 @@ export default function Pos({ carta, sugerencias = null, salon, cuenta, inicio, 
 
             {/* Barra superior: tipo de venta, mesa y cuentas abiertas */}
             <div className="mb-3 flex flex-wrap items-center gap-2">
-                <div className="grid grid-cols-3 gap-1 rounded-xl bg-slate-100 p-1" role="radiogroup" aria-label="Tipo de venta">
+                <div className="grid w-full grid-cols-3 gap-1 rounded-xl bg-slate-100 p-1 sm:w-auto" role="radiogroup" aria-label="Tipo de venta">
                     {TIPOS.map(({ clave, etiqueta, icono: Icono }) => (
                         <button
                             key={clave}
@@ -205,7 +211,7 @@ export default function Pos({ carta, sugerencias = null, salon, cuenta, inicio, 
                             aria-checked={(cuenta?.tipo ?? tipo) === clave}
                             disabled={Boolean(cuenta)}
                             onClick={() => { setTipo(clave); if (clave === 'MESA' && !mesa) abrirMesas(); }}
-                            className={cx('flex h-10 items-center justify-center gap-1.5 rounded-lg px-3 text-sm font-medium disabled:cursor-not-allowed',
+                            className={cx('flex h-11 items-center justify-center gap-1.5 rounded-lg px-2 text-sm font-medium disabled:cursor-not-allowed sm:px-3',
                                 (cuenta?.tipo ?? tipo) === clave ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900')}
                         >
                             <Icono className="h-4 w-4" aria-hidden="true" />{etiqueta}
@@ -220,7 +226,10 @@ export default function Pos({ carta, sugerencias = null, salon, cuenta, inicio, 
                 )}
                 <div className="ml-auto flex gap-2">
                     {cuenta && <Button variant="secondary" onClick={nuevaVenta}>Nueva venta</Button>}
-                    <Button variant="secondary" icon={ListOrdered} onClick={abrirCuentas}>Cuentas abiertas</Button>
+                    <Button variant="secondary" icon={ListOrdered} onClick={abrirCuentas} aria-label="Cuentas abiertas">
+                        <span className="hidden sm:inline">Cuentas abiertas</span>
+                        {cuentasAbiertas.length > 0 && <span className="rounded-full bg-slate-200 px-1.5 font-mono text-xs tabular-nums">{cuentasAbiertas.length}</span>}
+                    </Button>
                 </div>
             </div>
 
@@ -240,11 +249,11 @@ export default function Pos({ carta, sugerencias = null, salon, cuenta, inicio, 
             </div>
 
             <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_25rem]">
-                <Card className={cx('flex h-[calc(100dvh-13rem)] min-h-[28rem] flex-col overflow-hidden', vista !== 'carta' && 'hidden lg:flex')}>
-                    <CartaPedido carta={carta} onElegir={elegir} sugerencias={sugerencias} relacionados={sugerencias?.acompanan?.[ultimoElegido] ?? []} />
+                <Card className={cx('flex h-[calc(100dvh-14rem)] min-h-[24rem] flex-col overflow-hidden lg:h-[calc(100dvh-13rem)] lg:min-h-[28rem]', vista !== 'carta' && 'hidden lg:flex')}>
+                    <CartaPedido carta={carta} onElegir={elegir} sugerencias={sugerencias} relacionados={sugerencias?.acompanan?.[ultimoElegido] ?? []} enTicket={enTicket} recien={recien} />
                 </Card>
 
-                <Card className={cx('flex flex-col overflow-hidden lg:h-[calc(100dvh-13rem)] lg:min-h-[28rem]', vista !== 'ticket' && 'hidden lg:flex')}>
+                <Card className={cx('flex h-[calc(100dvh-14rem)] min-h-[24rem] flex-col overflow-hidden lg:h-[calc(100dvh-13rem)] lg:min-h-[28rem]', vista !== 'ticket' && 'hidden lg:flex')}>
                     <header className="border-b border-slate-100 px-4 py-3">
                         <h2 className="text-base font-semibold text-slate-900">{tituloTicket}</h2>
                         {cuenta?.mozo && <p className="text-xs text-slate-500">{cuenta.mozo}</p>}
@@ -270,9 +279,9 @@ export default function Pos({ carta, sugerencias = null, salon, cuenta, inicio, 
                                                 {l.observacion && <p className="text-xs text-amber-700 italic">“{l.observacion}”</p>}
                                                 <p className="font-mono text-xs text-slate-500 tabular-nums">{soles(centimos(l.cantidad, l.precio_estimado) / 100)}</p>
                                             </div>
-                                            <IconButton icon={l.cantidad === 1 ? X : Minus} label={l.cantidad === 1 ? 'Quitar' : 'Uno menos'} onClick={() => cambiarBorrador(l.clave, -1)} className="h-10 w-10 bg-white ring-1 ring-slate-200" />
+                                            <IconButton icon={l.cantidad === 1 ? X : Minus} label={l.cantidad === 1 ? 'Quitar' : 'Uno menos'} onClick={() => cambiarBorrador(l.clave, -1)} className="h-11 w-11 bg-white ring-1 ring-slate-200" />
                                             <span className="w-6 text-center font-mono text-sm font-semibold tabular-nums">{l.cantidad}</span>
-                                            <IconButton icon={Plus} label="Uno más" onClick={() => cambiarBorrador(l.clave, 1)} className="h-10 w-10 bg-white ring-1 ring-slate-200" />
+                                            <IconButton icon={Plus} label="Uno más" onClick={() => cambiarBorrador(l.clave, 1)} className="h-11 w-11 bg-white ring-1 ring-slate-200" />
                                         </li>
                                     ))}
                                 </ul>
@@ -308,8 +317,9 @@ export default function Pos({ carta, sugerencias = null, salon, cuenta, inicio, 
 
             {/* Acceso rápido al ticket en celular */}
             {vista === 'carta' && unidades > 0 && (
-                <button type="button" onClick={() => setVista('ticket')} className="fixed inset-x-4 bottom-4 z-20 flex h-14 items-center justify-between rounded-2xl bg-brand px-5 font-semibold text-on-brand shadow-lg lg:hidden">
-                    <span>Ver ticket · {unidades}</span><span className="flex items-center gap-1">{soles(porCobrar)}<ChevronRight className="h-4 w-4" /></span>
+                <button type="button" onClick={() => setVista('ticket')} className="fixed inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-20 flex h-16 items-center justify-between rounded-2xl bg-brand px-5 text-base font-semibold text-on-brand shadow-lg lg:hidden">
+                    <span className="flex items-center gap-2"><span className="grid h-8 min-w-8 place-items-center rounded-full bg-white/20 px-2 font-mono">{unidades}</span>Ver pedido</span>
+                    <span className="flex items-center gap-1 font-mono tabular-nums">{soles(porCobrar)}<ChevronRight className="h-5 w-5" /></span>
                 </button>
             )}
 

@@ -91,6 +91,7 @@ export default function DialogoPlato({ producto, grupos, onCerrar, onAgregar }) 
             id_precio: idPrecio,
             cantidad,
             selecciones: elegidas.map((o) => ({ id_opcion: o.id_opcion, cantidad: conteos[o.id_opcion] })),
+            id_producto: producto.id_producto,
             observacion: nota.trim() || null,
             // Solo para mostrar en el borrador; el servidor no los usa.
             nombre: producto.nombre + (producto.presentaciones.length > 1 ? ` (${presentacion?.nombre})` : ''),
@@ -107,8 +108,8 @@ export default function DialogoPlato({ producto, grupos, onCerrar, onAgregar }) 
             size="lg"
             footer={(
                 <>
-                    <Button variant="secondary" onClick={onCerrar}>Cancelar</Button>
-                    <Button size="lg" onClick={agregar} disabled={!presentacion || pendientes.length > 0 || sinStock}>
+                    <Button variant="secondary" size="lg" onClick={onCerrar} className="hidden sm:inline-flex">Cancelar</Button>
+                    <Button size="lg" onClick={agregar} disabled={!presentacion || pendientes.length > 0 || sinStock} className="min-h-14 flex-1 text-base sm:flex-none">
                         Agregar {cantidad} · {soles(total)}
                     </Button>
                 </>
@@ -156,7 +157,7 @@ export default function DialogoPlato({ producto, grupos, onCerrar, onAgregar }) 
                                             const n = conteos[opcion.id_opcion] ?? 0;
                                             const precio = opcion.precio_adicional > 0
                                                 ? <span className="font-mono text-xs tabular-nums text-slate-500">+{soles(opcion.precio_adicional)}</span>
-                                                : conRecargo && <span className="text-xs text-emerald-700">Incluido</span>;
+                                                : (conRecargo || opcion.id_producto) && <span className="block text-xs text-emerald-700">Incluido en el precio</span>;
                                             if (cantidad === 1) {
                                                 return (
                                                     <Opcion key={opcion.id_opcion} activa={n > 0} onClick={() => tocar(grupo, opcion)}>

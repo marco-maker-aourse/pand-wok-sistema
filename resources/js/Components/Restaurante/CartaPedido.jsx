@@ -9,7 +9,7 @@ const normalizar = (texto) => (texto ?? '').normalize('NFD').replace(/[̀-ͯ]/g,
  * Carta táctil para tomar el pedido. Se busca por nombre o por el número del plato
  * ("el 05"), que es como suele pedirlo el cliente.
  */
-export default function CartaPedido({ carta, onElegir, sugerencias = null, relacionados = [] }) {
+export default function CartaPedido({ carta, onElegir, sugerencias = null, relacionados = [], enTicket = {}, recien = null }) {
     const [categoria, setCategoria] = useState(sugerencias?.frecuentes?.length ? 'frecuentes' : 'todas');
     const [busqueda, setBusqueda] = useState('');
     const porId = useMemo(() => new Map(carta.productos.map((p) => [p.id_producto, p])), [carta.productos]);
@@ -69,21 +69,26 @@ export default function CartaPedido({ carta, onElegir, sugerencias = null, relac
                 </div>
             )}
 
-            <div className="grid flex-1 auto-rows-min grid-cols-2 gap-2.5 overflow-y-auto p-4 sm:grid-cols-3 2xl:grid-cols-4">
+            <div className="grid flex-1 auto-rows-min grid-cols-2 gap-2.5 overflow-y-auto p-3 pb-24 sm:grid-cols-3 sm:p-4 lg:pb-4 2xl:grid-cols-4">
                 {visibles.length === 0 && (
                     <p className="col-span-full py-10 text-center text-sm text-slate-500">No hay platos que coincidan.</p>
                 )}
                 {visibles.map((producto) => {
                     const precio = producto.presentaciones[0]?.precio_venta;
                     const conOpciones = producto.grupos.length > 0 || producto.presentaciones.length > 1;
+                    const cantidad = enTicket[producto.id_producto] ?? 0;
                     return (
                         <button
                             key={producto.id_producto}
                             type="button"
                             disabled={producto.agotado}
                             onClick={() => onElegir(producto)}
-                            className="group relative flex min-h-24 flex-col justify-between rounded-xl bg-white p-3 text-left ring-1 ring-slate-200 transition-[box-shadow,transform] hover:ring-brand active:scale-[0.97] disabled:cursor-not-allowed disabled:bg-slate-50 disabled:opacity-60"
+                            className={cx('group relative flex min-h-24 flex-col justify-between rounded-xl bg-white p-3 text-left ring-1 transition-[box-shadow,transform] hover:ring-brand active:scale-[0.97] disabled:cursor-not-allowed disabled:bg-slate-50 disabled:opacity-60',
+                                cantidad > 0 ? 'ring-2 ring-brand' : 'ring-slate-200', recien === producto.id_producto && 'animate-pulse')}
                         >
+                            {cantidad > 0 && (
+                                <span className="absolute -top-2 -right-2 grid h-7 min-w-7 place-items-center rounded-full bg-brand px-1.5 font-mono text-sm font-bold text-on-brand shadow" aria-label={`${cantidad} en el ticket`}>{cantidad}</span>
+                            )}
                             <span className="flex items-start gap-1.5">
                                 {producto.codigo_carta && <span className="mt-0.5 shrink-0 rounded bg-slate-100 px-1 font-mono text-[0.6875rem] font-semibold text-slate-600">{producto.codigo_carta}</span>}
                                 <span className="text-sm leading-snug font-medium text-slate-900">{producto.nombre}</span>
