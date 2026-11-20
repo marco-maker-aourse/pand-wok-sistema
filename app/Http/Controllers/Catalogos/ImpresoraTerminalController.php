@@ -25,6 +25,7 @@ class ImpresoraTerminalController extends Controller
             'installerUrl' => filter_var(config('print_agent.installer_url'), FILTER_VALIDATE_URL) ? config('print_agent.installer_url') : null,
             'installerVersion' => config('print_agent.installer_version'),
             'installerSha256' => preg_match('/^[a-f0-9]{64}$/i', (string) config('print_agent.installer_sha256')) ? config('print_agent.installer_sha256') : null,
+            'android' => $this->appAndroid(),
             'impresoras' => Impresora::query()->where('id_sucursal', $branchId)->orderBy('nombre')->get(),
             'terminales' => TerminalPos::query()
                 ->where('id_sucursal', $branchId)
@@ -126,4 +127,32 @@ class ImpresoraTerminalController extends Controller
         abort_unless((int) $impresora->id_sucursal === $request->user()->idSucursalActiva(), 404);
     }
 
+
+    /**
+     * App Android del agente. Si PRINT_AGENT_ANDROID_URL apunta a otro alojamiento se usa esa;
+     * si no, el APK estático que viaja con el despliegue en public/descargas (no ejecuta PHP).
+     *
+     * @return array{url: ?string, version: ?string, sha256: ?string}
+     */
+    private function appAndroid(): array
+    {
+        $url = config('print_agent.android_url');
+        if (filter_var($url, FILTER_VALIDATE_URL) && str_starts_with((string) $url, 'https://')) {
+            $version = config('print_agent.android_version');
+            $sha256 = config('print_agent.android_sha256');
+        } elseif (is_file(public_path('descargas/agente-impresion-android.apk'))) {
+            $datos = json_decode((string) @file_get_contents(public_path('descargas/agente-impresion-android.json')), true) ?: [];
+            $url = asset('descargas/agente-impresion-android.apk');
+            $version = $datos['version'] ?? null;
+            $sha256 = $datos['sha256'] ?? null;
+        } else {
+            return ['url' => null, 'version' => null, 'sha256' => null];
+        }
+
+        return [
+            'url' => $url,
+            'version' => is_string($version) ? mb_substr($version, 0, 20) : null,
+            'sha256' => preg_match('/^[a-f0-9]{64}$/i', (string) $sha256) ? $sha256 : null,
+        ];
+    }
 }

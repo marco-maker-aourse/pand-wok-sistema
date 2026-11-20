@@ -1,3 +1,8 @@
+# Descarga del agente de impresión Android: tipo correcto para que el celular ofrezca instalarlo.
+<IfModule mod_mime.c>
+    AddType application/vnd.android.package-archive .apk
+</IfModule>
+
 <IfModule mod_rewrite.c>
     <IfModule mod_negotiation.c>
         Options -MultiViews -Indexes

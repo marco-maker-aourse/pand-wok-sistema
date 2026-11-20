@@ -6,4 +6,9 @@ return [
     'installer_version' => env('PRINT_AGENT_INSTALLER_VERSION'),
     // El administrador puede comprobar el binario descargado antes de instalarlo.
     'installer_sha256' => env('PRINT_AGENT_INSTALLER_SHA256'),
+
+    /* Igual para la app Android (APK): se instala en el celular escaneando el QR o con el enlace. */
+    'android_url' => env('PRINT_AGENT_ANDROID_URL'),
+    'android_version' => env('PRINT_AGENT_ANDROID_VERSION'),
+    'android_sha256' => env('PRINT_AGENT_ANDROID_SHA256'),
 ];

@@ -6,7 +6,7 @@ import { Button, PageHeader, Stat, confirmar, toast } from '@/Components/ui';
 import FormularioImpresora from '@/Components/Impresoras/FormularioImpresora';
 import FormularioTerminal from '@/Components/Impresoras/FormularioTerminal';
 import { ListaImpresoras, ListaTerminales } from '@/Components/Impresoras/Listados';
-import { CodigoVinculacion, PanelAgente } from '@/Components/Impresoras/PanelAgente';
+import { CodigoVinculacion, PanelAgente, PanelAgenteAndroid } from '@/Components/Impresoras/PanelAgente';
 import { estadoAgente } from '@/Components/Impresoras/estado';
 
 /**
@@ -14,7 +14,7 @@ import { estadoAgente } from '@/Components/Impresoras/estado';
  * /impresoras (CRUD, diagnosticar, prueba) y /terminales-pos (CRUD, vinculación).
  * `formulario` = { tipo: 'impresora' | 'terminal', registro: objeto | null } | null.
  */
-export default function Impresoras({ impresoras = [], terminales = [], installerUrl = null, installerVersion = null, installerSha256 = null }) {
+export default function Impresoras({ impresoras = [], terminales = [], installerUrl = null, installerVersion = null, installerSha256 = null, android = null }) {
     const { flash = {} } = usePage().props;
     const [formulario, setFormulario] = useState(null);
 
@@ -66,6 +66,7 @@ export default function Impresoras({ impresoras = [], terminales = [], installer
                 </div>
 
                 <PanelAgente url={installerUrl} version={installerVersion} sha256={installerSha256} />
+                <PanelAgenteAndroid url={android?.url} version={android?.version} sha256={android?.sha256} />
 
                 <div className="grid grid-cols-1 gap-5 2xl:grid-cols-2">
                     <ListaImpresoras impresoras={impresoras} onNueva={() => abrir('impresora')} onEditar={(p) => abrir('impresora', p)} onAccion={ejecutar} />
