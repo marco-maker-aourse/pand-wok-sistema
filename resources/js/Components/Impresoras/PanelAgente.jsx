@@ -68,12 +68,13 @@ export function PanelAgenteAndroid({ url, version, sha256 }) {
                 <div className="min-w-0 space-y-2">
                     <p className="flex items-center gap-2 text-sm font-medium text-slate-900">
                         <Smartphone className="h-4 w-4 text-brand-ink" aria-hidden="true" />
-                        App para celular (Android) {version ? `v${version}` : 'sin publicar'}
+                        Tiqo, app para celular (Android) {version ? `v${version}` : 'sin publicar'}
                     </p>
                     <ol className="list-decimal space-y-1 pl-5 text-sm text-slate-600">
                         <li>Escanea el QR con la cámara del celular o abre el enlace y descarga la app.</li>
                         <li>Permite «instalar apps desconocidas» si el celular lo pide.</li>
-                        <li>Empareja la ticketera por Bluetooth, crea aquí una terminal <b>solo para ese celular</b> y vincúlala con el código. No uses la de la computadora: cada terminal admite un solo agente.</li>
+                        <li>Crea aquí una terminal <b>solo para ese celular</b>, toca «Vincular agente» y escanea el QR desde Tiqo. No uses la de la computadora: cada terminal admite un solo agente.</li>
+                        <li>Tiqo encuentra la ticketera Bluetooth o de red y la deja lista.</li>
                     </ol>
                     {sha256 && <code className="block break-all rounded-md bg-slate-50 px-2 py-1 font-mono text-[0.6875rem] text-slate-500">SHA-256 · {sha256}</code>}
                     {url ? (
@@ -92,6 +93,15 @@ export function PanelAgenteAndroid({ url, version, sha256 }) {
 
 /** Código temporal de vinculación (llega una sola vez en la sesión flash). */
 export function CodigoVinculacion({ codigo }) {
+    // QR para la app del celular (Tiqo): al escanearlo se vincula sola, sin escribir nada.
+    const [qr, setQr] = useState(null);
+    useEffect(() => {
+        let vigente = true;
+        const enlace = `tiqo://vincular?url=${encodeURIComponent(window.location.origin)}&codigo=${encodeURIComponent(codigo.codigo)}`;
+        if (window.location.protocol === 'https:') QRCode.toDataURL(enlace, { margin: 1, width: 160, errorCorrectionLevel: 'M' }).then((dato) => vigente && setQr(dato)).catch(() => setQr(null));
+        return () => { vigente = false; };
+    }, [codigo.codigo]);
+
     const copiar = async () => {
         try {
             await navigator.clipboard?.writeText(codigo.codigo);
@@ -111,7 +121,15 @@ export function CodigoVinculacion({ codigo }) {
                     <p className="mt-1 text-xs text-slate-600">Válido por 10 minutos y se muestra una sola vez.</p>
                 </div>
             </div>
-            <Button icon={Copy} onClick={copiar}>Copiar código</Button>
+            <div className="flex items-center gap-4">
+                {qr && (
+                    <figure className="text-center">
+                        <img src={qr} alt="QR para vincular la app del celular" width={128} height={128} className="rounded-lg bg-white p-1 ring-1 ring-slate-200" />
+                        <figcaption className="mt-1 text-[0.6875rem] text-slate-500">Escanéalo con el celular</figcaption>
+                    </figure>
+                )}
+                <Button icon={Copy} onClick={copiar}>Copiar código</Button>
+            </div>
         </Card>
     );
 }
