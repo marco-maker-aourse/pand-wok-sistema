@@ -36,8 +36,10 @@ npm run build
 Es compatible con los datos existentes y reversible: `down()` se niega a borrar si ya hay
 opciones sin nombre, variantes u opciones configuradas por sucursal.
 
-**No se aplicó a ninguna base** y su SQL todavía no se ejecutó en PostgreSQL (las pruebas usan SQLite y `.env` no tiene credenciales para `migrate --pretend`): conviene probarla primero en una copia de desarrollo. Antes de `php artisan migrate` en la base de `.env`, confirmar
-que es la de desarrollo. En producción se aplica con el flujo manual de
+Se probó en un PostgreSQL 18 temporal: todas las migraciones desde cero, `up` → `down` → `up`
+de esta, y el flujo completo (menú con sopas repartidas, sopa desactivada rechazada, envío a
+cocina, carta del POS y sugerencias). No hay base de desarrollo: se aplica directamente en
+producción, siempre con respaldo previo. En producción se aplica con el flujo manual de
 `10_DESPLIEGUE_AUTOMATICO.md` ("Run workflow" + respaldo confirmado); el despliegue automático
 se detiene solo si detecta migraciones nuevas.
 

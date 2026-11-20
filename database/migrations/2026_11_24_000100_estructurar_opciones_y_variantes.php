@@ -85,8 +85,9 @@ return new class extends Migration
         }
 
         DB::statement('ALTER TABLE inventario.precio_producto DROP CONSTRAINT IF EXISTS precio_producto_stock_check');
+        // El índice vive en el esquema inventario: dropIndex() lo buscaría en public.
+        DB::statement('DROP INDEX IF EXISTS inventario.precio_producto_stock_idx');
         Schema::table('inventario.precio_producto', function (Blueprint $table): void {
-            $table->dropIndex('precio_producto_stock_idx');
             $table->dropConstrainedForeignId('id_producto_stock');
         });
 
