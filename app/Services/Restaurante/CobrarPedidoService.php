@@ -9,6 +9,7 @@ use App\Models\Restaurante\PedidoDetalle;
 use App\Models\TipoComprobante;
 use App\Models\TurnoCaja;
 use App\Models\Venta;
+use App\Services\Ventas\CatalogoPosService;
 use App\Services\Ventas\RegistrarVentaService;
 use DomainException;
 use Illuminate\Support\Facades\DB;
@@ -19,6 +20,7 @@ class CobrarPedidoService
         private readonly RegistrarVentaService $ventas,
         private readonly CerrarCuentaSaldada $cierre,
         private readonly RegistrarEventoPedido $eventos,
+        private readonly CatalogoPosService $catalogo,
     ) {}
 
     /** @return array{venta: Venta, nueva: bool} */
@@ -130,7 +132,7 @@ class CobrarPedidoService
     {
         $identificador = $id ?? $pedido->id_cliente;
         $consulta = Cliente::query()->where('estado', true)->with('tipoDocumento');
-        $cliente = $identificador ? $consulta->find($identificador) : $consulta->where('num_documento', '00000000')->first();
+        $cliente = $identificador ? $consulta->find($identificador) : $this->catalogo->clienteGenerico()?->load('tipoDocumento');
         if (! $cliente) {
             throw new DomainException('Selecciona un cliente activo o configura el cliente de público general.');
         }

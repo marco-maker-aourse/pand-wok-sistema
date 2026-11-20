@@ -2,14 +2,19 @@
 
 namespace App\Services\Ventas;
 
+use App\Models\Cliente;
 use App\Models\DatosGen;
 use App\Models\Kardex;
 use App\Models\MetodoPago;
 use App\Models\Producto;
 use App\Models\ProductoPresentacion;
+use App\Models\SerieSucursal;
 use App\Models\TerminalPos;
+use App\Models\TipoComprobante;
+use App\Models\TipoDocumento;
 use App\Models\TurnoCaja;
 use App\Services\Configuracion\DatosGeneralesService;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Collection;
 
 /**
@@ -26,6 +31,72 @@ class CatalogoPosService
     public function datosEmisor(int $branchId): ?DatosGen
     {
         return $this->datosGenerales->emisor($branchId);
+    }
+
+    public const DOCUMENTO_GENERICO = '00000000';
+
+    /**
+     * Cliente "Público en general" para ventas rápidas con boleta. El POS lo selecciona por
+     * defecto: si faltara, ninguna venta anónima podría cobrarse. Se crea una sola vez
+     * (num_documento es único) y se reactiva si estaba inactivo.
+     */
+    public function clienteGenerico(): ?Cliente
+    {
+        $cliente = Cliente::query()->where('num_documento', self::DOCUMENTO_GENERICO)->first();
+        if ($cliente) {
+            if (! $cliente->estado) {
+                $cliente->update(['estado' => true]);
+            }
+
+            return $cliente;
+        }
+
+        // DNI con ceros, o "sin documento" si el catálogo no tiene DNI activo.
+        $tipo = TipoDocumento::query()->where('estado', true)->whereIn('codigo_sunat', ['1', '0'])
+            ->orderByRaw("CASE WHEN codigo_sunat = '1' THEN 0 ELSE 1 END")->first();
+        if (! $tipo) {
+            return null;
+        }
+
+        try {
+            return Cliente::query()->create([
+                'id_tipo_documento' => $tipo->id_tipo_documento,
+                'num_documento' => self::DOCUMENTO_GENERICO,
+                'nombre_razon_social' => 'PÚBLICO EN GENERAL',
+                'estado' => true,
+            ]);
+        } catch (UniqueConstraintViolationException) {
+            // Otra caja lo creó al mismo tiempo.
+            return Cliente::query()->where('num_documento', self::DOCUMENTO_GENERICO)->first();
+        }
+    }
+
+    /**
+     * Lo que falta para poder cobrar en esta sucursal, con dónde resolverlo. Vacío = todo listo.
+     * El servidor valida igual al cobrar; esto evita que el botón se bloquee sin explicación.
+     *
+     * @return array<int, array{clave: string, mensaje: string, enlace: string, accion: string}>
+     */
+    public function requisitosCobro(int $userId, int $branchId): array
+    {
+        $faltan = [];
+        if (! $this->turnoAbierto($userId, $branchId)) {
+            $faltan[] = ['clave' => 'caja', 'mensaje' => 'Abre tu turno de caja.', 'enlace' => '/caja', 'accion' => 'Abrir caja'];
+        }
+        if (! MetodoPago::query()->where('estado', true)->exists()) {
+            $faltan[] = ['clave' => 'metodos_pago', 'mensaje' => 'No hay métodos de pago activos (Efectivo, Yape, tarjeta…).', 'enlace' => '/metodos-pago', 'accion' => 'Agregar'];
+        }
+        if (! TipoComprobante::query()->where('estado', true)->where('codigo_sunat', '03')->exists()) {
+            $faltan[] = ['clave' => 'comprobantes', 'mensaje' => 'La boleta (código SUNAT 03) no está habilitada.', 'enlace' => '/tipos-comprobante', 'accion' => 'Habilitar'];
+        }
+        // Misma fuente que ReservarCorrelativoService: datos_gen de la sucursal o su serie propia.
+        $serie = DatosGen::query()->where('id_sucursal', $branchId)->first() ?? SerieSucursal::query()->find($branchId);
+        $igv = $serie instanceof DatosGen ? $serie->igv_porcentaje : $this->datosGenerales->empresaDe($branchId)?->igv_porcentaje;
+        if (! $serie || blank($serie->serie_boleta) || $igv === null) {
+            $faltan[] = ['clave' => 'series', 'mensaje' => 'Falta la serie de boleta o el IGV de esta sucursal.', 'enlace' => '/datos-generales', 'accion' => 'Configurar'];
+        }
+
+        return $faltan;
     }
 
     /** Solo se expone el turno del usuario actual: otro cajero no puede operar esta gaveta. */

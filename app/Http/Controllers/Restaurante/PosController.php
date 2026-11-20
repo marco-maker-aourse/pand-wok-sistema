@@ -69,8 +69,9 @@ class PosController extends Controller
             ],
             'metodosPago' => $catalogoPos->metodosPago(),
             'turno' => $catalogoPos->turnoAbierto($usuario->id_usuario, $sucursal),
-            'clienteInicial' => Cliente::query()->where('estado', true)->where('num_documento', '00000000')
-                ->first(['id_cliente', 'nombre_razon_social', 'num_documento']),
+            'clienteInicial' => $catalogoPos->clienteGenerico()?->only(['id_cliente', 'nombre_razon_social', 'num_documento']),
+            // Qué falta para cobrar (caja, métodos de pago, comprobantes, series): el POS lo explica.
+            'requisitosCobro' => $usuario->hasPermission('ventas.registrar') ? $catalogoPos->requisitosCobro($usuario->id_usuario, $sucursal) : [],
             'puede' => [
                 'enviar' => $usuario->hasPermission('comandas.enviar'),
                 'cobrar' => $usuario->hasPermission('ventas.registrar'),

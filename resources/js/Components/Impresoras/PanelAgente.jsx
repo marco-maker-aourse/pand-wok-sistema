@@ -80,7 +80,7 @@ export function PanelAgenteAndroid({ url, version, sha256 }) {
                     {url ? (
                         <a href={url} target="_blank" rel="noreferrer" className="volumen-marca inline-flex h-10 items-center justify-center gap-2 rounded-lg px-4 text-sm font-semibold text-on-brand hover:brightness-105">
                             <Download className="h-4 w-4" aria-hidden="true" />
-                            Descargar app (.apk)
+                            Descargar app
                         </a>
                     ) : (
                         <p className="text-xs text-slate-500">App pendiente de publicación (configura PRINT_AGENT_ANDROID_URL).</p>

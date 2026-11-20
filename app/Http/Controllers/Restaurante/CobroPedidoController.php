@@ -26,10 +26,10 @@ class CobroPedidoController extends Controller
         $usuario = $request->user();
         $sucursal = $usuario->idSucursalActiva();
         $cuenta = Pedido::query()->where('id_sucursal', $sucursal)->with('mesa:id_mesa,codigo')->findOrFail($pedido);
-        $cliente = Cliente::query()->where('estado', true)
-            ->when($cuenta->id_cliente, fn ($query) => $query->whereKey($cuenta->id_cliente),
-                fn ($query) => $query->where('num_documento', '00000000'))
-            ->first(['id_cliente', 'nombre_razon_social', 'num_documento']);
+        $cliente = ($cuenta->id_cliente
+            ? Cliente::query()->where('estado', true)->find($cuenta->id_cliente)
+            : null) ?? $pos->clienteGenerico();
+        $cliente = $cliente?->only(['id_cliente', 'nombre_razon_social', 'num_documento']);
 
         return Inertia::render('Restaurante/CobrarPedido', [
             'pedido' => [

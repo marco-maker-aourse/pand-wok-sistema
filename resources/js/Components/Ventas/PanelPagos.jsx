@@ -11,8 +11,18 @@ function iconoMetodo(nombre) {
     return <Coins className="h-3.5 w-3.5" />;
 }
 
-/** Panel táctil de cobro. La venta sigue validando montos y referencias en el servidor. */
-export default function PanelPagos({ pagos, metodosPago, totalVenta, saldoPendiente, metodoDePago, onAgregar, onSeleccionarMetodo, onActualizar, onQuitar }) {
+/** Billetes y monedas con los que suele pagarse: atajos de "recibido" a partir del importe. */
+function montosRapidos(importe) {
+    const sugeridos = [10, 20, 50, 100, 200].filter((billete) => billete > importe);
+    return [...new Set([Math.ceil(importe), ...sugeridos])].filter((valor) => valor > importe).slice(0, 3);
+}
+
+/**
+ * Panel táctil de cobro. La venta sigue validando montos y referencias en el servidor.
+ * Con `detalle` muestra lo que el servidor exige: efectivo recibido (con vuelto y montos
+ * rápidos; vacío = pago exacto) y número de operación para Yape, transferencia, etc.
+ */
+export default function PanelPagos({ pagos, metodosPago, totalVenta, saldoPendiente, metodoDePago, onAgregar, onSeleccionarMetodo, onActualizar, onQuitar, detalle = false }) {
     const textoSaldo = Math.abs(saldoPendiente) <= 0.01
         ? 'Cobro distribuido correctamente.'
         : saldoPendiente > 0 ? `Pendiente: ${currency.format(saldoPendiente)}` : `Exceso: ${currency.format(Math.abs(saldoPendiente))}`;
@@ -43,6 +53,37 @@ export default function PanelPagos({ pagos, metodosPago, totalVenta, saldoPendie
                                 <input type="number" min="0" step="0.01" value={pago.monto} onWheel={(event) => event.target.blur()} onChange={(event) => onActualizar(indice, 'monto', event.target.value)} placeholder={pagos.length === 1 ? currency.format(totalVenta) : 'S/ 0.00'} className="h-8 min-w-0 rounded-lg border border-slate-200 bg-white px-2 text-right font-mono text-xs font-bold text-slate-800 focus:border-cyan-600" aria-label={`Monto de ${metodo?.nombre || 'pago'}`} />
                                 {pagos.length > 1 && <button type="button" onClick={() => onQuitar(indice)} className="grid h-8 w-8 place-items-center rounded-lg text-slate-400 transition hover:bg-rose-50 hover:text-rose-600" aria-label="Quitar medio de pago"><Trash2 className="h-3.5 w-3.5" /></button>}
                             </div>
+                            {detalle && metodo?.tipo === 'EFECTIVO' && (() => {
+                                const importe = pago.monto === '' && pagos.length === 1 ? totalVenta : Number(pago.monto || 0);
+                                const recibido = pago.monto_recibido === '' ? null : Number(pago.monto_recibido);
+                                const vuelto = recibido !== null ? recibido - importe : 0;
+                                return (
+                                    <div className="mt-2 rounded-lg bg-slate-50 p-2">
+                                        <div className="flex flex-wrap items-center gap-1.5">
+                                            <label className="text-xs font-semibold text-slate-600" htmlFor={`recibido-${indice}`}>Recibido</label>
+                                            <input id={`recibido-${indice}`} type="number" min="0" step="0.10" inputMode="decimal" value={pago.monto_recibido} onWheel={(event) => event.target.blur()}
+                                                onChange={(event) => onActualizar(indice, 'monto_recibido', event.target.value)} placeholder={`${currency.format(importe)} exacto`}
+                                                className="h-10 w-32 rounded-lg border border-slate-200 bg-white px-2 text-right font-mono text-sm font-bold text-slate-800 focus:border-cyan-600" />
+                                            <button type="button" onClick={() => onActualizar(indice, 'monto_recibido', '')} className={`h-10 rounded-lg border px-2.5 text-xs font-semibold ${recibido === null ? 'border-cyan-600 bg-cyan-50 text-cyan-800' : 'border-slate-200 bg-white text-slate-600'}`}>Exacto</button>
+                                            {montosRapidos(importe).map((valor) => (
+                                                <button key={valor} type="button" onClick={() => onActualizar(indice, 'monto_recibido', String(valor))} className={`h-10 rounded-lg border px-2.5 font-mono text-xs font-semibold ${recibido === valor ? 'border-cyan-600 bg-cyan-50 text-cyan-800' : 'border-slate-200 bg-white text-slate-600'}`}>S/ {valor}</button>
+                                            ))}
+                                        </div>
+                                        {recibido !== null && (
+                                            <p className={`mt-1.5 text-sm font-semibold ${vuelto >= 0 ? 'text-emerald-700' : 'text-rose-600'}`}>
+                                                {vuelto >= 0 ? `Vuelto: ${currency.format(vuelto)}` : `Falta: ${currency.format(-vuelto)}`}
+                                            </p>
+                                        )}
+                                    </div>
+                                );
+                            })()}
+                            {detalle && metodo?.requiere_referencia && (
+                                <div className="mt-2">
+                                    <input type="text" inputMode="numeric" value={pago.nro_referencia} maxLength={100} onChange={(event) => onActualizar(indice, 'nro_referencia', event.target.value)}
+                                        placeholder={`N.º de operación de ${metodo.nombre}`} aria-label={`Número de operación de ${metodo.nombre}`}
+                                        className={`h-10 w-full rounded-lg border bg-white px-2 text-sm ${String(pago.nro_referencia || '').trim() ? 'border-slate-200' : 'border-amber-400'} focus:border-cyan-600`} />
+                                </div>
+                            )}
                         </div>
                     );
                 })}

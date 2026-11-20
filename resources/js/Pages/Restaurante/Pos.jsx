@@ -26,7 +26,7 @@ const centimos = (cantidad, precio) => Math.round(Math.round(cantidad * 1000) * 
  * pedido de la carta completa (platos y bebidas), enviarlo a cocina y cobrar, en una pantalla.
  * Una mesa queda como cuenta abierta; mostrador y delivery se cobran en un paso.
  */
-export default function Pos({ carta, sugerencias = null, salon, cuenta, inicio, metodosPago, turno, clienteInicial, puede, ultimaVenta }) {
+export default function Pos({ carta, sugerencias = null, salon, cuenta, inicio, metodosPago, turno, clienteInicial, requisitosCobro = [], puede, ultimaVenta }) {
     const { flash = {} } = usePage().props;
     const [tipo, setTipo] = useState(cuenta?.tipo ?? inicio?.tipo ?? 'PARA_LLEVAR');
     const [mesa, setMesa] = useState(inicio?.mesa ?? null);
@@ -233,10 +233,18 @@ export default function Pos({ carta, sugerencias = null, salon, cuenta, inicio, 
                 </div>
             </div>
 
-            {puede.cobrar && !turno && (
-                <p className="mb-3 flex flex-wrap items-center gap-2 rounded-xl bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
-                    Abre la caja para poder cobrar. <Link href="/caja" className="font-semibold underline">Ir a caja</Link>
-                </p>
+            {puede.cobrar && requisitosCobro.length > 0 && (
+                <section className="mb-3 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900 ring-1 ring-amber-200" aria-label="Falta para cobrar">
+                    <p className="font-semibold">Para cobrar falta:</p>
+                    <ul className="mt-1.5 space-y-1.5">
+                        {requisitosCobro.map((r) => (
+                            <li key={r.clave} className="flex flex-wrap items-center justify-between gap-2">
+                                <span>{r.mensaje}</span>
+                                <Link href={r.enlace} className="rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-amber-900 ring-1 ring-amber-300 hover:bg-amber-100">{r.accion}</Link>
+                            </li>
+                        ))}
+                    </ul>
+                </section>
             )}
 
             <div className="mb-3 grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1 lg:hidden" role="tablist">
@@ -305,7 +313,8 @@ export default function Pos({ carta, sugerencias = null, salon, cuenta, inicio, 
                                 </Button>
                             )}
                             {puede.cobrar && (
-                                <Button size="lg" icon={ReceiptText} onClick={abrirCobro} disabled={ocupado || porCobrar <= 0 || !turno} block className={cx(!puede.enviar && 'col-span-2')}>
+                                <Button size="lg" icon={ReceiptText} onClick={abrirCobro} disabled={ocupado || porCobrar <= 0 || requisitosCobro.length > 0} block className={cx(!puede.enviar && 'col-span-2')}
+                                    title={requisitosCobro.length > 0 ? `Falta: ${requisitosCobro.map((r) => r.mensaje).join(' ')}` : undefined}>
                                     Cobrar
                                 </Button>
                             )}

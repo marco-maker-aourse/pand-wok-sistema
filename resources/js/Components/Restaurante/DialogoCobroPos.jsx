@@ -4,6 +4,7 @@ import { Button, Dialog, Field, Input, cx } from '@/Components/ui';
 import PanelPagos from '@/Components/Ventas/PanelPagos';
 import ClienteCobro from './ClienteCobro';
 import { soles } from './formato';
+import { motivoPagos, pagosParaEnviar, saldoPagos } from './pagos';
 
 const pagoVacio = (id = '') => ({ id_metodo: id, monto: '', monto_recibido: '', nro_referencia: '' });
 
@@ -27,8 +28,7 @@ export default function DialogoCobroPos({ abierto, onCerrar, total, metodosPago,
     }, [abierto]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const totalFinal = Math.max(0, (Math.round(total * 100) - Math.round(Number(descuento || 0) * 100)) / 100);
-    const montoPago = (pago) => (pago.monto === '' && pagos.length === 1 ? totalFinal : Number(pago.monto || 0));
-    const saldo = Number((totalFinal - pagos.reduce((suma, pago) => suma + montoPago(pago), 0)).toFixed(2));
+    const saldo = saldoPagos(pagos, totalFinal) / 100;
     const metodoDePago = (pago) => metodosPago.find((metodo) => metodo.id_metodo === Number(pago.id_metodo));
     const actualizarPago = (indice, campo, valor) => setPagos((actuales) => actuales.map((pago, i) => (i === indice ? { ...pago, [campo]: valor } : pago)));
     const seleccionarMetodo = (indice, metodo) => setPagos((actuales) => actuales.map((pago, i) => (i === indice ? { ...pagoVacio(metodo.id_metodo), monto: pago.monto } : pago)));
@@ -38,18 +38,17 @@ export default function DialogoCobroPos({ abierto, onCerrar, total, metodosPago,
     };
     const retirarPago = (indice) => setPagos((actuales) => actuales.filter((_, i) => i !== indice));
 
-    const valido = cliente && totalFinal > 0 && saldo === 0 && pagos.every((pago) => pago.id_metodo && montoPago(pago) > 0);
+    // El botón nunca se bloquea en silencio: se dice qué falta.
+    const motivo = !cliente ? 'Elige el cliente (o «Público en general» para boleta).'
+        : tipo === 'FACTURA' && cliente.num_documento?.length !== 11 ? 'La factura necesita un cliente con RUC (11 dígitos).'
+        : motivoPagos(pagos, metodosPago, totalFinal);
+    const valido = motivo === null;
 
     const cobrar = () => onCobrar({
         tipo_comprobante: tipo,
         id_cliente: cliente?.id_cliente ?? null,
         descuento_global: Number(descuento || 0).toFixed(2),
-        pagos: pagos.map((pago) => ({
-            id_metodo: pago.id_metodo,
-            monto: montoPago(pago).toFixed(2),
-            monto_recibido: pago.monto_recibido || null,
-            nro_referencia: pago.nro_referencia || null,
-        })),
+        pagos: pagosParaEnviar(pagos, metodosPago, totalFinal),
     });
 
     return (
@@ -97,11 +96,13 @@ export default function DialogoCobroPos({ abierto, onCerrar, total, metodosPago,
                     onSeleccionarMetodo={seleccionarMetodo}
                     onActualizar={actualizarPago}
                     onQuitar={retirarPago}
+                    detalle
                 />
                 <p className="flex items-baseline justify-between font-medium">
                     <span>Total a cobrar</span>
                     <span className="font-mono text-2xl tabular-nums">{soles(totalFinal)}</span>
                 </p>
+                {motivo && !error && <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800" role="status">{motivo}</p>}
                 {error && <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700" role="alert">{error}</p>}
             </div>
         </Dialog>

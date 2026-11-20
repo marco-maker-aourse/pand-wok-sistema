@@ -7,6 +7,7 @@ import PanelPagos from '@/Components/Ventas/PanelPagos';
 import DialogoConfirmarCobro from '@/Components/Ventas/pos/DialogoConfirmarCobro';
 import ClienteCobro from '@/Components/Restaurante/ClienteCobro';
 import { nuevaClave, primerError, soles, tituloCuenta } from '@/Components/Restaurante/formato';
+import { montoDePago, motivoPagos, pagosParaEnviar, saldoPagos } from '@/Components/Restaurante/pagos';
 
 const centimos = (cantidad, precio) => Math.round(Math.round(cantidad * 1000) * Math.round(precio * 10000) / 100000);
 const disponible = (item) => Number((item.cantidad - item.cantidad_cobrada).toFixed(3));
@@ -38,8 +39,7 @@ export default function CobrarPedido({ pedido, items, cobros, clienteInicial, me
         return total + centimos(cobrada + cobrar, item.precio_unitario) - centimos(cobrada, item.precio_unitario);
     }, 0);
     const total = (bruto - Math.round(Number(descuento || 0) * 100)) / 100;
-    const montoPago = (pago) => pago.monto === '' && pagos.length === 1 ? total : Number(pago.monto || 0);
-    const saldo = Number((total - pagos.reduce((suma, pago) => suma + montoPago(pago), 0)).toFixed(2));
+    const saldo = saldoPagos(pagos, total) / 100;
     const metodoDePago = (pago) => metodosPago.find((metodo) => metodo.id_metodo === Number(pago.id_metodo));
     const actualizarPago = (indice, campo, valor) => setPagos((actuales) => actuales.map((pago, i) => i === indice ? { ...pago, [campo]: valor } : pago));
     const seleccionarMetodo = (indice, metodo) => setPagos((actuales) => actuales.map((pago, i) => i === indice ? { ...pagoVacio(metodo.id_metodo), monto: pago.monto } : pago));
@@ -53,18 +53,21 @@ export default function CobrarPedido({ pedido, items, cobros, clienteInicial, me
         return Number.isFinite(valor) && valor >= 0 && valor <= disponible(item) && valor === Number(valor.toFixed(3));
     });
 
+    // Nunca un botón muerto: se explica qué falta para cobrar.
+    const motivoCobro = !turno ? 'Abre un turno de caja para cobrar.'
+        : !cliente ? 'Elige el cliente.'
+        : !montosValidos ? 'Revisa las cantidades por cobrar.'
+        : lineas.length === 0 ? 'Elige al menos un ítem para cobrar.'
+        : tipo === 'FACTURA' && cliente.num_documento?.length !== 11 ? 'La factura necesita un cliente con RUC (11 dígitos).'
+        : motivoPagos(pagos, metodosPago, total);
+
     const registrar = () => {
         if (procesando) return;
         const datos = {
             tipo_comprobante: tipo, id_cliente: cliente?.id_cliente ?? null,
             descuento_global: Number(descuento || 0).toFixed(2),
             items: lineas,
-            pagos: pagos.map((pago) => ({
-                id_metodo: pago.id_metodo,
-                monto: montoPago(pago).toFixed(2),
-                monto_recibido: pago.monto_recibido || null,
-                nro_referencia: pago.nro_referencia || null,
-            })),
+            pagos: pagosParaEnviar(pagos, metodosPago, total),
         };
         const firma = JSON.stringify(datos);
         if (intento.current?.firma !== firma) intento.current = { firma, clave: nuevaClave() };
@@ -122,10 +125,10 @@ export default function CobrarPedido({ pedido, items, cobros, clienteInicial, me
                         <ClienteCobro cliente={cliente} cambiar={setCliente} />
                         {puedeDescontar && <Field label="Descuento (S/)"><Input type="number" min={0} step={0.01} value={descuento} onChange={(e) => setDescuento(e.target.value)} /></Field>}
                         <PanelPagos pagos={pagos} metodosPago={metodosPago} totalVenta={total} saldoPendiente={saldo} metodoDePago={metodoDePago}
-                            onAgregar={agregarPago} onSeleccionarMetodo={seleccionarMetodo} onActualizar={actualizarPago} onQuitar={retirarPago} />
+                            onAgregar={agregarPago} onSeleccionarMetodo={seleccionarMetodo} onActualizar={actualizarPago} onQuitar={retirarPago} detalle />
                         <p className="flex items-baseline justify-between font-medium"><span>Total a cobrar</span><span className="text-xl tabular-nums">{soles(total)}</span></p>
-                        <Button block icon={ReceiptText} onClick={() => setConfirmar(true)}
-                            disabled={!turno || !cliente || !montosValidos || total <= 0 || saldo !== 0 || pagos.some((pago) => !pago.id_metodo || montoPago(pago) <= 0)}>
+                        {motivoCobro && <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800" role="status">{motivoCobro}</p>}
+                        <Button block icon={ReceiptText} onClick={() => setConfirmar(true)} disabled={motivoCobro !== null}>
                             Revisar cobro
                         </Button>
                     </Card>
@@ -143,7 +146,7 @@ export default function CobrarPedido({ pedido, items, cobros, clienteInicial, me
                 </Card>
             )}
             <DialogoConfirmarCobro open={confirmar} onClose={() => !procesando && setConfirmar(false)} onConfirmar={registrar}
-                tipoComprobante={tipo} cliente={cliente} total={total} pagos={pagos.map((pago) => ({ ...pago, monto: montoPago(pago) }))}
+                tipoComprobante={tipo} cliente={cliente} total={total} pagos={pagos.map((pago) => ({ ...pago, monto: montoDePago(pago, pagos, total) / 100 }))}
                 mediosPago={pagos.map((pago) => metodoDePago(pago)?.nombre).filter(Boolean).join(', ')} metodoDePago={metodoDePago}
                 onActualizarPago={actualizarPago} procesando={procesando} />
         </AppLayout>
