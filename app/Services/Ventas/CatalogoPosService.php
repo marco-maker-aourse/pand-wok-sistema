@@ -52,8 +52,8 @@ class CatalogoPosService
         }
 
         // DNI con ceros, o "sin documento" si el catálogo no tiene DNI activo.
-        $tipo = TipoDocumento::query()->where('estado', true)->whereIn('codigo_sunat', ['1', '0'])
-            ->orderByRaw("CASE WHEN codigo_sunat = '1' THEN 0 ELSE 1 END")->first();
+        $tipo = TipoDocumento::query()->where('estado', true)->whereIn('codigo_sunat', [TipoDocumento::DNI, TipoDocumento::SIN_DOCUMENTO])
+            ->orderByRaw('CASE WHEN codigo_sunat = ? THEN 0 ELSE 1 END', [TipoDocumento::DNI])->first();
         if (! $tipo) {
             return null;
         }
@@ -86,7 +86,7 @@ class CatalogoPosService
         if (! MetodoPago::query()->where('estado', true)->exists()) {
             $faltan[] = ['clave' => 'metodos_pago', 'mensaje' => 'No hay métodos de pago activos (Efectivo, Yape, tarjeta…).', 'enlace' => '/metodos-pago', 'accion' => 'Agregar'];
         }
-        if (! TipoComprobante::query()->where('estado', true)->where('codigo_sunat', '03')->exists()) {
+        if (! TipoComprobante::query()->where('estado', true)->where('codigo_sunat', TipoComprobante::BOLETA)->exists()) {
             $faltan[] = ['clave' => 'comprobantes', 'mensaje' => 'La boleta (código SUNAT 03) no está habilitada.', 'enlace' => '/tipos-comprobante', 'accion' => 'Habilitar'];
         }
         // Misma fuente que ReservarCorrelativoService: series de la sucursal e IGV de la empresa.

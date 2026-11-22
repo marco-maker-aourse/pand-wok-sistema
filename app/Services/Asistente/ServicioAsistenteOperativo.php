@@ -2,6 +2,7 @@
 
 namespace App\Services\Asistente;
 
+use App\Models\TipoComprobante;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Session\Session;
 use Illuminate\Support\Facades\DB;
@@ -28,7 +29,7 @@ class ServicioAsistenteOperativo
         if ($fecha && $intencion === 'seguimiento_documental') {
             $contexto = $sesion->get('asistente.ultima_consulta_documental');
             if (is_array($contexto)) {
-                $tipo = ($contexto['tipo'] ?? null) === '03' ? 'boleta' : 'factura';
+                $tipo = ($contexto['tipo'] ?? null) === TipoComprobante::BOLETA ? 'boleta' : 'factura';
                 return $this->responderComprobante($tipo, $sucursalId, $fecha, $sesion);
             }
         }
@@ -146,7 +147,7 @@ class ServicioAsistenteOperativo
 
     private function responderComprobante(string $consulta, int $sucursalId, ?CarbonImmutable $fecha, Session $sesion): string
     {
-        $tipo = Str::contains($consulta, 'factura') ? '01' : (Str::contains($consulta, 'boleta') ? '03' : null);
+        $tipo = Str::contains($consulta, 'factura') ? TipoComprobante::FACTURA : (Str::contains($consulta, 'boleta') ? TipoComprobante::BOLETA : null);
         $porFecha = $fecha !== null;
         $fechaConsulta = $fecha ?? CarbonImmutable::now('America/Lima');
         $query = DB::table('operaciones.ventas as venta')->join('catalogos.tipos_comprobante as tipo', 'tipo.id_tipo_comprobante', '=', 'venta.id_tipo_comprobante')->where('venta.id_sucursal', $sucursalId)->when($tipo, fn ($builder) => $builder->where('tipo.codigo_sunat', $tipo));

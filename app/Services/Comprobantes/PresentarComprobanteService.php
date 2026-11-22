@@ -2,6 +2,7 @@
 
 namespace App\Services\Comprobantes;
 
+use App\Models\TipoComprobante;
 use App\Models\Restaurante\Pedido;
 use App\Models\User;
 use App\Models\Venta;
@@ -32,7 +33,7 @@ class PresentarComprobanteService
         ]);
 
         $emisor = $this->datosGenerales->emisor((int) $venta->id_sucursal);
-        $esFactura = $venta->comprobante?->codigo_sunat === '01';
+        $esFactura = $venta->comprobante?->codigo_sunat === TipoComprobante::FACTURA;
         $emision = $venta->fecha_emision?->copy()->setTimezone('America/Lima');
 
         $documento = [

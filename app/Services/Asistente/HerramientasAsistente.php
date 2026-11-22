@@ -2,6 +2,7 @@
 
 namespace App\Services\Asistente;
 
+use App\Models\TipoComprobante;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
@@ -370,7 +371,7 @@ class HerramientasAsistente
 
     private function comprobantesRecientes(int $sucursalId, array $argumentos): array
     {
-        $codigos = ['factura' => '01', 'boleta' => '03'];
+        $codigos = ['factura' => TipoComprobante::FACTURA, 'boleta' => TipoComprobante::BOLETA];
         $tipo = $codigos[$argumentos['tipo'] ?? 'todos'] ?? null;
         $limite = $this->entero($argumentos, 'limite', 5, 1, 10);
 

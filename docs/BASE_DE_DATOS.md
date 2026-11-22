@@ -6,6 +6,21 @@ Modelo de datos del sistema para **una empresa con varias sucursales** de restau
 - Las migraciones están en `database/migrations` (6 archivos, uno por grupo de esquemas). Los datos iniciales (empresa, sucursal, series, permisos, roles y administrador) los crea `DatabaseSeeder`.
 - Instalación desde cero: `php artisan migrate:fresh --seed` y luego `php artisan restaurante:preparar` (sucursales, carta, sopas del menú y series por defecto). En el servidor se hace con la opción `reinstalar_base` del workflow de despliegue (ver `docs/restaurante/10_DESPLIEGUE_AUTOMATICO.md`).
 
+## Datos iniciales
+
+`DatabaseSeeder` ejecuta, en una sola transacción, seeders por dominio. Todos son repetibles: buscan por su clave natural (código SUNAT, nombre, código de permiso) y solo crean lo que falta, sin cambiar lo que el administrador editó.
+
+| Seeder | Crea |
+| --- | --- |
+| `CatalogosSunatSeeder` | Documentos de identidad (DNI, RUC, CE, pasaporte, sin documento), comprobantes (boleta, factura, notas de crédito y débito, guía, ticket, otros) y 14 unidades de medida (unidad, servicio, kg, g, L, ml, galón, docena, caja, paquete, bolsa, botella, lata, saco). |
+| `CatalogosRestauranteSeeder` | Métodos de pago (efectivo, Yape, Plin, transferencia, tarjeta de débito y de crédito, con comisión 0 para configurar), 16 presentaciones y el cliente "Público en general". |
+| `EmpresaSeeder` | La empresa (datos provisionales), la sucursal inicial y sus series B001/F001/T001. |
+| `SeguridadSeeder` | 36 permisos, 7 roles y el administrador inicial (`SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD`). |
+
+`DatosBaseSeeder` agrupa los dos catálogos. Sirve para una base ya en uso: `php artisan db:seed --class=DatosBaseSeeder`, o la acción `cargar_datos_base` del workflow "Operaciones del restaurante".
+
+Los códigos que usa el sistema están como constantes en los modelos (`TipoComprobante::BOLETA`, `TipoDocumento::RUC`, `UnidadMedida::UNIDAD`, `MetodoPago::EFECTIVO`...), no como textos sueltos en el código.
+
 ## Esquemas
 
 | Esquema | Tablas | Contenido |

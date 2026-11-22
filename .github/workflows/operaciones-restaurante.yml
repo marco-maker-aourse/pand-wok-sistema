@@ -7,6 +7,9 @@ name: Operaciones del restaurante
 # 2. simular_carta      → muestra qué importaría, sin guardar nada.
 # 3. importar_carta     → asigna los identificadores de "sedes" y carga la carta.
 #                          Escribe en la base: exige confirmar un respaldo.
+# 4. cargar_datos_base  → agrega los catálogos que falten (comprobantes, unidades,
+#                          métodos de pago, presentaciones, cliente genérico). No borra
+#                          ni cambia nada existente. Exige confirmar un respaldo.
 
 on:
   workflow_dispatch:
@@ -14,7 +17,7 @@ on:
       accion:
         description: 'Operación'
         type: choice
-        options: [listar_sucursales, simular_carta, importar_carta]
+        options: [listar_sucursales, simular_carta, importar_carta, cargar_datos_base]
         default: listar_sucursales
       sedes:
         description: 'Sede de la carta = ID de sucursal, separadas por coma (p. ej. chilca=1,tambo=2,tingomaria=3)'
@@ -25,7 +28,7 @@ on:
         type: boolean
         default: false
       respaldo_bd_confirmado:
-        description: 'Confirmo que tengo un respaldo de la base (obligatorio para importar_carta)'
+        description: 'Confirmo que tengo un respaldo de la base (obligatorio para importar_carta y cargar_datos_base)'
         type: boolean
         default: false
 
@@ -70,6 +73,9 @@ jobs:
           if [ -n "$SEDES" ] && ! printf '%s' "$SEDES" | grep -Eq '^[a-z0-9]+(-[a-z0-9]+)*=[0-9]+(,[a-z0-9]+(-[a-z0-9]+)*=[0-9]+)*$'; then
             echo '::error::Formato de "sedes" inválido. Ejemplo: chilca=1,tambo=2,tingomaria=3'; exit 1
           fi
+          if [ "$ACCION" = cargar_datos_base ]; then
+            [ "$RESPALDO" = true ] || { echo '::error::Para cargar datos, confirma primero un respaldo de la base.'; exit 1; }
+          fi
           if [ "$ACCION" = importar_carta ]; then
             [ "$RESPALDO" = true ] || { echo '::error::Para importar, confirma primero un respaldo de la base.'; exit 1; }
             [ -n "$SEDES" ] || { echo '::error::Para importar, indica las sedes (p. ej. chilca=1,tambo=2,tingomaria=3). Usa listar_sucursales para ver los ID.'; exit 1; }
@@ -100,6 +106,7 @@ jobs:
 
           case "$ACCION" in
             listar_sucursales) comandos="artisan restaurante:sucursales" ;;
+            cargar_datos_base) comandos="artisan db:seed --class=DatosBaseSeeder --force --no-interaction && \$PHP artisan cache:clear" ;;
             simular_carta)     comandos="artisan restaurante:importar-carta $CARTA --simular $mapa" ;;
             importar_carta)
               completar=""; [ "$COMPLETAR" = true ] && completar="--completar"
