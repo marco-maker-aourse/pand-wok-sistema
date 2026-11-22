@@ -11,6 +11,15 @@ import { soles } from './formato';
  * por plato) y los recargos son los de la sucursal, que envía el servidor; el total que se
  * muestra es orientativo: el servidor vuelve a validar y cotizar al guardar.
  */
+
+/** Pedidos más comunes a cocina: un toque los agrega a la nota. */
+const NOTAS_RAPIDAS = ['Sin cebolla', 'Sin ají', 'Poco ají', 'Sin sillao', 'Bien cocido', 'Para llevar'];
+
+const agregarNota = (actual, texto) => {
+    const partes = actual.split(',').map((p) => p.trim()).filter(Boolean);
+    return partes.some((p) => p.toLowerCase() === texto.toLowerCase()) ? actual : [...partes, texto].join(', ').slice(0, 255);
+};
+
 export default function DialogoPlato({ producto, grupos, onCerrar, onAgregar }) {
     const abierto = Boolean(producto);
     const [idPrecio, setIdPrecio] = useState(null);
@@ -195,8 +204,16 @@ export default function DialogoPlato({ producto, grupos, onCerrar, onAgregar }) 
                                 <Button variant="secondary" size="lg" icon={Plus} aria-label="Más" onClick={() => cambiarCantidad(Math.min(99, cantidad + 1))} />
                             </div>
                         </Field>
-                        <Field label="Nota para cocina" hint="Ej.: sin cebolla, poco ají.">
-                            <Input value={nota} onChange={(e) => setNota(e.target.value)} maxLength={255} />
+                        <Field label="Nota para cocina">
+                            <Input value={nota} onChange={(e) => setNota(e.target.value)} maxLength={255} placeholder="Ej.: sin cebolla" />
+                            <div className="mt-2 flex flex-wrap gap-1.5">
+                                {NOTAS_RAPIDAS.map((texto) => (
+                                    <button key={texto} type="button" onClick={() => setNota(agregarNota(nota, texto))}
+                                        className="h-9 rounded-full bg-slate-100 px-3 text-sm text-slate-700 ring-1 ring-slate-200 hover:bg-slate-200 active:scale-95">
+                                        {texto}
+                                    </button>
+                                ))}
+                            </div>
                         </Field>
                     </div>
 

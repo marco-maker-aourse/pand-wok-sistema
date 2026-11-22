@@ -2,9 +2,8 @@
 
 namespace App\Console\Commands;
 
-use App\Models\Categoria;
-use App\Models\Producto;
 use App\Services\Restaurante\ConfigurarSopasMenuService;
+use App\Services\Restaurante\OpcionesCarta;
 use Illuminate\Console\Command;
 
 /**
@@ -22,18 +21,17 @@ class SopasMenuCommand extends Command
 
     protected $description = 'Configura el grupo "Sopa del menú" con las sopas iniciales';
 
-    public function handle(ConfigurarSopasMenuService $servicio): int
+    public function handle(ConfigurarSopasMenuService $servicio, OpcionesCarta $opciones): int
     {
         $menus = [];
         if ($nombre = $this->option('menus')) {
-            $categoria = Categoria::query()->whereRaw('LOWER(nombre) = ?', [mb_strtolower($nombre)])->first();
-            if (! $categoria) {
+            $platos = $opciones->platosDeCategoria($nombre);
+            if ($platos === null) {
                 $this->error("No existe la categoría «{$nombre}».");
 
                 return self::FAILURE;
             }
-            $menus = Producto::query()->where('id_categoria', $categoria->id_categoria)
-                ->where('tipo_producto', Producto::PREPARADO)->where('estado', true)->pluck('id_producto')->all();
+            $menus = $platos->all();
         }
 
         $resumen = $servicio->ejecutar($menus);

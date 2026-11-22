@@ -210,7 +210,31 @@ export default function Index({ auth, ventas = [], turnoAbierto = null, datosEmi
 
                 {/* Tabla de Comprobantes */}
                 <div className="bg-white rounded-2xl overflow-hidden shadow-[var(--shadow-tarjeta)] ring-1 ring-slate-900/[0.05]">
-                    <div className="overflow-x-auto">
+                    {/* Celular: una tarjeta por comprobante, se abre con un toque. */}
+                    <ul className="divide-y divide-slate-100 sm:hidden">
+                        {ventasFiltradas.length > 0 ? ventasFiltradas.map((v) => {
+                            const estado = estadoVisual(v.estado_sunat);
+                            const EstadoIcon = estado.Icon;
+                            return (
+                                <li key={v.id_venta}>
+                                    <button type="button" onClick={() => openDetails(v)} className="flex w-full items-center gap-3 px-4 py-3 text-left active:bg-slate-50">
+                                        <span className="min-w-0 flex-1">
+                                            <span className="block font-mono text-sm font-semibold text-slate-900">{v.serie}-{String(v.correlativo || 1).padStart(8, '0')}</span>
+                                            <span className="block truncate text-xs text-slate-500">{v.nombre_razon_social || 'PÚBLICO EN GENERAL'}</span>
+                                            <span className="block text-xs text-slate-400">{v.fecha_emision ? new Date(v.fecha_emision).toLocaleString('es-PE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : 'Reciente'}</span>
+                                        </span>
+                                        <span className="flex shrink-0 flex-col items-end gap-1">
+                                            <span className="font-mono text-sm font-semibold text-slate-900">{currency.format(Number(v.total_venta || 0))}</span>
+                                            <span className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-xs font-semibold ${estado.className}`}><EstadoIcon className="h-3 w-3" />{estado.label}</span>
+                                        </span>
+                                    </button>
+                                </li>
+                            );
+                        }) : (
+                            <li className="px-4 py-12 text-center text-sm text-slate-500">No se encontraron comprobantes emitidos.</li>
+                        )}
+                    </ul>
+                    <div className="hidden overflow-x-auto sm:block">
                         <table className="w-full text-left whitespace-nowrap">
                             <thead className="bg-slate-50/70 border-b border-slate-100">
                                 <tr>
@@ -327,7 +351,7 @@ export default function Index({ auth, ventas = [], turnoAbierto = null, datosEmi
             {/* MODAL PROPIO: DETALLE DE COMPROBANTE EMITIDO */}
             <Dialog open={Boolean(selectedVenta)} onClose={closeDetails} size="3xl">
                 {(selectedVenta) && (
-                <div className="overflow-y-auto overscroll-contain p-6 [scrollbar-width:thin] sm:p-7">
+                <div className="p-5 sm:p-7">
                         <div className="flex items-start justify-between pb-4 border-b border-slate-100 mb-5">
                             <div>
                                 <div className="flex items-center gap-2 mb-1.5">

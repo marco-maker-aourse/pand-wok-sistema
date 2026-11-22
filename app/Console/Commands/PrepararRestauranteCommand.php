@@ -13,7 +13,7 @@ use Illuminate\Console\Command;
  *
  * 1. Asocia la sucursal inicial del seeder a la primera sede de la carta y crea las demás.
  * 2. Importa categorías, platos y precios por sucursal.
- * 3. Configura las sopas a elección de los menús.
+ * 3. Configura la sopa opcional de los menús y el adicional de las combinaciones.
  * 4. Asigna series por defecto (B00n / F00n) a las sucursales que aún no tienen.
  *
  * Es repetible: no duplica platos ni sucursales y nunca cambia series ya configuradas.
@@ -23,9 +23,10 @@ class PrepararRestauranteCommand extends Command
     protected $signature = 'restaurante:preparar
         {--carta=database/data/carta/pand-wok.json : JSON con sedes y carta}
         {--sede-inicial=chilca : Sede de la carta que corresponde a la sucursal inicial}
-        {--menus=Menu : Categoría cuyos platos llevan sopa a elección}';
+        {--menus=Menu : Categoría cuyos platos llevan sopa a elección}
+        {--combinaciones=Combinaciones : Categoría cuyos platos aceptan sopa o wantanes como adicional}';
 
-    protected $description = 'Carga sucursales, carta, sopas del menú y series por defecto en una base nueva';
+    protected $description = 'Carga sucursales, carta, opciones de menú y combinaciones, y series por defecto en una base nueva';
 
     public function handle(): int
     {
@@ -41,6 +42,7 @@ class PrepararRestauranteCommand extends Command
             ])],
             ['restaurante:importar-carta', ['archivo' => $carta]],
             ['restaurante:sopas-menu', ['--menus' => $this->option('menus')]],
+            ['restaurante:adicionales-combinacion', ['--combinaciones' => $this->option('combinaciones')]],
         ];
 
         foreach ($pasos as [$comando, $argumentos]) {

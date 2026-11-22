@@ -3,6 +3,8 @@ import { Ban, SlidersHorizontal } from 'lucide-react';
 import { SearchInput, cx } from '@/Components/ui';
 import { soles } from './formato';
 
+const MINIMO_FRECUENTES = 8;
+
 const normalizar = (texto) => (texto ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
 /**
@@ -10,7 +12,8 @@ const normalizar = (texto) => (texto ?? '').normalize('NFD').replace(/[̀-ͯ]/g,
  * ("el 05"), que es como suele pedirlo el cliente.
  */
 export default function CartaPedido({ carta, onElegir, sugerencias = null, relacionados = [], enTicket = {}, recien = null }) {
-    const [categoria, setCategoria] = useState(sugerencias?.frecuentes?.length ? 'frecuentes' : 'todas');
+    // "Frecuentes" abre por defecto solo cuando ya llena la pantalla; con poco historial, la carta completa.
+    const [categoria, setCategoria] = useState((sugerencias?.frecuentes?.length ?? 0) >= MINIMO_FRECUENTES ? 'frecuentes' : 'todas');
     const [busqueda, setBusqueda] = useState('');
     const porId = useMemo(() => new Map(carta.productos.map((p) => [p.id_producto, p])), [carta.productos]);
     // Pestañas calculadas con pedidos reales de la sucursal; sin historial no aparecen.
@@ -32,6 +35,11 @@ export default function CartaPedido({ carta, onElegir, sugerencias = null, relac
     }, [carta.productos, categoria, busqueda]);
     const especial = !busqueda && especiales.find((e) => e.id_categoria === categoria);
     const visibles = especial ? especial.ids.map((id) => porId.get(id)).filter(Boolean) : productos;
+    // "Todas" se agrupa por categoría: los números de carta se repiten entre categorías (01 combinación, 1 menú).
+    const secciones = categoria === 'todas' && !busqueda
+        ? carta.categorias.map((c) => ({ clave: c.id_categoria, titulo: c.nombre, productos: visibles.filter((p) => p.id_categoria === c.id_categoria) }))
+            .filter((sec) => sec.productos.length > 0)
+        : [{ clave: 'lista', titulo: null, productos: visibles }];
 
     return (
         <div className="flex min-h-0 flex-col">
@@ -69,42 +77,55 @@ export default function CartaPedido({ carta, onElegir, sugerencias = null, relac
                 </div>
             )}
 
-            <div className="grid flex-1 auto-rows-min grid-cols-2 gap-2.5 overflow-y-auto p-3 pb-24 sm:grid-cols-3 sm:p-4 lg:pb-4 2xl:grid-cols-4">
-                {visibles.length === 0 && (
-                    <p className="col-span-full py-10 text-center text-sm text-slate-500">No hay platos que coincidan.</p>
-                )}
-                {visibles.map((producto) => {
-                    const precio = producto.presentaciones[0]?.precio_venta;
-                    const conOpciones = producto.grupos.length > 0 || producto.presentaciones.length > 1;
-                    const cantidad = enTicket[producto.id_producto] ?? 0;
-                    return (
-                        <button
-                            key={producto.id_producto}
-                            type="button"
-                            disabled={producto.agotado}
-                            onClick={() => onElegir(producto)}
-                            className={cx('group relative flex min-h-24 flex-col justify-between rounded-xl bg-white p-3 text-left ring-1 transition-[box-shadow,transform] hover:ring-brand active:scale-[0.97] disabled:cursor-not-allowed disabled:bg-slate-50 disabled:opacity-60',
-                                cantidad > 0 ? 'ring-2 ring-brand' : 'ring-slate-200', recien === producto.id_producto && 'animate-pulse')}
-                        >
-                            {cantidad > 0 && (
-                                <span className="absolute -top-2 -right-2 grid h-7 min-w-7 place-items-center rounded-full bg-brand px-1.5 font-mono text-sm font-bold text-on-brand shadow" aria-label={`${cantidad} en el ticket`}>{cantidad}</span>
-                            )}
-                            <span className="flex items-start gap-1.5">
-                                {producto.codigo_carta && <span className="mt-0.5 shrink-0 rounded bg-slate-100 px-1 font-mono text-[0.6875rem] font-semibold text-slate-600">{producto.codigo_carta}</span>}
-                                <span className="text-sm leading-snug font-medium text-slate-900">{producto.nombre}</span>
-                            </span>
-                            <span className="mt-2 flex items-center justify-between gap-2">
-                                {producto.agotado ? (
-                                    <span className="inline-flex items-center gap-1 text-xs font-medium text-rose-600"><Ban className="h-3.5 w-3.5" aria-hidden="true" />Agotado</span>
-                                ) : (
-                                    <span className="font-mono text-sm font-semibold text-brand-ink tabular-nums">{soles(precio)}</span>
-                                )}
-                                {conOpciones && !producto.agotado && <SlidersHorizontal className="h-3.5 w-3.5 text-slate-400" aria-label="Tiene opciones" />}
-                            </span>
-                        </button>
-                    );
-                })}
+            <div className="flex-1 overflow-y-auto p-3 pb-24 sm:p-4 lg:pb-4">
+                {visibles.length === 0 && <p className="py-10 text-center text-sm text-slate-500">No hay platos que coincidan.</p>}
+                {secciones.map((seccion) => (
+                    <section key={seccion.clave} aria-label={seccion.titulo ?? 'Platos'} className="mb-4 last:mb-0">
+                        {seccion.titulo && (
+                            <h3 className="sticky -top-3 z-10 -mx-3 mb-2 bg-white/95 px-3 py-1.5 text-xs font-semibold tracking-wide text-slate-500 uppercase backdrop-blur sm:-top-4 sm:-mx-4 sm:px-4">
+                                {seccion.titulo}
+                            </h3>
+                        )}
+                        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 2xl:grid-cols-4">
+                            {seccion.productos.map((producto) => (
+                                <TarjetaPlato key={producto.id_producto} producto={producto} cantidad={enTicket[producto.id_producto] ?? 0} recien={recien === producto.id_producto} onElegir={onElegir} />
+                            ))}
+                        </div>
+                    </section>
+                ))}
             </div>
         </div>
+    );
+}
+
+/** Plato de la carta: número, nombre, precio, si tiene opciones y cuántos van en el ticket. */
+function TarjetaPlato({ producto, cantidad, recien, onElegir }) {
+    const precio = producto.presentaciones[0]?.precio_venta;
+    const conOpciones = producto.grupos.length > 0 || producto.presentaciones.length > 1;
+
+    return (
+        <button
+            type="button"
+            disabled={producto.agotado}
+            onClick={() => onElegir(producto)}
+            className={cx('group relative flex min-h-24 flex-col justify-between rounded-xl bg-white p-3 text-left ring-1 transition-[box-shadow,transform] hover:ring-brand active:scale-[0.97] disabled:cursor-not-allowed disabled:bg-slate-50 disabled:opacity-60',
+                cantidad > 0 ? 'ring-2 ring-brand' : 'ring-slate-200', recien && 'animate-pulse')}
+        >
+            {cantidad > 0 && (
+                <span className="absolute -top-2 -right-2 grid h-7 min-w-7 place-items-center rounded-full bg-brand px-1.5 font-mono text-sm font-bold text-on-brand shadow" aria-label={`${cantidad} en el ticket`}>{cantidad}</span>
+            )}
+            <span className="flex items-start gap-1.5">
+                {producto.codigo_carta && <span className="mt-0.5 shrink-0 rounded bg-slate-100 px-1 font-mono text-[0.6875rem] font-semibold text-slate-600">{producto.codigo_carta}</span>}
+                <span className="text-sm leading-snug font-medium text-slate-900">{producto.nombre}</span>
+            </span>
+            <span className="mt-2 flex items-center justify-between gap-2">
+                {producto.agotado ? (
+                    <span className="inline-flex items-center gap-1 text-xs font-medium text-rose-600"><Ban className="h-3.5 w-3.5" aria-hidden="true" />Agotado</span>
+                ) : (
+                    <span className="font-mono text-sm font-semibold text-brand-ink tabular-nums">{soles(precio)}</span>
+                )}
+                {conOpciones && !producto.agotado && <SlidersHorizontal className="h-3.5 w-3.5 text-slate-400" aria-label="Tiene opciones" />}
+            </span>
+        </button>
     );
 }
