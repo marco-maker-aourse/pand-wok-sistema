@@ -192,6 +192,8 @@ jobs:
             exit 1
           fi
           if [ "$REINSTALAR" = true ]; then
+            # El teclado del celular suele agregar un espacio final: se ignoran espacios al inicio y al final.
+            CONFIRMACION=$(printf '%s' "$CONFIRMACION" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
             [ "$SOLO_CONEXION" != true ] || { echo '::error::reinstalar_base no se combina con solo_probar_conexion.'; exit 1; }
             [ "$RESPALDO_CONFIRMADO" = true ] || { echo '::error::Reinstalar borra toda la base: marca respaldo_bd_confirmado.'; exit 1; }
             [ "$CONFIRMACION" = 'BORRAR TODO' ] || { echo '::error::Para reinstalar escribe exactamente BORRAR TODO en confirmar_reinstalacion.'; exit 1; }
@@ -325,7 +327,8 @@ jobs:
           REMOTO
 
       - name: Salir de mantenimiento si algo falló
-        if: failure() && env.SOLO_CONEXION != 'true'
+        # Solo si la conexión SSH llegó a prepararse; si falló antes, el sitio no entró en mantenimiento.
+        if: failure() && env.SOLO_CONEXION != 'true' && env.SSH_CMD != ''
         run: $SSH_CMD "$SSH_USER@$SSH_HOST" "cd \"\$HOME/$APP_DIR\" && $PHP_BIN artisan up || true"
 
       - name: Verificar el sitio publicado
