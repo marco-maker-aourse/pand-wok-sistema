@@ -79,7 +79,6 @@ export default function Show({ auth, producto, existencia }) {
                         <DataItem label="Unidad base"><span className="inline-flex items-center gap-1.5"><Box className="h-3.5 w-3.5 text-brand-ink" />{producto.unidad_base?.nombre || '—'}</span></DataItem>
                         <DataItem label="Afectación tributaria">{producto.afecta_igv ? 'Afecto a IGV' : 'Inafecto a IGV'}</DataItem>
                         <DataItem label="Tipo">{esServicio ? 'Servicio' : 'Producto inventariable'}</DataItem>
-                        <DataItem label="Vencimiento">{producto.usa_vencimiento ? 'Controlado por lote' : 'No aplica'}</DataItem>
                     </div>
                 </section>
 

@@ -38,7 +38,6 @@ export default function useFormularioProducto({ categorias, marcas, unidades, ca
         id_unidad_base: '',
         codigo_barras: '',
         codigo_sunat: '',
-        usa_vencimiento: false,
         afecta_igv: true,
         es_servicio: false,
 
@@ -154,7 +153,6 @@ export default function useFormularioProducto({ categorias, marcas, unidades, ca
             id_unidad_base: prod.id_unidad_base || '',
             codigo_barras: prod.codigo_barras || '',
             codigo_sunat: prod.codigo_sunat || '',
-            usa_vencimiento: Boolean(prod.usa_vencimiento),
             afecta_igv: prod.afecta_igv !== false,
             es_servicio: Boolean(prod.es_servicio),
             precio_costo: '',

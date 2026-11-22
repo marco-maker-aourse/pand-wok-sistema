@@ -1,19 +1,13 @@
 import { Minus, Plus, Trash2 } from 'lucide-react';
-import { IconButton, cx } from '@/Components/ui';
+import { IconButton } from '@/Components/ui';
 import { formatoMoneda } from './formato';
-import { SelectorLote, SelectorPresentacion } from './SelectoresPos';
-
-function EstadoVencimiento({ dias }) {
-    if (dias === null) return null;
-    const tono = dias <= 7 ? 'bg-rose-50 text-rose-700' : dias <= 30 ? 'bg-amber-50 text-amber-800' : 'bg-emerald-50 text-emerald-700';
-    return <span className={cx('rounded-md px-2 py-0.5 font-mono text-xs font-medium', tono)}>{dias <= 0 ? 'Caducado' : `Vence en ${dias} d`}</span>;
-}
+import { SelectorPresentacion } from './SelectoresPos';
 
 /**
- * Ítem del ticket: presentación, cantidad, subtotal, margen de referencia y lote.
+ * Ítem del ticket: presentación, cantidad, subtotal y margen de referencia.
  * Los cálculos de costo y margen son solo informativos y no alteran el total.
  */
-export default function LineaCarrito({ item, unidad, diasVencimiento, onQuitar, onPresentacion, onPaso, onCantidad, onCantidadBlur, onLote }) {
+export default function LineaCarrito({ item, unidad, onQuitar, onPresentacion, onPaso, onCantidad, onCantidadBlur }) {
     const costoEmpaque = Number(item.precio_costo_kardex || 0) * Number(item.factor_conversion || 1);
     const precioVenta = Number(item.precio || 0);
     const ganancia = precioVenta - costoEmpaque;
@@ -66,11 +60,6 @@ export default function LineaCarrito({ item, unidad, diasVencimiento, onQuitar, 
                     </strong>{' '}
                     ({esGanancia ? `+${margen.toFixed(1)}%` : `${margen.toFixed(1)}%`})
                 </span>
-            </div>
-
-            <div className="flex items-center justify-between gap-2 rounded-md bg-slate-50 p-1.5">
-                <SelectorLote lotes={item.lotes} loteActual={item.lote} onCambiarLote={onLote} />
-                <EstadoVencimiento dias={diasVencimiento} />
             </div>
         </li>
     );

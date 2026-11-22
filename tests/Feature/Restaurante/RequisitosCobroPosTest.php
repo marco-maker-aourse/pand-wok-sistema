@@ -63,7 +63,7 @@ class RequisitosCobroPosTest extends TestCase
     {
         DB::table('catalogos.metodos_pago')->update(['estado' => false]);
         DB::table('catalogos.tipos_comprobante')->where('codigo_sunat', '03')->update(['estado' => false]);
-        DB::table('operaciones.datos_gen')->update(['serie_boleta' => null]);
+        DB::table('configuracion.series_sucursal')->update(['serie_boleta' => null]);
 
         $this->pos()->assertInertia(fn (Assert $page) => $page->where('requisitosCobro', fn ($requisitos) => collect($requisitos)->pluck('clave')->sort()->values()->all()
             === ['caja', 'comprobantes', 'metodos_pago', 'series']));
@@ -71,7 +71,7 @@ class RequisitosCobroPosTest extends TestCase
         app(GestionarTurnoCajaService::class)->abrir(10, 1, 0);
         DB::table('catalogos.metodos_pago')->update(['estado' => true]);
         DB::table('catalogos.tipos_comprobante')->update(['estado' => true]);
-        DB::table('operaciones.datos_gen')->update(['serie_boleta' => 'B001']);
+        DB::table('configuracion.series_sucursal')->update(['serie_boleta' => 'B001']);
         $this->pos()->assertInertia(fn (Assert $page) => $page->where('requisitosCobro', []));
     }
 }

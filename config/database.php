@@ -95,7 +95,10 @@ return [
             'charset' => env('DB_CHARSET', 'utf8'),
             'prefix' => '',
             'prefix_indexes' => true,
-            'search_path' => 'catalogos,public', // <--- Actualizado para buscar en el esquema catalogos primero
+            // public primero: ahí van las tablas internas de Laravel (migrations, sessions, cache).
+            // El resto enumera todos los esquemas del sistema para que migrate:fresh los limpie;
+            // el código siempre califica sus tablas (catalogos.productos, operaciones.ventas...).
+            'search_path' => 'public,configuracion,seguridad,catalogos,restaurante,inventario,operaciones',
             'sslmode' => env('DB_SSLMODE', 'prefer'),
             'options' => extension_loaded('pdo_pgsql') ? [
                 PDO::PGSQL_ATTR_DISABLE_PREPARES => true,

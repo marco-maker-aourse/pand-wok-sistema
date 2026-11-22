@@ -45,7 +45,7 @@ class InventarioRestauranteTest extends TestCase
             ['id_producto' => 50, 'nombre' => 'Filtro de manzanilla', 'tipo_producto' => 'INSUMO'],
             ['id_producto' => 52, 'nombre' => 'Mate de manzanilla', 'tipo_producto' => 'PREPARADO'],
         ]);
-        DB::table('inventario.precio_producto')->insert([
+        DB::table('catalogos.producto_presentaciones')->insert([
             ['id_precio' => 40, 'id_producto' => 40, 'id_presentacion' => 2, 'factor_conversion' => 1, 'precio_venta' => 3, 'id_producto_stock' => 41],
             ['id_precio' => 42, 'id_producto' => 40, 'id_presentacion' => 3, 'factor_conversion' => 1, 'precio_venta' => 6, 'id_producto_stock' => 43],
             ['id_precio' => 41, 'id_producto' => 41, 'id_presentacion' => 1, 'factor_conversion' => 1, 'precio_venta' => 0, 'id_producto_stock' => null],

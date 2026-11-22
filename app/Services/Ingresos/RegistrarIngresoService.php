@@ -3,7 +3,6 @@
 namespace App\Services\Ingresos;
 
 use App\Models\Ingreso;
-use App\Models\Lote;
 use App\Models\ProductoPresentacion;
 use App\Services\Inventario\GestionarExistenciaService;
 use App\Services\Inventario\OrigenMovimiento;
@@ -34,23 +33,8 @@ class RegistrarIngresoService
                 $presentation = ProductoPresentacion::query()->with('producto')->findOrFail($detail['id_prod_pres']);
                 $subtotal = round((float) $detail['cantidad'] * (float) $detail['precio_costo'], 2);
 
-                // Solo se persisten columnas definidas en operaciones.detalle_ingresos.
-                $fechaVencimiento = filled($detail['fecha_vencimiento'] ?? null) ? $detail['fecha_vencimiento'] : null;
-
-                // Validación: fecha de vencimiento no puede ser anterior a la fecha actual.
-                if (filled($fechaVencimiento) && $fechaVencimiento < now()->toDateString()) {
-                    throw new DomainException('La fecha de vencimiento no puede ser anterior a la fecha actual');
-                }
-
-                // Validación: si el producto usa vencimiento, la fecha es obligatoria.
-                if ($presentation->producto->usa_vencimiento === true && !filled($fechaVencimiento)) {
-                    throw new DomainException('Este producto requiere una fecha de vencimiento');
-                }
-
-                // 2. Insertar únicamente las columnas reales de operaciones.detalle_ingresos
-                $detailRecord = $ingreso->detalles()->create([
+                $ingreso->detalles()->create([
                     'id_precio'         => $presentation->id_precio,
-                    'id_lote'           => null,
                     'cantidad'          => (float) $detail['cantidad'],
                     'factor_conversion' => $presentation->factor_conversion,
                     'precio_costo'      => (float) $detail['precio_costo'],
@@ -66,15 +50,10 @@ class RegistrarIngresoService
                         throw new DomainException('El precio de venta no puede ser menor al costo unitario');
                     }
 
-                    $porcentajeUtilidad = (($precioVenta - $costoUnitario) / $costoUnitario) * 100;
-
-                    $presentation->update([
-                        'precio_venta'        => $precioVenta,
-                        'porcentaje_utilidad' => round($porcentajeUtilidad, 2),
-                    ]);
+                    $presentation->update(['precio_venta' => $precioVenta]);
                 }
 
-                // 4. Actualizar stock físico en inventario base
+                // Actualizar el stock en el inventario base.
                 $baseCost = (float) $detail['precio_costo'] / max((float) $presentation->factor_conversion, 1);
                 $this->inventory->increase(
                     $presentation,
@@ -83,32 +62,6 @@ class RegistrarIngresoService
                     OrigenMovimiento::ingreso($ingreso),
                     $baseCost
                 );
-
-                // 5. Asignar lote para rotación FIFO (Primeras Entradas, Primeras Salidas)
-                if (filled($detail['lote'] ?? null)) {
-                    $baseQuantity = $this->inventory->toBaseQuantity($presentation, (float) $detail['cantidad']);
-                    $lot = Lote::query()
-                        ->where('id_producto', $presentation->id_producto)
-                        ->where('id_sucursal', $data['id_sucursal'])
-                        ->where('codigo_lote', $detail['lote'])
-                        ->lockForUpdate()
-                        ->first();
-
-                    if ($lot) {
-                        $lot->increment('stock', $baseQuantity);
-                    } else {
-                        $lot = Lote::create([
-                            'id_producto'       => $presentation->id_producto,
-                            'id_sucursal'       => $data['id_sucursal'],
-                            'codigo_lote'       => $detail['lote'],
-                            'fecha_vencimiento' => $fechaVencimiento,
-                            'stock'             => $baseQuantity,
-                            'estado'            => true,
-                        ]);
-                    }
-
-                    $detailRecord->update(['id_lote' => $lot->id_lote]);
-                }
             }
 
             return $ingreso->load('detalles');

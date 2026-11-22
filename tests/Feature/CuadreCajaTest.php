@@ -20,7 +20,7 @@ class CuadreCajaTest extends TestCase
         DB::statement('CREATE TABLE catalogos.metodos_pago (id_metodo INTEGER PRIMARY KEY, nombre TEXT, tipo TEXT)');
         DB::statement('CREATE TABLE operaciones.turnos_caja (id_turno INTEGER PRIMARY KEY, id_usuario INTEGER, id_sucursal INTEGER, id_terminal INTEGER NULL, monto_apertura NUMERIC, monto_cierre_declarado NUMERIC NULL, fecha_apertura DATETIME, fecha_cierre DATETIME NULL, estado TEXT)');
         DB::statement('CREATE TABLE operaciones.ventas (id_venta INTEGER PRIMARY KEY, id_turno INTEGER)');
-        DB::statement('CREATE TABLE operaciones.pagos_ventas (id_pago INTEGER PRIMARY KEY, id_venta INTEGER, id_metodo INTEGER, monto NUMERIC, monto_neto NUMERIC, estado_pago TEXT)');
+        DB::statement('CREATE TABLE operaciones.pagos_ventas (id_pago INTEGER PRIMARY KEY, id_venta INTEGER, id_metodo INTEGER, monto NUMERIC, comision_pasarela NUMERIC DEFAULT 0, estado_pago TEXT)');
         DB::statement('CREATE TABLE operaciones.movimientos_caja (id_movimiento INTEGER PRIMARY KEY, id_turno INTEGER, tipo_movimiento TEXT, monto NUMERIC)');
 
         DB::table('catalogos.metodos_pago')->insert([
@@ -33,10 +33,10 @@ class CuadreCajaTest extends TestCase
         ]);
         DB::table('operaciones.ventas')->insert([['id_venta' => 1, 'id_turno' => 1], ['id_venta' => 2, 'id_turno' => 1]]);
         DB::table('operaciones.pagos_ventas')->insert([
-            ['id_venta' => 1, 'id_metodo' => 1, 'monto' => 60, 'monto_neto' => 60, 'estado_pago' => 'COMPLETADO'],
-            ['id_venta' => 2, 'id_metodo' => 2, 'monto' => 40, 'monto_neto' => 40, 'estado_pago' => 'COMPLETADO'],
+            ['id_venta' => 1, 'id_metodo' => 1, 'monto' => 60, 'estado_pago' => 'COMPLETADO'],
+            ['id_venta' => 2, 'id_metodo' => 2, 'monto' => 40, 'estado_pago' => 'COMPLETADO'],
             // Un pago no completado nunca entra al cuadre.
-            ['id_venta' => 2, 'id_metodo' => 1, 'monto' => 500, 'monto_neto' => 500, 'estado_pago' => 'ANULADO'],
+            ['id_venta' => 2, 'id_metodo' => 1, 'monto' => 500, 'estado_pago' => 'ANULADO'],
         ]);
         DB::table('operaciones.movimientos_caja')->insert([
             ['id_turno' => 1, 'tipo_movimiento' => 'INGRESO', 'monto' => 5],

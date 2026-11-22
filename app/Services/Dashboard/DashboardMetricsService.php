@@ -28,7 +28,6 @@ class DashboardMetricsService
             'paymentMethods' => $this->paymentMethodsByRange($branchId, $inicio, $fin),
             'recentSales' => $this->recentSalesByRange($branchId, $inicio, $fin),
             'stockAlerts' => $this->stockAlerts($branchId),
-            'proximos_vencer' => $this->lotesPorVencer($branchId),
             'cashShift' => $this->cashShift($branchId, $userId),
             'insights' => $this->insights($branchId, $summary, $inicio, $fin),
             'generatedAt' => now()->toIso8601String(),
@@ -60,7 +59,6 @@ class DashboardMetricsService
             'paymentMethods' => $this->paymentMethods($branchId, $period),
             'recentSales'    => $this->recentSales($branchId, $period),
             'stockAlerts'    => $this->stockAlerts($branchId),
-            'proximos_vencer'=> $this->lotesPorVencer($branchId),
             'cashShift'      => $this->cashShift($branchId, $userId),
             'insights'       => $this->insights($branchId, $summary, Carbon::now('America/Lima')->subDays(match ($period) { 'semana' => 6, '2_semanas' => 13, 'mes' => 29, '3_meses' => 89, default => 0 })->startOfDay()->utc(), Carbon::now('America/Lima')->addDay()->startOfDay()->utc()),
             'generatedAt'    => now()->toIso8601String(),
@@ -106,9 +104,9 @@ class DashboardMetricsService
                      AND fecha_emision >= ((now() AT TIME ZONE 'America/Lima')::date - {$interval})
                      AND fecha_emision < ((now() AT TIME ZONE 'America/Lima')::date + INTERVAL '1 day')
                    ) AS purchases_count,
-                   (SELECT COUNT(*) FROM operaciones.salidas WHERE id_sucursal = ?
-                     AND fecha_salida >= (((now() AT TIME ZONE 'America/Lima')::date) - {$interval})::timestamp AT TIME ZONE 'America/Lima'
-                     AND fecha_salida < ((((now() AT TIME ZONE 'America/Lima')::date) + INTERVAL '1 day')::timestamp AT TIME ZONE 'America/Lima')
+                   (SELECT COUNT(*) FROM restaurante.mermas WHERE id_sucursal = ?
+                     AND registrada_en >= (((now() AT TIME ZONE 'America/Lima')::date) - {$interval})::timestamp AT TIME ZONE 'America/Lima'
+                     AND registrada_en < ((((now() AT TIME ZONE 'America/Lima')::date) + INTERVAL '1 day')::timestamp AT TIME ZONE 'America/Lima')
                    ) AS adjustments_count,
                    (SELECT COUNT(*) FROM catalogos.productos products LEFT JOIN latest_stock stock ON stock.id_producto = products.id_producto WHERE products.estado = TRUE AND products.es_servicio = FALSE AND COALESCE(stock.stock_actual, 0) <= 0) AS zero_stock_count
         ", [$branchId, $branchId, $branchId, $branchId, $branchId]);
@@ -258,36 +256,6 @@ class DashboardMetricsService
         return collect($rows)->map(fn (object $row) => ['id' => (int) $row->id_producto, 'name' => $row->nombre, 'stock' => (float) $row->stock])->all();
     }
 
-    private function lotesPorVencer(int $branchId): array
-    {
-        $rows = DB::select("
-            SELECT 
-                l.id_producto,
-                p.nombre AS nombre_producto,
-                l.codigo_lote,
-                l.fecha_vencimiento,
-                (l.fecha_vencimiento - CURRENT_DATE)::int AS dias_restantes,
-                l.stock
-            FROM inventario.lotes l
-            INNER JOIN catalogos.productos p ON p.id_producto = l.id_producto
-            WHERE l.id_sucursal = ? 
-              AND l.stock > 0 
-              AND l.fecha_vencimiento IS NOT NULL 
-              AND l.estado = true
-              AND (l.fecha_vencimiento - CURRENT_DATE) < 30
-            ORDER BY l.fecha_vencimiento ASC
-        ", [$branchId]);
-
-        return collect($rows)->map(fn (object $row) => [
-            'id_producto'       => (int) $row->id_producto,
-            'nombre_producto'   => $row->nombre_producto,
-            'codigo_lote'       => $row->codigo_lote,
-            'fecha_vencimiento' => $row->fecha_vencimiento,
-            'dias_restantes'    => (int) $row->dias_restantes,
-            'stock'             => (float) $row->stock,
-        ])->all();
-    }
-
     private function cashShift(int $branchId, ?int $userId): ?array
     {
         if (! $userId) return null;
@@ -384,7 +352,6 @@ class DashboardMetricsService
             'paymentMethods' => [],
             'recentSales'    => [],
             'stockAlerts'    => [],
-            'proximos_vencer'=> [],
             'cashShift'      => null,
             'insights'       => [],
             'generatedAt'    => now()->toIso8601String(),

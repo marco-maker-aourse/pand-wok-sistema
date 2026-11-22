@@ -29,11 +29,10 @@ class KardexValorizadoService
     private const ETIQUETAS = [
         OrigenMovimiento::VENTA => 'Venta',
         OrigenMovimiento::INGRESO => 'Compra / ingreso',
-        OrigenMovimiento::SALIDA => 'Salida de almacén',
         OrigenMovimiento::AJUSTE => 'Ajuste de inventario',
         OrigenMovimiento::CONSUMO_RECETA => 'Consumo de receta',
         OrigenMovimiento::REVERSION_RECETA => 'Devolución de receta',
-        OrigenMovimiento::MERMA => 'Merma de restaurante',
+        OrigenMovimiento::MERMA => 'Merma',
     ];
 
     public function __construct(private readonly DatosGeneralesService $datosGenerales = new DatosGeneralesService) {}

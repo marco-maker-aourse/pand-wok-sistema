@@ -82,16 +82,15 @@ class SunatEmisionService
             return $this->result(false, 'RECHAZADO', 'El comprobante fue rechazado. No se reenviará con el mismo número.');
         }
 
-        // Datos fiscales: los propios de la sucursal o, si los comparte, los de la empresa;
-        // el código de establecimiento siempre es el de la sucursal donde se vendió.
-        $empresa = app(\App\Services\Configuracion\DatosGeneralesService::class)->empresaDe((int) $venta->id_sucursal);
+        // Datos fiscales de la empresa; el código de establecimiento es el de la sucursal donde se vendió.
+        $empresa = app(\App\Services\Configuracion\DatosGeneralesService::class)->empresa();
         $emisor = $empresa ? (object) [
             ...$empresa->getAttributes(),
-            'codigo_establecimiento' => DB::table('inventario.sucursales')->where('id_sucursal', $venta->id_sucursal)->value('codigo_establecimiento'),
+            'codigo_establecimiento' => DB::table('configuracion.sucursales')->where('id_sucursal', $venta->id_sucursal)->value('codigo_establecimiento'),
         ] : null;
 
         if (! $emisor) {
-            throw new \RuntimeException('La sucursal de la venta no tiene datos fiscales configurados.');
+            throw new \RuntimeException('La empresa no tiene datos fiscales configurados.');
         }
 
         if (! preg_match('/^\d{4}$/', (string) $emisor->codigo_establecimiento)) {
@@ -189,7 +188,7 @@ class SunatEmisionService
     private function obtenerDetalles(int $idVenta): \Illuminate\Support\Collection
     {
         $detalles = DB::table('operaciones.detalle_ventas as dv')
-            ->join('inventario.precio_producto as pp', 'dv.id_precio', '=', 'pp.id_precio')
+            ->join('catalogos.producto_presentaciones as pp', 'dv.id_precio', '=', 'pp.id_precio')
             ->join('catalogos.productos as p', 'pp.id_producto', '=', 'p.id_producto')
             ->join('catalogos.unidades_medida as um', 'p.id_unidad_base', '=', 'um.id_unidad')
             ->where('dv.id_venta', $idVenta)

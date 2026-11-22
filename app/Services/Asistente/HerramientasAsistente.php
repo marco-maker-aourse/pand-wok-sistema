@@ -95,7 +95,7 @@ class HerramientasAsistente
             'alertas_operativas' => [
                 'permiso' => 'dashboard.ver',
                 'etiqueta' => 'Revisando alertas',
-                'descripcion' => 'Prioridades del día: productos sin stock, lotes que vencen en 7 días y comprobantes pendientes o con error en SUNAT.',
+                'descripcion' => 'Prioridades del día: productos sin stock y comprobantes pendientes o con error en SUNAT.',
                 'parametros' => [],
             ],
             'buscar_producto' => [
@@ -110,12 +110,6 @@ class HerramientasAsistente
                 'etiqueta' => 'Revisando inventario',
                 'descripcion' => 'Productos activos (no servicios) con stock cero o negativo en la sucursal.',
                 'parametros' => ['limite' => ['type' => 'integer', 'description' => 'Cantidad, 1 a 20. Por defecto 10.']],
-            ],
-            'lotes_por_vencer' => [
-                'permiso' => 'inventario.ver',
-                'etiqueta' => 'Revisando vencimientos',
-                'descripcion' => 'Lotes con stock que vencen dentro de los próximos N días.',
-                'parametros' => ['dias' => ['type' => 'integer', 'description' => 'Ventana en días, 1 a 180. Por defecto 30.']],
             ],
             'resumen_compras' => [
                 'permiso' => 'ingresos.registrar',
@@ -202,7 +196,6 @@ class HerramientasAsistente
                 'alertas_operativas' => $this->alertasOperativas($sucursalId),
                 'buscar_producto' => $this->buscarProducto($sucursalId, $this->texto($argumentos, 'texto', true)),
                 'productos_sin_stock' => $this->productosSinStock($sucursalId, $this->entero($argumentos, 'limite', 10, 1, 20)),
-                'lotes_por_vencer' => $this->lotesPorVencer($sucursalId, $this->entero($argumentos, 'dias', 30, 1, 180)),
                 'resumen_compras' => $this->resumenCompras($sucursalId, ...$this->rango($argumentos)),
                 'estado_caja' => $this->estadoCaja($sucursalId, (int) $usuario->id_usuario),
                 'metodos_pago' => $this->metodosPago(),
@@ -307,7 +300,7 @@ class HerramientasAsistente
         if (! $venta) return ['numero' => Str::upper($numero), 'encontrado' => false, 'nota' => 'No existe ese comprobante en esta sucursal.'];
 
         $productos = DB::table('operaciones.detalle_ventas as detalle')
-            ->join('inventario.precio_producto as precio', 'precio.id_precio', '=', 'detalle.id_precio')
+            ->join('catalogos.producto_presentaciones as precio', 'precio.id_precio', '=', 'detalle.id_precio')
             ->join('catalogos.productos as producto', 'producto.id_producto', '=', 'precio.id_producto')
             ->where('detalle.id_venta', $venta->id_venta)
             ->limit(30)
@@ -337,7 +330,7 @@ class HerramientasAsistente
         [$inicio, $fin] = $this->limitesUtc($desde, $hasta);
         $productos = DB::table('operaciones.detalle_ventas as detalle')
             ->join('operaciones.ventas as venta', 'venta.id_venta', '=', 'detalle.id_venta')
-            ->join('inventario.precio_producto as precio', 'precio.id_precio', '=', 'detalle.id_precio')
+            ->join('catalogos.producto_presentaciones as precio', 'precio.id_precio', '=', 'detalle.id_precio')
             ->join('catalogos.productos as producto', 'producto.id_producto', '=', 'precio.id_producto')
             ->join('catalogos.unidades_medida as unidad', 'unidad.id_unidad', '=', 'producto.id_unidad_base')
             ->where('venta.id_sucursal', $sucursalId)
@@ -427,8 +420,6 @@ class HerramientasAsistente
 
         return [
             'productos_sin_stock' => (int) (DB::selectOne($this->sqlSinStock('COUNT(*) AS total', ''), [$sucursalId])->total ?? 0),
-            'lotes_que_vencen_en_7_dias' => DB::table('inventario.lotes')->where('id_sucursal', $sucursalId)->where('estado', true)->where('stock', '>', 0)
-                ->whereBetween('fecha_vencimiento', [$hoy->toDateString(), $hoy->addDays(7)->toDateString()])->count(),
             'comprobantes_de_hoy_pendientes_o_con_error' => DB::table('operaciones.ventas')->where('id_sucursal', $sucursalId)->where('fecha_emision', '>=', $inicio)->where('fecha_emision', '<', $fin)
                 ->whereIn('estado_sunat', ['PENDIENTE', 'ERROR', 'RECHAZADO'])->count(),
         ];
@@ -456,7 +447,7 @@ class HerramientasAsistente
         $inicio = $this->hoy()->subDays(29)->startOfDay()->utc();
         $vendido = DB::table('operaciones.detalle_ventas as detalle')
             ->join('operaciones.ventas as venta', 'venta.id_venta', '=', 'detalle.id_venta')
-            ->join('inventario.precio_producto as precio', 'precio.id_precio', '=', 'detalle.id_precio')
+            ->join('catalogos.producto_presentaciones as precio', 'precio.id_precio', '=', 'detalle.id_precio')
             ->where('venta.id_sucursal', $sucursalId)->where('venta.fecha_emision', '>=', $inicio)->whereIn('precio.id_producto', $ids)
             ->groupBy('precio.id_producto')->selectRaw('precio.id_producto, SUM(detalle.cantidad * precio.factor_conversion) as vendido')->pluck('vendido', 'id_producto');
 
@@ -477,22 +468,6 @@ class HerramientasAsistente
         $productos = DB::select($this->sqlSinStock('producto.nombre', 'ORDER BY producto.nombre LIMIT ' . $limite), [$sucursalId]);
 
         return ['total' => $total, 'mostrados' => collect($productos)->pluck('nombre')->all()];
-    }
-
-    private function lotesPorVencer(int $sucursalId, int $dias): array
-    {
-        $hoy = $this->hoy();
-        $lotes = DB::table('inventario.lotes as lote')
-            ->join('catalogos.productos as producto', 'producto.id_producto', '=', 'lote.id_producto')
-            ->where('lote.id_sucursal', $sucursalId)->where('lote.estado', true)->where('lote.stock', '>', 0)
-            ->whereBetween('lote.fecha_vencimiento', [$hoy->toDateString(), $hoy->addDays($dias)->toDateString()])
-            ->orderBy('lote.fecha_vencimiento')->limit(15)
-            ->get(['producto.nombre', 'lote.fecha_vencimiento', 'lote.stock']);
-
-        return [
-            'ventana_dias' => $dias,
-            'lotes' => $lotes->map(fn ($l) => ['producto' => $l->nombre, 'vence' => $l->fecha_vencimiento, 'stock' => $this->numero($l->stock)])->all(),
-        ];
     }
 
     private function resumenCompras(int $sucursalId, CarbonImmutable $desde, CarbonImmutable $hasta): array

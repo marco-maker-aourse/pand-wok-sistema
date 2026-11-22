@@ -66,8 +66,8 @@ class CartaPorSucursalTest extends TestCase
 
     public function test_importa_la_carta_con_precios_por_sucursal_y_es_repetible(): void
     {
-        DB::table('inventario.sucursales')->where('id_sucursal', 1)->update(['slug' => 'chilca']);
-        DB::table('inventario.sucursales')->insert(['id_sucursal' => 3, 'nombre' => 'Tingo', 'slug' => 'tingomaria']);
+        DB::table('configuracion.sucursales')->where('id_sucursal', 1)->update(['slug' => 'chilca']);
+        DB::table('configuracion.sucursales')->insert(['id_sucursal' => 3, 'nombre' => 'Tingo', 'slug' => 'tingomaria']);
         $importar = app(ImportarCartaService::class);
 
         // "tambo" se asocia explícitamente a la sucursal 2 (sin slug).
@@ -84,7 +84,7 @@ class CartaPorSucursalTest extends TestCase
         $this->assertSame('Chaufa con Tallarín', $chaufa->nombre);
         $this->assertSame('01', $chaufa->codigo_carta);
         $this->assertSame('PREPARADO', $chaufa->tipo_producto);
-        $idPrecio = DB::table('inventario.precio_producto')->where('id_producto', $chaufa->id_producto)->value('id_precio');
+        $idPrecio = DB::table('catalogos.producto_presentaciones')->where('id_producto', $chaufa->id_producto)->value('id_precio');
         $this->assertSame(
             [1 => 14.0, 2 => 13.0, 3 => 14.0],
             DB::table('restaurante.precios_sucursal')->where('id_precio', $idPrecio)->orderBy('id_sucursal')->pluck('precio_venta', 'id_sucursal')->map(fn ($p) => (float) $p)->all(),
@@ -129,9 +129,9 @@ class CartaPorSucursalTest extends TestCase
 
     public function test_la_carta_publica_devuelve_los_mismos_precios_que_se_importaron(): void
     {
-        DB::table('inventario.sucursales')->where('id_sucursal', 1)->update(['slug' => 'chilca', 'horario_atencion' => '10:30 AM - 11:00 PM']);
-        DB::table('inventario.sucursales')->where('id_sucursal', 2)->update(['slug' => 'tambo']);
-        DB::table('inventario.sucursales')->insert(['id_sucursal' => 3, 'nombre' => 'Tingo', 'slug' => 'tingomaria']);
+        DB::table('configuracion.sucursales')->where('id_sucursal', 1)->update(['slug' => 'chilca', 'horario_atencion' => '10:30 AM - 11:00 PM']);
+        DB::table('configuracion.sucursales')->where('id_sucursal', 2)->update(['slug' => 'tambo']);
+        DB::table('configuracion.sucursales')->insert(['id_sucursal' => 3, 'nombre' => 'Tingo', 'slug' => 'tingomaria']);
         $origen = $this->cartaDeEjemplo();
         app(ImportarCartaService::class)->importar($origen);
         // Productos de prueba ajenos a la carta importada: no deben mezclarse.
@@ -158,7 +158,7 @@ class CartaPorSucursalTest extends TestCase
 
     public function test_api_publica_responde_sin_sesion_y_404_si_la_sucursal_no_existe(): void
     {
-        DB::table('inventario.sucursales')->where('id_sucursal', 1)->update(['slug' => 'chilca']);
+        DB::table('configuracion.sucursales')->where('id_sucursal', 1)->update(['slug' => 'chilca']);
         DB::table('catalogos.categorias')->insert(['id_categoria' => 1, 'nombre' => 'Bebidas']);
         DB::table('catalogos.productos')->where('id_producto', 2)->update(['id_categoria' => 1]);
 

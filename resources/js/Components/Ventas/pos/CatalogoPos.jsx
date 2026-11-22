@@ -5,7 +5,6 @@ import { formatoMoneda } from './formato';
 
 function TarjetaProducto({ producto, onAgregar }) {
     const agotado = !producto.es_servicio && Number(producto.stock_actual) <= 0;
-    const loteFIFO = producto.lote_recomendado;
     const presentacionMinorista = producto.presentaciones.find((p) => Number(p.factor_conversion) === 1);
     const tieneMayorista = producto.presentaciones.some((p) => Number(p.factor_conversion) > 1);
     const precioDesde = presentacionMinorista?.precio_venta ?? producto.precio_venta;
@@ -37,7 +36,6 @@ function TarjetaProducto({ producto, onAgregar }) {
                     ) : (
                         <Badge className="tabular-nums">Stock {producto.stock_actual}</Badge>
                     )}
-                    {loteFIFO && !agotado && <Badge tone="brand" className="font-mono">FIFO {loteFIFO.codigo_lote}</Badge>}
                     {tieneMayorista && !agotado && <Badge tone="warning">Mayorista</Badge>}
                 </span>
             </span>

@@ -5,7 +5,7 @@ import { Bot, Check, Copy, Loader2, RotateCcw, Send, Square, Trash2, X } from 'l
 
 const MAX_CARACTERES = 500;
 const MAX_HISTORIAL = 10;
-const SUGERENCIAS = ['Resumen de ventas de hoy', 'Esta semana vs. la pasada', 'Lo más vendido del mes', '¿Qué productos están sin stock?', 'Estado de mi caja', '¿Hay productos por vencer?'];
+const SUGERENCIAS = ['Resumen de ventas de hoy', 'Esta semana vs. la pasada', 'Lo más vendido del mes', '¿Qué productos están sin stock?', 'Estado de mi caja'];
 
 const nuevoId = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 

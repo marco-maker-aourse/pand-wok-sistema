@@ -9,7 +9,7 @@ class ModuleRoutesTest extends TestCase
 {
     public function test_private_modules_require_authentication(): void
     {
-        foreach (['/', '/clientes', '/caja', '/ventas', '/inventario', '/lotes', '/kardex', '/usuarios', '/reportes'] as $path) {
+        foreach (['/', '/clientes', '/caja', '/ventas', '/inventario', '/kardex', '/usuarios', '/reportes'] as $path) {
             $this->get($path)->assertRedirect(route('login'));
         }
     }

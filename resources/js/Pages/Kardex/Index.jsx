@@ -48,23 +48,22 @@ export default function Index({ auth, productos = [], kardex = [] }) {
 
     // Métricas del Inventario Físico
     const metricas = useMemo(() => {
-        let totalLotes = 0;
         let totalValorizado = 0;
         let articulosConSaldo = 0;
+        let articulosStockBajo = 0;
 
         listaArticulos.forEach((p) => {
             const stock = Number(p.stock_actual ?? p.kardex?.stock_actual ?? p.stock ?? 0);
             if (stock > 0) articulosConSaldo += 1;
+            if (stock > 0 && stock <= 5) articulosStockBajo += 1;
             totalValorizado += stock * Number(p.precio_costo || 0);
-            const lotesArr = p.lotes || [];
-            totalLotes += lotesArr.length;
         });
 
         return {
             totalArticulos: listaArticulos.length,
             articulosConSaldo,
             totalValorizado,
-            totalLotesActivos: totalLotes
+            articulosStockBajo
         };
     }, [listaArticulos]);
 
@@ -85,14 +84,6 @@ export default function Index({ auth, productos = [], kardex = [] }) {
             return matchTexto && matchStock;
         });
     }, [listaArticulos, busqueda, filtroStock]);
-
-    // Formateador de Lote Seguro (corrige el error de "un.")
-    const formatLoteBadge = (lote) => {
-        if (!lote) return 'General';
-        const codigo = lote.codigo_lote || lote.lote || 'LOTE';
-        const stock = Number(lote.stock ?? lote.stock_actual ?? 0);
-        return `${codigo} (${stock})`;
-    };
 
     const nombreUnidad = (producto) => producto?.unidad_base?.nombre || 'unidades';
     const cantidad = (valor) => {
@@ -166,14 +157,14 @@ export default function Index({ auth, productos = [], kardex = [] }) {
                 <PageHeader
                     breadcrumbs={[{ label: 'Inventario' }, { label: 'Movimientos de existencias' }]}
                     title="Kardex valorizado"
-                    description="Supervisa el stock físico central, consulta lotes FIFO y edita el precio de cada presentación."
+                    description="Supervisa el stock de la sucursal, revisa sus movimientos y edita el precio de cada presentación."
                 />
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
                     <Stat destacado label="Productos en kardex" value={metricas.totalArticulos} hint="Catálogo con control de existencias" icon={PackageCheck} />
                     <Stat label="Inventario valorizado" value={currency.format(metricas.totalValorizado)} hint="Stock actual × costo de compra" icon={DollarSign} iconTone="success" />
                     <Stat label="Con saldo" value={metricas.articulosConSaldo} hint={`${metricas.totalArticulos - metricas.articulosConSaldo} sin existencias`} icon={Boxes} />
-                    <Stat label="Lotes activos" value={metricas.totalLotesActivos} hint="Se listan hasta 30 por producto" icon={Layers} iconTone="warning" />
+                    <Stat label="Stock bajo" value={metricas.articulosStockBajo} hint="Entre 0 y 5 unidades base" icon={Layers} iconTone="warning" />
                 </div>
 
                 {/* 3. BARRA DE BÚSQUEDA Y FILTROS */}
@@ -225,7 +216,6 @@ export default function Index({ auth, productos = [], kardex = [] }) {
                                 <tr>
                                     <th className="px-4 py-2.5 font-medium">Artículo / Producto</th>
                                     <th className="px-4 py-2.5 text-center font-medium">Stock Físico Real</th>
-                                    <th className="px-4 py-2.5 font-medium">Lotes Activos (FIFO)</th>
                                     <th className="px-4 py-2.5 font-medium">Precios por Presentación (PVP)</th>
                                     <th className="px-4 py-2.5 text-right font-medium">Acciones</th>
                                 </tr>
@@ -234,7 +224,6 @@ export default function Index({ auth, productos = [], kardex = [] }) {
                                 {articulosFiltrados.length > 0 ? (
                                     articulosFiltrados.map((prod) => {
                                         const stock = Number(prod.stock_actual ?? prod.kardex?.stock_actual ?? prod.stock ?? 0);
-                                        const lotes = prod.lotes || [];
                                         const presentaciones = prod.presentaciones || [];
 
                                         return (
@@ -265,30 +254,6 @@ export default function Index({ auth, productos = [], kardex = [] }) {
                                                     </span>
                                                 </td>
 
-                                                {/* Lotes FIFO Formateados Limpiamente */}
-                                                <td className="px-4 py-2.5">
-                                                    {lotes.length > 0 ? (
-                                                        <div className="flex flex-wrap gap-1 max-w-xs">
-                                                            {lotes.slice(0, 2).map((l, idx) => (
-                                                                <span
-                                                                    key={idx}
-                                                                    className="bg-brand-soft text-brand-ink border border-blue-200/70 text-xs font-mono font-bold px-2 py-0.5 rounded-md"
-                                                                >
-                                                                    {formatLoteBadge(l)} {nombreUnidad(prod)}
-                                                                </span>
-                                                            ))}
-                                                            {lotes.length > 2 && (
-                                                                <span className="text-xs text-slate-400 font-bold self-center">
-                                                                    +{lotes.length - 2} más
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                    ) : (
-                                                        <span className="text-xs text-slate-400 italic">
-                                                            Lote General
-                                                        </span>
-                                                    )}
-                                                </td>
 
                                                 {/* Presentaciones y Tarifas */}
                                                 <td className="px-4 py-2.5">
@@ -327,7 +292,7 @@ export default function Index({ auth, productos = [], kardex = [] }) {
                                                             type="button"
                                                             onClick={() => setArticuloDetalle(prod)}
                                                             className="w-8 h-8 rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-600 flex items-center justify-center transition cursor-pointer"
-                                                            title="Ver detalle de kardex y lotes"
+                                                            title="Ver detalle de kardex"
                                                         >
                                                             <Eye className="w-3.5 h-3.5" />
                                                         </button>
@@ -346,7 +311,7 @@ export default function Index({ auth, productos = [], kardex = [] }) {
                                     })
                                 ) : (
                                     <tr>
-                                        <td colSpan="5" className="py-16 text-center text-slate-400">
+                                        <td colSpan="4" className="py-16 text-center text-slate-400">
                                             <p className="font-bold text-xs text-slate-500">
                                                 No se encontraron artículos en el inventario
                                             </p>
@@ -362,7 +327,7 @@ export default function Index({ auth, productos = [], kardex = [] }) {
                 </div>
             </div>
 
-            {/* MODAL 1: AUDITORÍA DE KARDEX Y LOTES FIFO (OJITO) */}
+            {/* MODAL 1: AUDITORÍA DE KARDEX (OJITO) */}
             <Dialog open={Boolean(articuloDetalle)} onClose={() => setArticuloDetalle(null)} size="xl">
                 {(articuloDetalle) && (
                 <div className="p-6 sm:p-7 flex flex-col">
@@ -416,44 +381,6 @@ export default function Index({ auth, productos = [], kardex = [] }) {
                                     )}
                                 </span>
                             </div>
-                        </div>
-
-                        {/* Detalle de Lotes FIFO */}
-                        <div className="flex-1 overflow-y-auto mb-4 border border-slate-100 rounded-lg [scrollbar-width:thin]">
-                            <table className="w-full text-left text-xs">
-                                <thead className="bg-slate-50 text-slate-400 uppercase text-xs font-semibold border-b border-slate-100">
-                                    <tr>
-                                        <th className="py-2.5 px-3 font-medium">Código de Lote</th>
-                                        <th className="py-2.5 px-2 text-center font-medium">Vencimiento</th>
-                                        <th className="py-2.5 px-3 text-right font-medium">Stock Disponible</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
-                                    {(articuloDetalle.lotes || []).length > 0 ? (
-                                        articuloDetalle.lotes.map((l, idx) => (
-                                            <tr key={idx}>
-                                                <td className="py-2.5 px-3 font-mono font-bold text-brand-ink">
-                                                    {l.codigo_lote}
-                                                </td>
-                                                <td className="py-2.5 px-2 text-center text-slate-500 font-mono">
-                                                    {l.fecha_vencimiento
-                                                        ? new Date(l.fecha_vencimiento).toLocaleDateString('es-PE')
-                                                        : 'No perecible'}
-                                                </td>
-                                                <td className="py-2.5 px-3 text-right font-mono font-semibold text-slate-900">
-                                                    {cantidad(l.stock ?? l.stock_actual)} {nombreUnidad(articuloDetalle)}
-                                                </td>
-                                            </tr>
-                                        ))
-                                    ) : (
-                                        <tr>
-                                            <td colSpan="3" className="py-8 text-center text-slate-400 text-xs">
-                                                No hay lotes específicos registrados para este artículo.
-                                            </td>
-                                        </tr>
-                                    )}
-                                </tbody>
-                            </table>
                         </div>
 
                         <div className="shrink-0">

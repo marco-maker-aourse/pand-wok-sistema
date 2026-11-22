@@ -153,7 +153,7 @@ class AgenteAsistente
     protected function instrucciones(User $usuario, int $sucursalId): string
     {
         $ahora = CarbonImmutable::now('America/Lima');
-        $sucursal = DB::table('inventario.sucursales')->where('id_sucursal', $sucursalId)->value('nombre') ?? 'Sede principal';
+        $sucursal = DB::table('configuracion.sucursales')->where('id_sucursal', $sucursalId)->value('nombre') ?? 'Sede principal';
         $dias = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
         $f = fn (CarbonImmutable $fecha) => $fecha->toDateString();
 

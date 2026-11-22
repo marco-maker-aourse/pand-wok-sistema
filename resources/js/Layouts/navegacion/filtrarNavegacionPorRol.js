@@ -21,7 +21,7 @@ const PERMISOS_POR_ROL = {
         items: [
             'Inicio',
             'Entradas',
-            'Salidas y ajustes',
+            'Mermas',
             'Movimientos de existencias',
             'Productos',
             'Proveedores',

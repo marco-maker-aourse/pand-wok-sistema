@@ -3,7 +3,7 @@
 namespace App\Services\Ventas;
 
 use App\Models\Cliente;
-use App\Models\DatosGen;
+use App\Models\Empresa;
 use App\Models\Kardex;
 use App\Models\MetodoPago;
 use App\Models\Producto;
@@ -28,7 +28,7 @@ class CatalogoPosService
     public function __construct(private readonly DatosGeneralesService $datosGenerales) {}
 
     /** Datos del emisor de la sucursal, con el código de establecimiento SUNAT. */
-    public function datosEmisor(int $branchId): ?DatosGen
+    public function datosEmisor(int $branchId): ?Empresa
     {
         return $this->datosGenerales->emisor($branchId);
     }
@@ -89,9 +89,9 @@ class CatalogoPosService
         if (! TipoComprobante::query()->where('estado', true)->where('codigo_sunat', '03')->exists()) {
             $faltan[] = ['clave' => 'comprobantes', 'mensaje' => 'La boleta (código SUNAT 03) no está habilitada.', 'enlace' => '/tipos-comprobante', 'accion' => 'Habilitar'];
         }
-        // Misma fuente que ReservarCorrelativoService: datos_gen de la sucursal o su serie propia.
-        $serie = DatosGen::query()->where('id_sucursal', $branchId)->first() ?? SerieSucursal::query()->find($branchId);
-        $igv = $serie instanceof DatosGen ? $serie->igv_porcentaje : $this->datosGenerales->empresaDe($branchId)?->igv_porcentaje;
+        // Misma fuente que ReservarCorrelativoService: series de la sucursal e IGV de la empresa.
+        $serie = SerieSucursal::query()->find($branchId);
+        $igv = $this->datosGenerales->empresa()?->igv_porcentaje;
         if (! $serie || blank($serie->serie_boleta) || $igv === null) {
             $faltan[] = ['clave' => 'series', 'mensaje' => 'Falta la serie de boleta o el IGV de esta sucursal.', 'enlace' => '/datos-generales', 'accion' => 'Configurar'];
         }
@@ -147,10 +147,8 @@ class CatalogoPosService
                 'catalogos.productos.id_unidad_base',
                 'catalogos.productos.afecta_igv',
                 'catalogos.productos.es_servicio',
-                'catalogos.productos.usa_vencimiento',
             ])
-            // El Kardex es la fuente de saldo de la sucursal. Los lotes solo complementan
-            // el control FIFO para productos que manejan vencimiento.
+            // El Kardex es la fuente de saldo de la sucursal.
             ->selectSub(
                 Kardex::query()
                     ->select('stock_actual')
@@ -167,12 +165,6 @@ class CatalogoPosService
                     ->where('estado', true)
                     ->with('presentacion:id_presentacion,nombre')
                     ->orderBy('factor_conversion'),
-                'lotes' => fn ($query) => $query
-                    ->where('id_sucursal', $branchId)
-                    ->where('estado', true)
-                    ->where('stock', '>', 0)
-                    ->orderByRaw('fecha_vencimiento ASC NULLS LAST')
-                    ->orderBy('id_lote'),
             ])
             ->whereHas('presentaciones', fn ($query) => $query->where('estado', true))
             ->when($term, fn ($query, string $search) => $query->where(function ($filter) use ($search) {
@@ -219,11 +211,8 @@ class CatalogoPosService
             ] : null,
             'afecta_igv' => $producto->afecta_igv,
             'es_servicio' => $producto->es_servicio,
-            'usa_vencimiento' => $producto->usa_vencimiento,
             'presentaciones' => $presentaciones,
-            'lotes' => $producto->lotes->values(),
             'stock_actual' => (float) ($producto->stock_actual ?? 0),
-            'lote_recomendado' => $producto->lotes->first(),
             'id_prod_pres_defecto' => $presentacionBase['id_precio'] ?? null,
             'precio_venta' => $presentacionBase['precio_venta'] ?? 0,
         ];

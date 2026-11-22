@@ -2,9 +2,10 @@
 
 namespace Database\Seeders;
 
-use App\Models\DatosGen;
+use App\Models\Empresa;
 use App\Models\Permiso;
 use App\Models\Rol;
+use App\Models\SerieSucursal;
 use App\Models\Sucursal;
 use App\Models\TipoDocumento;
 use App\Models\User;
@@ -19,49 +20,33 @@ class DatabaseSeeder extends Seeder
     {
         DB::transaction(function (): void {
 
-            // 1. UBIGEO
-            // Insertar solo si no existe.
-            DB::table('inventario.ubigeo')->insertOrIgnore([
-                'id_ubigeo' => '150101',
-                'departamento' => 'Lima',
-                'provincia' => 'Lima',
-                'distrito' => 'Cercado',
+            // 1. EMPRESA (una sola fila: todas las sucursales emiten con este RUC).
+            $empresa = Empresa::query()->first() ?? Empresa::query()->create([
+                'ruc_empresa' => '20689941333',
+                'razon_social' => 'Empresa sin configurar',
+                'nombre_comercial' => 'Restaurante',
+                'direccion_fiscal' => 'Av. Principal 123',
+                'igv_porcentaje' => 18.00,
+                'uit_valor' => 5150.00,
+                'pie_ticket' => 'Gracias por su visita',
             ]);
 
             // 2. SUCURSAL INICIAL
             $sucursal = Sucursal::query()->firstOrCreate(
                 ['nombre' => 'Sede Principal'],
                 [
-                    'id_ubigeo' => '150101',
-                    'direccion' => 'Av. Principal 123',
+                    'direccion' => $empresa->direccion_fiscal,
                     'telefono' => '999999999',
                     'responsable' => 'Administración General',
+                    'codigo_establecimiento' => '0000',
                     'estado' => true,
                 ]
             );
 
-            // 3. DATOS EMPRESARIALES
-            // Nunca reiniciar correlativos existentes.
-            DatosGen::query()->firstOrCreate(
-                ['id_datos_gen' => 1],
-                [
-                    'id_sucursal' => $sucursal->id_sucursal,
-                    'ruc_empresa' => '20689941333',
-                    'razon_social' => 'Empresa sin configurar',
-                    'nombre_comercial' => 'Sistema comercial',
-                    'direccion_fiscal' => 'Av. Principal 123',
-                    'igv_porcentaje' => 18.00,
-                    'uit_valor' => 5150.00,
-                    'serie_boleta' => 'B001',
-                    'ult_nro_boleta' => 0,
-                    'serie_factura' => 'F001',
-                    'ult_nro_factura' => 0,
-                    'serie_guia' => 'T001',
-                    'ult_nro_guia' => 0,
-                    'pie_ticket' => 'Gracias por su compra',
-                    'ult_nro_entrada_interna' => 0,
-                    'ult_nro_salida_interna' => 0,
-                ]
+            // 3. SERIES DE LA SUCURSAL. Nunca reiniciar correlativos existentes.
+            SerieSucursal::query()->firstOrCreate(
+                ['id_sucursal' => $sucursal->id_sucursal],
+                ['serie_boleta' => 'B001', 'serie_factura' => 'F001', 'serie_guia' => 'T001']
             );
 
             // 4. TIPOS DE DOCUMENTO
@@ -85,8 +70,6 @@ class DatabaseSeeder extends Seeder
                 ['codigo' => 'ventas.registrar', 'nombre' => 'Registrar ventas', 'modulo' => 'ventas'],
                 ['codigo' => 'ventas.ver', 'nombre' => 'Ver ventas', 'modulo' => 'ventas'],
                 ['codigo' => 'ingresos.registrar', 'nombre' => 'Registrar ingresos', 'modulo' => 'ingresos'],
-                ['codigo' => 'salidas.registrar', 'nombre' => 'Registrar salidas', 'modulo' => 'salidas'],
-                ['codigo' => 'salidas.ver', 'nombre' => 'Ver salidas', 'modulo' => 'salidas'],
                 ['codigo' => 'inventario.ver', 'nombre' => 'Ver inventario', 'modulo' => 'inventario'],
                 ['codigo' => 'kardex.ver', 'nombre' => 'Ver kardex', 'modulo' => 'inventario'],
                 ['codigo' => 'inventario.gestionar', 'nombre' => 'Ajustar existencias y precios', 'modulo' => 'inventario'],
@@ -105,21 +88,21 @@ class DatabaseSeeder extends Seeder
                 ['codigo' => 'usuarios.ver', 'nombre' => 'Ver usuarios', 'modulo' => 'seguridad'],
                 ['codigo' => 'usuarios.gestionar', 'nombre' => 'Gestionar usuarios y roles', 'modulo' => 'seguridad'],
                 ['codigo' => 'reportes.ver', 'nombre' => 'Ver reportes', 'modulo' => 'reportes'],
-                // Restaurante (también los crea la migración 2026_11_20_000400 en bases existentes).
+                // Restaurante.
                 ['codigo' => 'mesas.ver', 'nombre' => 'Ver salón y mesas', 'modulo' => 'restaurante'],
                 ['codigo' => 'mesas.gestionar', 'nombre' => 'Configurar áreas y mesas', 'modulo' => 'restaurante'],
                 ['codigo' => 'pedidos.registrar', 'nombre' => 'Abrir pedidos y tomar órdenes', 'modulo' => 'restaurante'],
                 ['codigo' => 'pedidos.transferir', 'nombre' => 'Transferir, unir y separar cuentas', 'modulo' => 'restaurante'],
                 ['codigo' => 'pedidos.anular', 'nombre' => 'Anular pedidos e ítems enviados a cocina', 'modulo' => 'restaurante'],
                 ['codigo' => 'carta.gestionar', 'nombre' => 'Gestionar carta, modificadores y agotados', 'modulo' => 'restaurante'],
-                // Cocina (también los crea la migración 2026_11_21_000100 en bases existentes).
+                // Cocina.
                 ['codigo' => 'cocina.ver', 'nombre' => 'Ver pantalla de cocina', 'modulo' => 'restaurante'],
                 ['codigo' => 'cocina.gestionar', 'nombre' => 'Cambiar estado de comandas', 'modulo' => 'restaurante'],
                 ['codigo' => 'cocina.configurar', 'nombre' => 'Configurar estaciones de cocina', 'modulo' => 'restaurante'],
                 ['codigo' => 'comandas.enviar', 'nombre' => 'Enviar pedidos a cocina', 'modulo' => 'restaurante'],
                 ['codigo' => 'pos.descuentos', 'nombre' => 'Aplicar descuentos al cobrar pedidos', 'modulo' => 'restaurante'],
                 ['codigo' => 'recetas.gestionar', 'nombre' => 'Configurar recetas y consultar sus costos estimados', 'modulo' => 'restaurante'],
-                ['codigo' => 'mermas.registrar', 'nombre' => 'Registrar mermas de insumos', 'modulo' => 'restaurante'],
+                ['codigo' => 'mermas.registrar', 'nombre' => 'Registrar mermas de insumos y productos', 'modulo' => 'restaurante'],
                 ['codigo' => 'reportes.restaurante', 'nombre' => 'Consultar reportes del restaurante', 'modulo' => 'restaurante'],
             ];
 
@@ -180,8 +163,6 @@ class DatabaseSeeder extends Seeder
                     'mermas.registrar',
                     'dashboard.ver',
                     'ingresos.registrar',
-                    'salidas.registrar',
-                    'salidas.ver',
                     'kardex.ver',
                     'inventario.ver',
                     'inventario.gestionar',
@@ -260,7 +241,6 @@ class DatabaseSeeder extends Seeder
                 'id_rol' => $rolAdministrador->id_rol,
                 'id_sucursal' => $sucursal->id_sucursal,
                 'id_tipo_documento' => $docDniId,
-                'id_ubigeo' => '150101',
                 'num_documento' => '11111111',
                 'password' => Hash::make($password),
                 'estado' => true,

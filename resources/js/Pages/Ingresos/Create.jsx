@@ -245,9 +245,6 @@ export default function Create({ auth, productos = [], proveedores = [], tipos_c
         const factor = presDefecto ? Number(presDefecto.factor_conversion) : 1;
         const pvp = presDefecto?.precio_venta ? Number(presDefecto.precio_venta) : Number(producto.precio_venta || 0);
 
-        const mesAnio = hoy.replace(/-/g, '').slice(0, 6);
-        const loteSugerido = `L-${mesAnio}-${producto.id_producto}`;
-
         setCarrito([
             {
                 uid: uid,
@@ -261,8 +258,6 @@ export default function Create({ auth, productos = [], proveedores = [], tipos_c
                 precio_costo: '',
                 porcentaje_utilidad: 18, // Por defecto inicia con el 18% sugerido
                 precio_venta: Number(pvp.toFixed(2)),
-                lote: loteSugerido,
-                fecha_vencimiento: '',
                 subtotal: 0
             },
             ...carrito
@@ -526,7 +521,7 @@ export default function Create({ auth, productos = [], proveedores = [], tipos_c
                     </div>
                 </div>
 
-                {/* Panel Derecho: Proveedor, Comprobante y Lotes */}
+                {/* Panel Derecho: Proveedor, Comprobante y artículos */}
                 <div className="w-full lg:w-[500px] xl:w-[540px] flex flex-col bg-white rounded-2xl overflow-hidden shrink-0 shadow-[var(--shadow-tarjeta)] ring-1 ring-slate-900/[0.05]">
                     <div className="p-4 border-b border-slate-100 bg-slate-50/60" ref={dropdownRef}>
                         <div className="flex justify-between items-center mb-2">
@@ -682,7 +677,7 @@ export default function Create({ auth, productos = [], proveedores = [], tipos_c
 
                     <div className="flex-1 overflow-y-auto p-3.5 space-y-2.5 [scrollbar-width:thin]">
                         {carrito.length === 0 ? (
-                            <EmptyState icon={PackagePlus} title="Sin artículos seleccionados" description="Elige productos del catálogo para asignarles lote y empaque." />
+                            <EmptyState icon={PackagePlus} title="Sin artículos seleccionados" description="Elige productos del catálogo para indicar empaque, cantidad y costo." />
                         ) : (
                             carrito.map((item) => {
                                 const costo = Number(item.precio_costo || 0);
@@ -692,7 +687,7 @@ export default function Create({ auth, productos = [], proveedores = [], tipos_c
                                 const esGanancia = utilidadSoles >= 0;
                                 const signo = utilidadSoles > 0 ? '+' : '';
                                 const cantNum = Number(item.cantidad) || 0;
-                                const gananciaTotalLote = utilidadSoles * cantNum;
+                                const gananciaTotal = utilidadSoles * cantNum;
                                 const factor = Math.max(Number(item.factor_conversion) || 1, 1);
                                 const costoUnitario = factor > 0 ? (costo / factor) : 0;
                                 const totalUnidades = cantNum * factor;
@@ -856,35 +851,8 @@ export default function Create({ auth, productos = [], proveedores = [], tipos_c
                                                     {signo}{costo > 0 ? `${margenPorc.toFixed(1)}%` : '0.0%'}
                                                 </strong>
                                                 <span className="block text-xs text-slate-500 font-bold mt-0.5">
-                                                    Lote: {signo}{currency.format(gananciaTotalLote)}
+                                                    Total: {signo}{currency.format(gananciaTotal)}
                                                 </span>
-                                            </div>
-                                        </div>
-
-                                        <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-100">
-                                            <div>
-                                                <label className="block text-xs font-semibold text-slate-600 mb-0.5 flex items-center justify-between">
-                                                    <span>Lote de Compra</span>
-                                                    <span className="text-brand-ink font-semibold text-xs">FIFO</span>
-                                                </label>
-                                                <input
-                                                    type="text"
-                                                    placeholder="LOTE-001"
-                                                    className="w-full text-xs font-mono font-bold bg-white border border-slate-200 rounded-lg py-1 px-2 uppercase"
-                                                    value={item.lote}
-                                                    onChange={(e) => actualizarCampo(item.uid, 'lote', e.target.value.toUpperCase())}
-                                                />
-                                            </div>
-                                            <div>
-                                                <label className="block text-xs font-semibold text-slate-600 mb-0.5">
-                                                    Vencimiento (Opcional)
-                                                </label>
-                                                <input
-                                                    type="date"
-                                                    className="w-full text-xs font-bold bg-white border border-slate-200 rounded-lg py-1 px-1.5 text-slate-700"
-                                                    value={item.fecha_vencimiento}
-                                                    onChange={(e) => actualizarCampo(item.uid, 'fecha_vencimiento', e.target.value)}
-                                                />
                                             </div>
                                         </div>
                                     </div>
@@ -905,7 +873,7 @@ export default function Create({ auth, productos = [], proveedores = [], tipos_c
                             </div>
 
                             <Button type="submit" size="lg" block icon={CheckCircle2} disabled={processing || carrito.length === 0 || !data.id_proveedor}>
-                                Ingresar compra y lotes FIFO a kardex
+                                Registrar compra en kardex
                             </Button>
                         </form>
                     </div>
@@ -918,7 +886,7 @@ export default function Create({ auth, productos = [], proveedores = [], tipos_c
                         <Loader2 className="w-10 h-10 animate-spin text-brand mb-3" />
                         <h4 className="text-sm font-semibold text-slate-900">Ingresando a Almacén</h4>
                         <p className="text-xs text-slate-500 mt-1 font-medium">
-                            Incrementando existencias en Kardex y registrando lotes para rotación FIFO...
+                            Incrementando existencias en Kardex...
                         </p>
                 </div>
                 )}

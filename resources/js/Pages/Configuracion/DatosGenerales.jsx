@@ -10,7 +10,7 @@ import VistaPreviaLogin from './Partials/VistaPreviaLogin';
 
 const soloDigitos = (valor, max) => valor.replace(/\D/g, '').slice(0, max);
 
-export default function DatosGenerales({ datos = {}, sucursalActual = null, logoUrl = null, usaDatosDeEmpresa = false, sucursalEmpresa = null }) {
+export default function DatosGenerales({ datos = {}, sucursalActual = null, logoUrl = null }) {
     const { data, setData, post, processing, errors, reset } = useForm({
         codigo_establecimiento: sucursalActual?.codigo_establecimiento ?? '',
         ruc_empresa: datos.ruc_empresa ?? '',
@@ -132,16 +132,13 @@ export default function DatosGenerales({ datos = {}, sucursalActual = null, logo
                     actions={botonGuardar}
                 />
 
-                {usaDatosDeEmpresa && (
-                    <div role="status" className="flex items-start gap-2 rounded-xl border border-brand-border bg-brand-soft px-4 py-3 text-sm text-brand-ink">
-                        <Building2 className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-                        <p>
-                            <strong>{sucursalActual?.nombre}</strong> usa los datos de la empresa registrados en <strong>{sucursalEmpresa}</strong>:
-                            nombre, razón social, RUC, logo y colores son los mismos en todas sus sucursales y para todos los usuarios.
-                            Los cambios que guardes aquí se aplican a toda la empresa. El código de establecimiento es propio de esta sucursal.
-                        </p>
-                    </div>
-                )}
+                <div role="status" className="flex items-start gap-2 rounded-xl border border-brand-border bg-brand-soft px-4 py-3 text-sm text-brand-ink">
+                    <Building2 className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                    <p>
+                        Los datos de la empresa (RUC, razón social, logo y colores) son los mismos en todas las sucursales.
+                        El código de establecimiento y las series son propios de <strong>{sucursalActual?.nombre ?? 'esta sucursal'}</strong>.
+                    </p>
+                </div>
 
                 <form id="form-datos-generales" onSubmit={guardar} className="grid grid-cols-1 items-start gap-5 lg:grid-cols-3">
                     <div className="space-y-5 lg:col-span-2">
@@ -233,9 +230,7 @@ export default function DatosGenerales({ datos = {}, sucursalActual = null, logo
                         <Card>
                             <CardHeader
                                 title="Series de comprobantes"
-                                description={usaDatosDeEmpresa
-                                    ? `Series propias de esta sucursal (distintas a las de ${sucursalEmpresa}), p. ej. B002 y F002.`
-                                    : 'Series que emite esta sucursal. Cada sucursal usa las suyas.'}
+                                description={`Series que emite ${sucursalActual?.nombre ?? 'esta sucursal'}. Cada sucursal usa las suyas (p. ej. B001, B002).`}
                             />
                             <CardBody className="space-y-3">
                                 {[

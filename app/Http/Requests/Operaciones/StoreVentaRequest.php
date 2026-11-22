@@ -41,7 +41,6 @@ class StoreVentaRequest extends FormRequest
             // La unidad base puede ser fraccionable (kg, litro, metro). Se conserva
             // la misma precisión de inventario definida por la base de datos.
             'detalles.*.cantidad' => ['required', 'numeric', 'gt:0', 'decimal:0,4'],
-            'detalles.*.lote' => ['nullable', 'string', 'max:50'],
         ];
     }
 }
