@@ -30,8 +30,7 @@ Después:
 
 ```powershell
 php artisan migrate:fresh --seed
-php artisan restaurante:sucursales --completar --horarios=database/data/carta/pand-wok.json
-php artisan restaurante:importar-carta database/data/carta/pand-wok.json
+php artisan restaurante:preparar   # sucursales, carta, sopas del menú y series por defecto
 npm run dev
 php artisan serve
 ```

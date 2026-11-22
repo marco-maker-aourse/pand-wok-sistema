@@ -4,7 +4,7 @@ Modelo de datos del sistema para **una empresa con varias sucursales** de restau
 
 - 49 tablas de negocio en 6 esquemas, más 3 tablas internas de Laravel (`sessions`, `cache`, `cache_locks`) en `public`.
 - Las migraciones están en `database/migrations` (6 archivos, uno por grupo de esquemas). Los datos iniciales (empresa, sucursal, series, permisos, roles y administrador) los crea `DatabaseSeeder`.
-- Instalación desde cero: `php artisan migrate:fresh --seed`, y luego `php artisan restaurante:importar-carta database/data/carta/pand-wok.json`.
+- Instalación desde cero: `php artisan migrate:fresh --seed` y luego `php artisan restaurante:preparar` (sucursales, carta, sopas del menú y series por defecto). En el servidor se hace con la opción `reinstalar_base` del workflow de despliegue (ver `docs/restaurante/10_DESPLIEGUE_AUTOMATICO.md`).
 
 ## Esquemas
 

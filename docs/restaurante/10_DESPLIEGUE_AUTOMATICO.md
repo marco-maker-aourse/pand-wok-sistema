@@ -29,6 +29,19 @@ Cuando un push trae migraciones, el despliegue queda en rojo con el mensaje *"Es
 1. Respalda la base `chifkeyz_restaurante_dev` (cPanel → phpPgAdmin → Exportar, o `pg_dump` por SSH).
 2. En GitHub → **Actions → Desplegar restaurante → Run workflow** (rama `main`), marca **aplicar_migraciones** y **respaldo_bd_confirmado**.
 
+## Reinstalar la base desde cero (solo en desarrollo)
+
+Desde el modelo de datos nuevo (`docs/BASE_DE_DATOS.md`) las migraciones ya no se aplican sobre las tablas anteriores: la base del servidor se instala de nuevo. Se puede hacer desde el celular, en el navegador:
+
+1. Una sola vez, en **Settings → Secrets and variables → Actions → New repository secret**, crea `SEED_ADMIN_EMAIL` (correo del administrador) y `SEED_ADMIN_PASSWORD` (16 caracteres o más).
+2. Con los cambios ya en `main`: **Actions → Desplegar restaurante → Run workflow**, rama `main`, y marca:
+   - `reinstalar_base`
+   - `respaldo_bd_confirmado`
+   - en `confirmar_reinstalacion` escribe `BORRAR TODO`
+3. El workflow publica el código, ejecuta `migrate:fresh --seed` y `restaurante:preparar`: 3 sucursales (Chilca, El Tambo, Tingo María), la carta completa con precios por sucursal, la sopa a elección de los menús y series B001/F001, B002/F002 y B003/F003.
+
+**Borra todos los datos de la base** (ventas, pedidos, usuarios). Después de salir a producción no debe volver a usarse. Entra con el correo y la contraseña de los secretos, y revisa en Datos generales el RUC y que las series sean las registradas ante SUNAT.
+
 ## Configuración única en GitHub
 
 Repositorio → **Settings → Environments → New environment** `restaurante-produccion` (opcional: *Required reviewers* para aprobar cada publicación).
