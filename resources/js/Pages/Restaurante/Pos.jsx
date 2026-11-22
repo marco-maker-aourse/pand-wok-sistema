@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { Bike, ChevronRight, LayoutGrid, ListOrdered, Minus, Plus, Printer, ReceiptText, Send, ShoppingBag, Trash2, UserRound, X } from 'lucide-react';
+import { Bike, ChevronLeft, ChevronRight, LayoutGrid, ListOrdered, Minus, Plus, Printer, ReceiptText, Send, ShoppingBag, Trash2, UserRound, X } from 'lucide-react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Badge, Button, Card, Dialog, Field, IconButton, Input, Textarea, cx, toast } from '@/Components/ui';
 import CartaPedido from '@/Components/Restaurante/CartaPedido';
@@ -151,6 +151,7 @@ export default function Pos({ carta, sugerencias = null, salon, cuenta, inicio, 
                 operacion.current = null;
                 setBorrador([]);
                 setDialogo(null);
+                setVista('carta');
                 setContacto({ nombre_contacto: '', telefono_contacto: '', direccion_entrega: '' });
             },
             onError: (errores) => setErrorCobro(primerError(errores)),
@@ -201,8 +202,8 @@ export default function Pos({ carta, sugerencias = null, salon, cuenta, inicio, 
             <Head title="Punto de venta" />
 
             {/* Barra superior: tipo de venta, mesa y cuentas abiertas */}
-            <div className="mb-3 flex flex-wrap items-center gap-2">
-                <div className="grid w-full grid-cols-3 gap-1 rounded-xl bg-slate-100 p-1 sm:w-auto" role="radiogroup" aria-label="Tipo de venta">
+            <div className="mb-3 flex items-center gap-2">
+                <div className="grid min-w-0 flex-1 grid-cols-3 gap-1 rounded-xl bg-slate-100 p-1 sm:flex-none" role="radiogroup" aria-label="Tipo de venta">
                     {TIPOS.map(({ clave, etiqueta, icono: Icono }) => (
                         <button
                             key={clave}
@@ -211,26 +212,31 @@ export default function Pos({ carta, sugerencias = null, salon, cuenta, inicio, 
                             aria-checked={(cuenta?.tipo ?? tipo) === clave}
                             disabled={Boolean(cuenta)}
                             onClick={() => { setTipo(clave); if (clave === 'MESA' && !mesa) abrirMesas(); }}
-                            className={cx('flex h-11 items-center justify-center gap-1.5 rounded-lg px-2 text-sm font-medium disabled:cursor-not-allowed sm:px-3',
+                            className={cx('flex h-12 min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg px-1 text-xs font-medium disabled:cursor-not-allowed sm:h-11 sm:flex-row sm:gap-1.5 sm:px-3 sm:text-sm',
                                 (cuenta?.tipo ?? tipo) === clave ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900')}
                         >
-                            <Icono className="h-4 w-4" aria-hidden="true" />{etiqueta}
+                            <Icono className="h-4 w-4 shrink-0" aria-hidden="true" /><span className="truncate">{etiqueta}</span>
                         </button>
                     ))}
                 </div>
-                {!cuenta && tipo === 'MESA' && <Button variant="secondary" icon={LayoutGrid} onClick={abrirMesas}>{mesa ? `Mesa ${mesa.codigo}` : 'Elegir mesa'}</Button>}
-                {!cuenta && tipo !== 'MESA' && (
-                    <Button variant="secondary" icon={UserRound} onClick={() => setDialogo('contacto')}>
-                        {contacto.nombre_contacto || (tipo === 'DELIVERY' ? 'Datos de entrega' : 'Cliente (opcional)')}
+                {/* En el celular solo íconos: la carta necesita el espacio. */}
+                {!cuenta && tipo === 'MESA' && (
+                    <Button variant="secondary" icon={LayoutGrid} onClick={abrirMesas} aria-label="Elegir mesa" className="shrink-0">
+                        <span className={cx(!mesa && 'hidden sm:inline')}>{mesa ? `Mesa ${mesa.codigo}` : 'Elegir mesa'}</span>
                     </Button>
                 )}
-                <div className="ml-auto flex gap-2">
-                    {cuenta && <Button variant="secondary" onClick={nuevaVenta}>Nueva venta</Button>}
-                    <Button variant="secondary" icon={ListOrdered} onClick={abrirCuentas} aria-label="Cuentas abiertas">
-                        <span className="hidden sm:inline">Cuentas abiertas</span>
-                        {cuentasAbiertas.length > 0 && <span className="rounded-full bg-slate-200 px-1.5 font-mono text-xs tabular-nums">{cuentasAbiertas.length}</span>}
+                {!cuenta && tipo !== 'MESA' && (
+                    <Button variant="secondary" icon={UserRound} onClick={() => setDialogo('contacto')} aria-label={tipo === 'DELIVERY' ? 'Datos de entrega' : 'Cliente'} className="shrink-0">
+                        <span className={cx('max-w-32 truncate', !contacto.nombre_contacto && 'hidden sm:inline')}>
+                            {contacto.nombre_contacto || (tipo === 'DELIVERY' ? 'Datos de entrega' : 'Cliente (opcional)')}
+                        </span>
                     </Button>
-                </div>
+                )}
+                {cuenta && <Button variant="secondary" onClick={nuevaVenta} className="shrink-0">Nueva venta</Button>}
+                <Button variant="secondary" icon={ListOrdered} onClick={abrirCuentas} aria-label="Cuentas abiertas" className="relative shrink-0 sm:ml-auto">
+                    <span className="hidden sm:inline">Cuentas abiertas</span>
+                    {cuentasAbiertas.length > 0 && <span className="absolute -top-1.5 -right-1.5 grid h-5 min-w-5 place-items-center rounded-full bg-brand px-1 font-mono text-xs text-on-brand tabular-nums sm:static sm:bg-slate-200 sm:text-slate-700">{cuentasAbiertas.length}</span>}
+                </Button>
             </div>
 
             {puede.cobrar && requisitosCobro.length > 0 && (
@@ -247,24 +253,20 @@ export default function Pos({ carta, sugerencias = null, salon, cuenta, inicio, 
                 </section>
             )}
 
-            <div className="mb-3 grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1 lg:hidden" role="tablist">
-                {[['carta', 'Carta'], ['ticket', `Ticket (${vigentes.length + borrador.length})`]].map(([clave, etiqueta]) => (
-                    <button key={clave} type="button" role="tab" aria-selected={vista === clave} onClick={() => setVista(clave)}
-                        className={cx('h-10 rounded-lg text-sm font-medium', vista === clave ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600')}>
-                        {etiqueta}
-                    </button>
-                ))}
-            </div>
-
             <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_25rem]">
-                <Card className={cx('flex h-[calc(100dvh-14rem)] min-h-[24rem] flex-col overflow-hidden lg:h-[calc(100dvh-13rem)] lg:min-h-[28rem]', vista !== 'carta' && 'hidden lg:flex')}>
+                <Card className={cx('flex h-[calc(100dvh-10.5rem)] min-h-[24rem] flex-col overflow-hidden lg:h-[calc(100dvh-13rem)] lg:min-h-[28rem]', vista !== 'carta' && 'hidden lg:flex')}>
                     <CartaPedido carta={carta} onElegir={elegir} sugerencias={sugerencias} relacionados={sugerencias?.acompanan?.[ultimoElegido] ?? []} enTicket={enTicket} recien={recien} />
                 </Card>
 
-                <Card className={cx('flex h-[calc(100dvh-14rem)] min-h-[24rem] flex-col overflow-hidden lg:h-[calc(100dvh-13rem)] lg:min-h-[28rem]', vista !== 'ticket' && 'hidden lg:flex')}>
-                    <header className="border-b border-slate-100 px-4 py-3">
-                        <h2 className="text-base font-semibold text-slate-900">{tituloTicket}</h2>
-                        {cuenta?.mozo && <p className="text-xs text-slate-500">{cuenta.mozo}</p>}
+                <Card className={cx('flex h-[calc(100dvh-10.5rem)] min-h-[24rem] flex-col overflow-hidden lg:h-[calc(100dvh-13rem)] lg:min-h-[28rem]', vista !== 'ticket' && 'hidden lg:flex')}>
+                    <header className="flex items-center gap-3 border-b border-slate-100 px-4 py-3">
+                        <button type="button" onClick={() => setVista('carta')} className="-ml-1 flex h-10 items-center gap-1 rounded-lg px-2 text-sm font-medium text-brand-ink hover:bg-brand-soft lg:hidden">
+                            <ChevronLeft className="h-4 w-4" aria-hidden="true" />Seguir agregando
+                        </button>
+                        <div className="min-w-0 flex-1 text-right lg:text-left">
+                            <h2 className="truncate text-base font-semibold text-slate-900">{tituloTicket}</h2>
+                            {cuenta?.mozo && <p className="text-xs text-slate-500">{cuenta.mozo}</p>}
+                        </div>
                     </header>
 
                     <div className="flex-1 overflow-y-auto">
@@ -325,9 +327,9 @@ export default function Pos({ carta, sugerencias = null, salon, cuenta, inicio, 
             </div>
 
             {/* Acceso rápido al ticket en celular */}
-            {vista === 'carta' && unidades > 0 && (
+            {vista === 'carta' && (unidades > 0 || vigentes.length > 0) && (
                 <button type="button" onClick={() => setVista('ticket')} className="fixed inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-20 flex h-16 items-center justify-between rounded-2xl bg-brand px-5 text-base font-semibold text-on-brand shadow-lg lg:hidden">
-                    <span className="flex items-center gap-2"><span className="grid h-8 min-w-8 place-items-center rounded-full bg-white/20 px-2 font-mono">{unidades}</span>Ver pedido</span>
+                    <span className="flex items-center gap-2"><span className="grid h-8 min-w-8 place-items-center rounded-full bg-white/20 px-2 font-mono">{unidades + vigentes.reduce((n, d) => n + Number(d.cantidad), 0)}</span>Ver pedido</span>
                     <span className="flex items-center gap-1 font-mono tabular-nums">{soles(porCobrar)}<ChevronRight className="h-5 w-5" /></span>
                 </button>
             )}

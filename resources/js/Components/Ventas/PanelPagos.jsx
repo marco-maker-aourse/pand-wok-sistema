@@ -41,11 +41,11 @@ export default function PanelPagos({ pagos, metodosPago, totalVenta, saldoPendie
                     const metodo = metodoDePago(pago);
                     return (
                         <div key={`${pago.id_metodo}-${indice}`} className="rounded-lg border border-slate-200 bg-white p-2">
-                            <div className="mb-1.5 grid grid-cols-3 gap-1">
+                            <div className="mb-1.5 grid grid-cols-2 gap-1 sm:grid-cols-3">
                                 {metodosPago.map((opcion) => {
                                     const activo = Number(pago.id_metodo) === Number(opcion.id_metodo);
                                     const usadoEnOtraFila = pagos.some((otro, actual) => actual !== indice && Number(otro.id_metodo) === Number(opcion.id_metodo));
-                                    return <button key={opcion.id_metodo} type="button" disabled={usadoEnOtraFila} onClick={() => onSeleccionarMetodo(indice, opcion)} style={activo ? { backgroundColor: 'var(--brand-primary, #0e7490)' } : undefined} className={`h-8 rounded-lg border px-1.5 text-xs font-semibold transition ${activo ? 'border-transparent text-white' : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-cyan-300'} disabled:cursor-not-allowed disabled:opacity-35`}><span className="inline-flex max-w-full items-center gap-1 truncate">{iconoMetodo(opcion.nombre)}<span className="truncate">{opcion.nombre}</span></span></button>;
+                                    return <button key={opcion.id_metodo} type="button" disabled={usadoEnOtraFila} onClick={() => onSeleccionarMetodo(indice, opcion)} style={activo ? { backgroundColor: 'var(--brand-primary, #0e7490)' } : undefined} className={`h-10 rounded-lg border px-1.5 text-sm font-semibold transition sm:h-8 sm:text-xs ${activo ? 'border-transparent text-white' : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-cyan-300'} disabled:cursor-not-allowed disabled:opacity-35`}><span className="inline-flex max-w-full items-center gap-1 truncate">{iconoMetodo(opcion.nombre)}<span className="truncate">{opcion.nombre}</span></span></button>;
                                 })}
                             </div>
                             <div className="grid grid-cols-[minmax(0,1fr)_98px_auto] items-center gap-1.5">
@@ -62,8 +62,8 @@ export default function PanelPagos({ pagos, metodosPago, totalVenta, saldoPendie
                                         <div className="flex flex-wrap items-center gap-1.5">
                                             <label className="text-xs font-semibold text-slate-600" htmlFor={`recibido-${indice}`}>Recibido</label>
                                             <input id={`recibido-${indice}`} type="number" min="0" step="0.10" inputMode="decimal" value={pago.monto_recibido} onWheel={(event) => event.target.blur()}
-                                                onChange={(event) => onActualizar(indice, 'monto_recibido', event.target.value)} placeholder={`${currency.format(importe)} exacto`}
-                                                className="h-10 w-32 rounded-lg border border-slate-200 bg-white px-2 text-right font-mono text-sm font-bold text-slate-800 focus:border-cyan-600" />
+                                                onChange={(event) => onActualizar(indice, 'monto_recibido', event.target.value)} placeholder={currency.format(importe)}
+                                                className="h-10 w-28 rounded-lg border border-slate-200 bg-white px-2 text-right font-mono text-sm font-bold text-slate-800 focus:border-cyan-600" />
                                             <button type="button" onClick={() => onActualizar(indice, 'monto_recibido', '')} className={`h-10 rounded-lg border px-2.5 text-xs font-semibold ${recibido === null ? 'border-cyan-600 bg-cyan-50 text-cyan-800' : 'border-slate-200 bg-white text-slate-600'}`}>Exacto</button>
                                             {montosRapidos(importe).map((valor) => (
                                                 <button key={valor} type="button" onClick={() => onActualizar(indice, 'monto_recibido', String(valor))} className={`h-10 rounded-lg border px-2.5 font-mono text-xs font-semibold ${recibido === valor ? 'border-cyan-600 bg-cyan-50 text-cyan-800' : 'border-slate-200 bg-white text-slate-600'}`}>S/ {valor}</button>

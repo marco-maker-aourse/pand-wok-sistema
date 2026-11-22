@@ -125,7 +125,8 @@ class CatalogoPosService
     /** Métodos activos para cobro presencial; el nombre proviene del catálogo. */
     public function metodosPago(): Collection
     {
-        return MetodoPago::query()->where('estado', true)->orderBy('nombre')
+        // Orden de alta: el seeder los crea en orden de uso (efectivo, Yape, Plin, tarjetas).
+        return MetodoPago::query()->where('estado', true)->orderBy('id_metodo')
             ->get(['id_metodo', 'nombre', 'tipo', 'requiere_referencia'])
             ->map(fn (MetodoPago $metodo): array => [
                 'id_metodo' => $metodo->id_metodo,

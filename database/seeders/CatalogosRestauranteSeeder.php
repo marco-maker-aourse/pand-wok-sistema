@@ -21,7 +21,7 @@ class CatalogosRestauranteSeeder extends Seeder
         ['nombre' => 'Efectivo', 'tipo' => MetodoPago::EFECTIVO, 'requiere_referencia' => false],
         ['nombre' => 'Yape', 'tipo' => MetodoPago::BILLETERA_DIRECTA, 'requiere_referencia' => true],
         ['nombre' => 'Plin', 'tipo' => MetodoPago::BILLETERA_DIRECTA, 'requiere_referencia' => true],
-        ['nombre' => 'Transferencia bancaria', 'tipo' => MetodoPago::BILLETERA_DIRECTA, 'requiere_referencia' => true],
+        ['nombre' => 'Transferencia', 'tipo' => MetodoPago::BILLETERA_DIRECTA, 'requiere_referencia' => true],
         ['nombre' => 'Tarjeta de débito', 'tipo' => MetodoPago::PASARELA, 'requiere_referencia' => true],
         ['nombre' => 'Tarjeta de crédito', 'tipo' => MetodoPago::PASARELA, 'requiere_referencia' => true],
     ];
