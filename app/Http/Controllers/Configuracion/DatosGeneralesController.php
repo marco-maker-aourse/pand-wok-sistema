@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Configuracion;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Configuracion\ActualizarDatosGeneralesRequest;
-use App\Models\DatosGen;
+use App\Models\Empresa;
 use App\Models\Sucursal;
 use App\Services\Comprobantes\SeriesSucursalService;
 use App\Services\Configuracion\DatosGeneralesService;
@@ -28,17 +28,13 @@ class DatosGeneralesController extends Controller
     {
         $branchId = $request->user()->idSucursalActiva();
         $branch = Sucursal::query()->findOrFail($branchId);
-        $data = $this->datosGenerales->paraEdicion($branchId);
-        $usaDatosDeEmpresa = $data->exists && (int) $data->id_sucursal !== $branchId;
+        $empresa = $this->datosGenerales->paraEdicion();
 
         return Inertia::render('Configuracion/DatosGenerales', [
-            // Las series siempre son las de la sucursal activa, aunque comparta los datos de la empresa.
-            'datos' => [...$data->only(DatosGeneralesService::CAMPOS_EDITABLES), ...($usaDatosDeEmpresa ? $this->series->deSucursal($branchId) : [])],
-            'logoUrl' => $this->datosGenerales->logoUrl($data->logo_path),
+            // Datos de la empresa (comunes) + series de la sucursal activa (propias).
+            'datos' => [...$empresa->only(DatosGeneralesService::CAMPOS_EDITABLES), ...$this->series->deSucursal($branchId)],
+            'logoUrl' => $this->datosGenerales->logoUrl($empresa->logo_path),
             'sucursalActual' => $branch->only(['id_sucursal', 'nombre', 'codigo_establecimiento']),
-            // La sucursal comparte los datos de la empresa principal (nombre, logo, colores, RUC).
-            'usaDatosDeEmpresa' => $usaDatosDeEmpresa,
-            'sucursalEmpresa' => $usaDatosDeEmpresa ? Sucursal::query()->whereKey($data->id_sucursal)->value('nombre') : null,
         ]);
     }
 
@@ -46,63 +42,50 @@ class DatosGeneralesController extends Controller
     {
         // La sucursal se toma exclusivamente de la sesión; un formulario no puede alterar otra sede.
         $branchId = $request->user()->idSucursalActiva();
-        $data = collect($request->validated())->except(['codigo_establecimiento', 'logo'])->all();
-        $registro = $this->datosGenerales->empresaDe($branchId);
-        $compartido = $registro && (int) $registro->id_sucursal !== $branchId;
+        $validados = collect($request->validated());
+        $datosEmpresa = $validados->except(['codigo_establecimiento', 'logo', ...SeriesSucursalService::CAMPOS])->all();
 
         // Cada sucursal emite con sus propias series: se validan antes de guardar nada.
-        $series = collect($request->validated())->only(SeriesSucursalService::CAMPOS)->all();
+        $series = $validados->only(SeriesSucursalService::CAMPOS)->all();
         try {
             $this->series->validarUnicas($branchId, $series);
         } catch (DomainException $exception) {
             throw ValidationException::withMessages(['serie_boleta' => $exception->getMessage()]);
         }
 
-        // Datos de la empresa y código de establecimiento de la sucursal se confirman juntos.
-        $registro = DB::transaction(function () use ($registro, $compartido, $branchId, $data, $request, $series): DatosGen {
-            if (! $registro) {
-                // Primera configuración del sistema: nace el registro de la empresa.
-                $registro = DatosGen::create(['id_sucursal' => $branchId, ...$data]);
-            } else {
-                // Desde otra sucursal se editan los datos globales de la empresa,
-                // nunca la numeración de comprobantes de la sucursal principal.
-                $registro->update($compartido ? collect($data)->except(DatosGeneralesService::CAMPOS_NUMERACION)->all() : $data);
-            }
+        // Empresa, series y código de establecimiento de la sucursal se confirman juntos.
+        $empresa = DB::transaction(function () use ($branchId, $datosEmpresa, $series, $request): Empresa {
+            $empresa = $this->datosGenerales->empresa();
+            $empresa ? $empresa->update($datosEmpresa) : $empresa = Empresa::create($datosEmpresa);
 
-            // Una sucursal que comparte los datos de la empresa guarda sus series aparte.
-            if ($compartido) {
-                $this->series->guardar($branchId, $series);
-            }
+            $this->series->guardar($branchId, $series);
 
             Sucursal::query()
                 ->whereKey($branchId)
                 ->update(['codigo_establecimiento' => $request->validated('codigo_establecimiento')]);
 
-            return $registro;
+            return $empresa;
         });
 
         if ($request->hasFile('logo')) {
-            $this->reemplazarLogo($registro, $request);
+            $this->reemplazarLogo($empresa, $request);
         }
 
-        // Nombre, logo y colores se comparten entre sucursales: se invalida la identidad de todas.
         $this->datosGenerales->olvidarIdentidad();
 
-        return back()->with('success', $compartido
-            ? 'Datos de la empresa actualizados para todas sus sucursales.'
-            : 'Datos generales actualizados correctamente.');
+        return back()->with('success', 'Datos generales actualizados correctamente.');
     }
 
-    private function reemplazarLogo(DatosGen $generalData, ActualizarDatosGeneralesRequest $request): void
+    private function reemplazarLogo(Empresa $empresa, ActualizarDatosGeneralesRequest $request): void
     {
-        $directory = "organizaciones/{$generalData->id_sucursal}/logo";
+        $directory = 'empresa/logo';
         $newPath = $request->file('logo')->store($directory, 'public');
 
-        // Solo se elimina el archivo gestionado por esta misma sucursal.
-        if ($generalData->logo_path && str_starts_with($generalData->logo_path, $directory.'/')) {
-            Storage::disk('public')->delete($generalData->logo_path);
+        // Solo se elimina el archivo que gestiona el propio sistema.
+        if ($empresa->logo_path && str_starts_with($empresa->logo_path, $directory.'/')) {
+            Storage::disk('public')->delete($empresa->logo_path);
         }
 
-        $generalData->update(['logo_path' => $newPath]);
+        $empresa->update(['logo_path' => $newPath]);
     }
 }

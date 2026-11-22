@@ -180,15 +180,6 @@ export default function Create({ auth, productosIniciales, clientes = [], tiposD
 
     const nombreUnidad = (item) => item?.unidad_base?.nombre || 'unidad';
 
-    const calcularDiasVencimiento = (fechaStr) => {
-        if (!fechaStr) return null;
-        const fecha = new Date(fechaStr + 'T00:00:00');
-        const hoy = new Date();
-        hoy.setHours(0, 0, 0, 0);
-        const diffTime = fecha.getTime() - hoy.getTime();
-        return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    };
-
     const seleccionarCliente = (cli, updateSearch = true) => {
         const doc = String(cli.num_documento || '').trim();
         const tipoDocumento = tiposDocumento.find(
@@ -373,7 +364,7 @@ export default function Create({ auth, productosIniciales, clientes = [], tiposD
         return prod.stock_actual - consumido;
     };
 
-    // AGREGAR AL CARRITO APLICANDO FIFO ESTRICTO
+    // AGREGAR AL CARRITO
     const agregarAlCarrito = (producto) => {
         if (!producto.es_servicio && producto.stock_actual <= 0) return;
 
@@ -407,8 +398,6 @@ export default function Create({ auth, productosIniciales, clientes = [], tiposD
                 return { ...item, cantidad: siguienteCantidad, subtotal: siguienteCantidad * Number(item.precio) };
             }));
         } else {
-            const loteFIFO = producto.lote_recomendado || producto.lotes?.[0] || null;
-
             setCarrito([
                 {
                     uid: uid,
@@ -419,9 +408,6 @@ export default function Create({ auth, productosIniciales, clientes = [], tiposD
                     afecta_igv: Boolean(producto.afecta_igv),
                     presentaciones: presentaciones,
                     unidad_base: producto.unidad_base,
-                    lotes: producto.lotes || [],
-                    lote: loteFIFO?.codigo_lote || '',
-                    lote_info: loteFIFO,
                     precio_costo_kardex: Number(producto.precio_costo || 0),
                     factor_conversion: presDefecto?.factor_conversion ? Number(presDefecto.factor_conversion) : 1,
                     cantidad: 1,
@@ -497,16 +483,6 @@ export default function Create({ auth, productosIniciales, clientes = [], tiposD
                 return item;
             })
         );
-    };
-
-    const actualizarLote = (uid, codigoLote) => {
-        setCarrito(carrito.map((item) => {
-            if (item.uid === uid) {
-                const infoLote = item.lotes?.find(l => l.codigo_lote === codigoLote);
-                return { ...item, lote: codigoLote, lote_info: infoLote };
-            }
-            return item;
-        }));
     };
 
     const removerDelCarrito = (uid) => setCarrito(carrito.filter((item) => item.uid !== uid));
@@ -706,7 +682,7 @@ export default function Create({ auth, productosIniciales, clientes = [], tiposD
             setModalAlerta({
                 titulo: 'Error en venta',
                 mensaje: msg,
-                sugerencia: 'Verifica que el turno de caja esté abierto y los lotes tengan stock suficiente.'
+                sugerencia: 'Verifica que el turno de caja esté abierto y que haya stock suficiente.'
             });
         } finally {
             enviandoVentaRef.current = false;
@@ -856,13 +832,11 @@ export default function Create({ auth, productosIniciales, clientes = [], tiposD
                                             key={item.uid}
                                             item={item}
                                             unidad={nombreUnidad(item)}
-                                            diasVencimiento={calcularDiasVencimiento(item.lote_info?.fecha_vencimiento)}
                                             onQuitar={() => removerDelCarrito(item.uid)}
                                             onPresentacion={(id) => cambiarPresentacion(item.uid, id)}
                                             onPaso={(delta) => modificarCantidadPaso(item.uid, delta)}
                                             onCantidad={(valor) => actualizarCantidadDirecta(item.uid, valor)}
                                             onCantidadBlur={() => validarCantidadOnBlur(item.uid)}
-                                            onLote={(codigo) => actualizarLote(item.uid, codigo)}
                                         />
                                     ))}
                                 </ul>

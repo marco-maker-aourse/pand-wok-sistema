@@ -4,14 +4,17 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class DatosGen extends Model
+/**
+ * Datos fiscales e identidad visual de la empresa. Hay una sola fila: todas las
+ * sucursales emiten con este RUC; la numeración de cada una está en series_sucursal.
+ */
+class Empresa extends Model
 {
-    protected $table = 'operaciones.datos_gen';
-    protected $primaryKey = 'id_datos_gen';
-    public $timestamps = false;
+    protected $table = 'configuracion.empresa';
+
+    protected $primaryKey = 'id_empresa';
 
     protected $fillable = [
-        'id_sucursal',
         'ruc_empresa',
         'razon_social',
         'nombre_comercial',
@@ -19,16 +22,8 @@ class DatosGen extends Model
         'logo_path',
         'igv_porcentaje',
         'uit_valor',
-        'serie_boleta',
-        'ult_nro_boleta',
-        'serie_factura',
-        'ult_nro_factura',
-        'serie_guia',
-        'ult_nro_guia',
         'pie_ticket',
-        'ult_nro_entrada_interna',
-        'ult_nro_salida_interna',
-        // Columnas para identidad visual y textos del Login
+        // Identidad visual y textos del inicio de sesión.
         'color_primario',
         'color_secundario',
         'texto_login_titulo',

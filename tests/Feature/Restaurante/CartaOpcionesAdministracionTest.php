@@ -39,7 +39,7 @@ class CartaOpcionesAdministracionTest extends TestCase
         $this->assertSame(4, DB::table('restaurante.opciones_modificador')->where('id_grupo', $primero['grupo'])->count());
         $this->assertSame(0, DB::table('restaurante.opciones_modificador')->where('id_grupo', $primero['grupo'])->whereNotNull('nombre')->count(),
             'Las opciones toman el nombre del producto.');
-        $kion = DB::table('inventario.precio_producto as p')->join('catalogos.productos as c', 'c.id_producto', '=', 'p.id_producto')
+        $kion = DB::table('catalogos.producto_presentaciones as p')->join('catalogos.productos as c', 'c.id_producto', '=', 'p.id_producto')
             ->where('c.nombre', 'Sopa de kion')->value('p.id_precio');
         $this->assertSame(2, DB::table('restaurante.precios_sucursal')->where('id_precio', $kion)->where('disponible', false)->count(),
             'Sin precio real no se vende sola en ninguna sucursal.');
@@ -68,7 +68,7 @@ class CartaOpcionesAdministracionTest extends TestCase
 
         // Variante física: la gaseosa (DIRECTO) descuenta de un insumo; un plato no puede.
         $this->actingAs($admin)->put('/carta/precios/2/variante', ['id_producto_stock' => 3])->assertSessionHasNoErrors();
-        $this->assertDatabaseHas('inventario.precio_producto', ['id_precio' => 2, 'id_producto_stock' => 3]);
+        $this->assertDatabaseHas('catalogos.producto_presentaciones', ['id_precio' => 2, 'id_producto_stock' => 3]);
         $this->actingAs($admin)->put('/carta/precios/1/variante', ['id_producto_stock' => 3])->assertSessionHasErrors('id_producto_stock');
 
         $this->actingAs($admin)->get('/carta')->assertOk()->assertInertia(fn (Assert $page) => $page

@@ -43,7 +43,6 @@ class ServicioAsistenteOperativo
             'stock_critico' => $this->responderStock($sucursalId),
             'stock_producto' => $this->responderStockProducto($consulta, $sucursalId),
             'caja' => $this->responderCaja($sucursalId, $usuarioId),
-            'vencimientos' => $this->responderVencimientos($sucursalId),
             'cobros' => $this->responderCobros($sucursalId, $this->rangoSolicitado($consulta)),
             'clientes' => $this->responderEntidades('catalogos.clientes', 'nombre_razon_social', 'clientes'),
             'proveedores' => $this->responderEntidades('catalogos.proveedores', 'razon_social', 'proveedores'),
@@ -57,7 +56,7 @@ class ServicioAsistenteOperativo
 
     private function responderAyuda(): string
     {
-        return $this->respuesta('Puedo consultar comprobantes, ventas por fecha o período, cobros, métodos de pago, caja, stock, vencimientos, compras, clientes y proveedores. También puedo mostrar una tendencia de ventas o prioridades operativas.', 'Por ejemplo, puedes preguntar: “¿cuál es la última factura?”, “ventas de los últimos 7 días”, “¿qué recomiendas revisar?” o “proyección de ventas”.');
+        return $this->respuesta('Puedo consultar comprobantes, ventas por fecha o período, cobros, métodos de pago, caja, stock, compras, clientes y proveedores. También puedo mostrar una tendencia de ventas o prioridades operativas.', 'Por ejemplo, puedes preguntar: “¿cuál es la última factura?”, “ventas de los últimos 7 días”, “¿qué recomiendas revisar?” o “proyección de ventas”.');
     }
 
     private function responderAnalisis(int $sucursalId): string
@@ -87,7 +86,7 @@ class ServicioAsistenteOperativo
         [$inicio, $fin] = $rango ?? [$fin->subDays(30), $fin];
         $productos = DB::table('operaciones.detalle_ventas as detalle')
             ->join('operaciones.ventas as venta', 'venta.id_venta', '=', 'detalle.id_venta')
-            ->join('inventario.precio_producto as precio', 'precio.id_precio', '=', 'detalle.id_precio')
+            ->join('catalogos.producto_presentaciones as precio', 'precio.id_precio', '=', 'detalle.id_precio')
             ->join('catalogos.productos as producto', 'producto.id_producto', '=', 'precio.id_producto')
             ->join('catalogos.unidades_medida as unidad', 'unidad.id_unidad', '=', 'producto.id_unidad_base')
             ->where('venta.id_sucursal', $sucursalId)
@@ -127,7 +126,7 @@ class ServicioAsistenteOperativo
 
         $stock = DB::table('inventario.kardex')->where('id_sucursal', $sucursalId)->where('id_producto', $producto->id_producto)->latest('id_kardex')->value('stock_actual');
         $inicio = CarbonImmutable::now('America/Lima')->subDays(30)->startOfDay()->utc();
-        $vendido = DB::table('operaciones.detalle_ventas as detalle')->join('operaciones.ventas as venta', 'venta.id_venta', '=', 'detalle.id_venta')->join('inventario.precio_producto as precio', 'precio.id_precio', '=', 'detalle.id_precio')->where('venta.id_sucursal', $sucursalId)->where('precio.id_producto', $producto->id_producto)->where('venta.fecha_emision', '>=', $inicio)->sum(DB::raw('detalle.cantidad * precio.factor_conversion'));
+        $vendido = DB::table('operaciones.detalle_ventas as detalle')->join('operaciones.ventas as venta', 'venta.id_venta', '=', 'detalle.id_venta')->join('catalogos.producto_presentaciones as precio', 'precio.id_precio', '=', 'detalle.id_precio')->where('venta.id_sucursal', $sucursalId)->where('precio.id_producto', $producto->id_producto)->where('venta.fecha_emision', '>=', $inicio)->sum(DB::raw('detalle.cantidad * precio.factor_conversion'));
         return $this->respuesta("{$producto->nombre} tiene " . number_format((float) ($stock ?? 0), 2) . " {$producto->unidad} disponibles. En los últimos 30 días se vendieron " . number_format((float) $vendido, 2) . " {$producto->unidad}.", 'Puedes consultar también sus presentaciones, precio o registrar una entrada si necesitas reponerlo.');
     }
 
@@ -135,16 +134,14 @@ class ServicioAsistenteOperativo
     {
         [$inicio, $fin] = $this->rangoDia(CarbonImmutable::now('America/Lima'));
         $pendientesSunat = DB::table('operaciones.ventas')->where('id_sucursal', $sucursalId)->where('fecha_emision', '>=', $inicio)->where('fecha_emision', '<', $fin)->whereIn('estado_sunat', ['PENDIENTE', 'ERROR'])->count();
-        $porVencer = DB::table('inventario.lotes')->where('id_sucursal', $sucursalId)->where('estado', true)->where('stock', '>', 0)->whereBetween('fecha_vencimiento', [now()->toDateString(), now()->addDays(7)->toDateString()])->count();
         $sinStock = DB::selectOne("WITH ultimo_kardex AS (SELECT DISTINCT ON (id_producto) id_producto, stock_actual FROM inventario.kardex WHERE id_sucursal = ? ORDER BY id_producto, id_kardex DESC) SELECT COUNT(*) AS total FROM catalogos.productos producto LEFT JOIN ultimo_kardex kardex ON kardex.id_producto = producto.id_producto WHERE producto.estado = TRUE AND producto.es_servicio = FALSE AND COALESCE(kardex.stock_actual, 0) <= 0", [$sucursalId]);
         $prioridades = [];
         if ((int) ($sinStock->total ?? 0) > 0) $prioridades[] = (int) $sinStock->total . ' producto(s) sin stock';
-        if ($porVencer > 0) $prioridades[] = $porVencer . ' lote(s) por vencer en 7 días';
         if ($pendientesSunat > 0) $prioridades[] = $pendientesSunat . ' comprobante(s) pendientes o con error';
 
         return $prioridades === []
             ? $this->respuesta('No detecté alertas operativas prioritarias para hoy.', 'Puedes revisar la tendencia de ventas o el arqueo de caja para continuar el control diario.')
-            : $this->respuesta('Prioridades detectadas: ' . implode('; ', $prioridades) . '.', 'Te sugiero atender primero los documentos pendientes, luego el inventario sin stock y finalmente los lotes próximos a vencer.');
+            : $this->respuesta('Prioridades detectadas: ' . implode('; ', $prioridades) . '.', 'Te sugiero atender primero los documentos pendientes y luego el inventario sin stock.');
     }
 
     private function responderComprobante(string $consulta, int $sucursalId, ?CarbonImmutable $fecha, Session $sesion): string
@@ -223,14 +220,6 @@ class ServicioAsistenteOperativo
         return $this->respuesta('Tu turno está abierto desde ' . CarbonImmutable::parse($turno->fecha_apertura)->setTimezone('America/Lima')->format('d/m/Y H:i') . ', con fondo inicial de S/ ' . number_format((float) $turno->monto_apertura, 2) . '.', 'El cierre quedará disponible cuando termines las operaciones del turno.');
     }
 
-    private function responderVencimientos(int $sucursalId): string
-    {
-        $lotes = DB::table('inventario.lotes as lote')->join('catalogos.productos as producto', 'producto.id_producto', '=', 'lote.id_producto')->where('lote.id_sucursal', $sucursalId)->where('lote.estado', true)->where('lote.stock', '>', 0)->whereBetween('lote.fecha_vencimiento', [now()->toDateString(), now()->addDays(30)->toDateString()])->orderBy('lote.fecha_vencimiento')->limit(5)->get(['producto.nombre', 'lote.fecha_vencimiento']);
-        return $lotes->isEmpty()
-            ? $this->respuesta('No hay lotes con vencimiento dentro de los próximos 30 días.', 'El inventario no presenta alertas de vencimiento cercanas.')
-            : $this->respuesta('Próximos vencimientos: ' . $lotes->map(fn ($lote) => "{$lote->nombre} ({$lote->fecha_vencimiento})")->implode(', ') . '.', 'Considera priorizar estos productos en la venta o revisar su rotación.');
-    }
-
     private function responderCobros(int $sucursalId, ?array $rango): string
     {
         [$inicio, $fin] = $rango ?? $this->rangoDia(CarbonImmutable::now('America/Lima'));
@@ -275,7 +264,7 @@ class ServicioAsistenteOperativo
         $cantidad = (int) ($resumen->cantidad ?? 0);
         return $cantidad === 0
             ? $this->respuesta('No se registraron ingresos de mercadería en el período consultado.', 'Puedes registrar una entrada cuando recibas productos del proveedor.')
-            : $this->respuesta('Se registraron ' . $cantidad . ' ingreso(s) de mercadería por S/ ' . number_format((float) $resumen->total, 2) . '.', 'El detalle de productos y lotes está disponible en el historial de entradas.');
+            : $this->respuesta('Se registraron ' . $cantidad . ' ingreso(s) de mercadería por S/ ' . number_format((float) $resumen->total, 2) . '.', 'El detalle de productos está disponible en el historial de entradas.');
     }
 
     private function responderEntidades(string $tabla, string $campoNombre, string $etiqueta): string

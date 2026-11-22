@@ -28,7 +28,6 @@ class RegistrarProductoService
                 'estado'          => true,
                 'afecta_igv'      => $datos['afecta_igv'],
                 'es_servicio'     => $datos['es_servicio'],
-                'usa_vencimiento' => $datos['usa_vencimiento'],
             ]);
 
             if (filled($datos['precio_venta_unitario'] ?? null)) {

@@ -62,7 +62,7 @@ class OperacionRestauranteTest extends TestCase
         $pedido = $this->pedido([$this->lomo('L1', 2, [1, 3])]);
         $item = $pedido->detalles()->sole();
         app(EnviarComandaService::class)->enviar($pedido->getKey(), 'envio', 10, 1);
-        DB::table('inventario.precio_producto')->where('id_precio', 1)->update(['precio_venta' => 42]);
+        DB::table('catalogos.producto_presentaciones')->where('id_precio', 1)->update(['precio_venta' => 42]);
 
         $cobrar = app(CobrarPedidoService::class);
         $parcial = $this->cobro($item, 'pasada-1', 1, 0, 32.5);
@@ -122,14 +122,12 @@ class OperacionRestauranteTest extends TestCase
         $this->assertDatabaseCount('operaciones.ventas', 0);
         $this->assertSame(20.0, $this->saldo(2));
         $this->assertSame('0.000', $item->refresh()->cantidad_cobrada);
-        $this->assertSame(0, DB::table('operaciones.datos_gen')->value('ult_nro_boleta'));
+        $this->assertSame(0, DB::table('configuracion.series_sucursal')->value('ult_nro_boleta'));
     }
 
-    public function test_receta_convierte_unidades_registra_consumo_unico_y_repone_lote(): void
+    public function test_receta_convierte_unidades_registra_consumo_unico_y_repone_stock(): void
     {
-        DB::table('inventario.precio_producto')->where('id_precio', 3)->update(['factor_conversion' => 0.5]);
-        DB::table('catalogos.productos')->where('id_producto', 3)->update(['usa_vencimiento' => true]);
-        DB::table('inventario.lotes')->insert(['id_lote' => 1, 'id_sucursal' => 1, 'id_producto' => 3, 'stock' => 10, 'fecha_vencimiento' => now()->addWeek()->toDateString()]);
+        DB::table('catalogos.producto_presentaciones')->where('id_precio', 3)->update(['factor_conversion' => 0.5]);
         app(RecetasService::class)->guardar(1, 1, [['id_precio_insumo' => 3, 'cantidad' => 2]]);
         $pedido = $this->pedido([$this->lomo('L1', 2)]);
         $envios = app(EnviarComandaService::class);
@@ -137,12 +135,10 @@ class OperacionRestauranteTest extends TestCase
         $envios->enviar($pedido->getKey(), 'envio', 10, 1);
         $this->assertDatabaseCount('restaurante.consumos_insumos', 1);
         $this->assertSame(8.0, $this->saldo(3));
-        $this->assertDatabaseHas('inventario.lotes', ['id_lote' => 1, 'stock' => 8]);
         $item = $pedido->detalles()->sole();
         app(GestionarPedidoService::class)->anularItem($item->getKey(), 'Cancelado antes de preparar', true, 10, 1, true);
         app(GestionarPedidoService::class)->anularItem($item->getKey(), 'Cancelado antes de preparar', true, 10, 1, true);
         $this->assertSame(10.0, $this->saldo(3));
-        $this->assertDatabaseHas('inventario.lotes', ['id_lote' => 1, 'stock' => 10]);
         $this->assertDatabaseHas('restaurante.consumos_insumos', ['estado' => 'REVERTIDO', 'costo_unitario' => 4]);
         $this->assertSame(1, Kardex::query()->where('tipo_operacion', 'REVERSION_RECETA')->count());
     }

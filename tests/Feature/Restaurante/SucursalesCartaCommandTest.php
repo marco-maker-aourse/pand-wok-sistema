@@ -17,7 +17,7 @@ class SucursalesCartaCommandTest extends TestCase
 
     private function slugs(): array
     {
-        return DB::table('inventario.sucursales')->orderBy('id_sucursal')->pluck('slug', 'id_sucursal')->all();
+        return DB::table('configuracion.sucursales')->orderBy('id_sucursal')->pluck('slug', 'id_sucursal')->all();
     }
 
     public function test_lista_sin_cambiar_nada(): void
@@ -34,12 +34,12 @@ class SucursalesCartaCommandTest extends TestCase
         ])->assertSuccessful();
 
         $this->assertSame([1 => 'chilca', 2 => 'tambo'], $this->slugs());
-        $this->assertSame('10:30 AM - 11:00 PM', DB::table('inventario.sucursales')->where('id_sucursal', 1)->value('horario_atencion'));
+        $this->assertSame('10:30 AM - 11:00 PM', DB::table('configuracion.sucursales')->where('id_sucursal', 1)->value('horario_atencion'));
     }
 
     public function test_no_pisa_un_horario_existente_y_permite_intercambiar(): void
     {
-        DB::table('inventario.sucursales')->where('id_sucursal', 1)->update(['slug' => 'tambo', 'horario_atencion' => '9 a 5']);
+        DB::table('configuracion.sucursales')->where('id_sucursal', 1)->update(['slug' => 'tambo', 'horario_atencion' => '9 a 5']);
 
         $this->artisan('restaurante:sucursales', [
             '--asignar' => ['chilca=1', 'tambo=2'],
@@ -47,12 +47,12 @@ class SucursalesCartaCommandTest extends TestCase
         ])->assertSuccessful();
 
         $this->assertSame([1 => 'chilca', 2 => 'tambo'], $this->slugs());
-        $this->assertSame('9 a 5', DB::table('inventario.sucursales')->where('id_sucursal', 1)->value('horario_atencion'));
+        $this->assertSame('9 a 5', DB::table('configuracion.sucursales')->where('id_sucursal', 1)->value('horario_atencion'));
     }
 
     public function test_rechaza_datos_invalidos_sin_escribir(): void
     {
-        DB::table('inventario.sucursales')->where('id_sucursal', 1)->update(['slug' => 'chilca']);
+        DB::table('configuracion.sucursales')->where('id_sucursal', 1)->update(['slug' => 'chilca']);
 
         $casos = [
             ['Chilca=1'],             // mayúsculas
@@ -77,7 +77,7 @@ class SucursalesCartaCommandTest extends TestCase
             '--completar' => true,
         ])->assertSuccessful();
 
-        $sucursales = DB::table('inventario.sucursales')->orderBy('id_sucursal')->get()->keyBy('id_sucursal');
+        $sucursales = DB::table('configuracion.sucursales')->orderBy('id_sucursal')->get()->keyBy('id_sucursal');
         $this->assertSame('CHILCA', $sucursales[1]->nombre);
         $this->assertSame('Av. Próceres 656, Huancayo', $sucursales[1]->direccion);
         $this->assertSame('chilca', $sucursales[1]->slug);
@@ -87,7 +87,7 @@ class SucursalesCartaCommandTest extends TestCase
 
         // Repetirlo no duplica sucursales.
         $this->artisan('restaurante:sucursales', ['--horarios' => 'database/data/carta/pand-wok.json', '--completar' => true])->assertSuccessful();
-        $this->assertSame(4, DB::table('inventario.sucursales')->count());
+        $this->assertSame(4, DB::table('configuracion.sucursales')->count());
 
         // Y la importación queda con precios en las tres sedes.
         $this->artisan('restaurante:importar-carta', ['archivo' => 'database/data/carta/pand-wok.json'])->assertSuccessful();

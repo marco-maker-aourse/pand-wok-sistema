@@ -88,7 +88,7 @@ class ConfigurarSopasMenuService
 
         $producto = Producto::query()->create([
             'nombre' => $nombre, 'id_categoria' => $categoria->id_categoria, 'id_unidad_base' => $unidad->id_unidad,
-            'tipo_producto' => Producto::PREPARADO, 'afecta_igv' => true, 'es_servicio' => false, 'usa_vencimiento' => false, 'estado' => true,
+            'tipo_producto' => Producto::PREPARADO, 'afecta_igv' => true, 'es_servicio' => false, 'estado' => true,
         ]);
         $precio = ProductoPresentacion::query()->create([
             'id_producto' => $producto->id_producto, 'id_presentacion' => $presentacion->id_presentacion,
@@ -96,7 +96,7 @@ class ConfigurarSopasMenuService
         ]);
 
         // Sin precio real todavía: no se vende sola en ninguna sucursal, solo como opción del menú.
-        foreach (DB::table('inventario.sucursales')->pluck('id_sucursal') as $sucursal) {
+        foreach (DB::table('configuracion.sucursales')->pluck('id_sucursal') as $sucursal) {
             DB::table('restaurante.precios_sucursal')->insertOrIgnore([
                 'id_sucursal' => $sucursal, 'id_precio' => $precio->id_precio, 'precio_venta' => null, 'disponible' => false,
                 'created_at' => now(), 'updated_at' => now(),

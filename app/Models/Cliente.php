@@ -15,7 +15,6 @@ class Cliente extends Model
 
     protected $fillable = [
         'id_tipo_documento',
-        'id_ubigeo',
         'num_documento',
         'nombre_razon_social',
         'direccion_fiscal',

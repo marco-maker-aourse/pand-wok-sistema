@@ -72,7 +72,6 @@ class ProductoController extends Controller
                 'id_kardex',
                 'stock_actual',
                 'precio_costo',
-                'porcentaje_utilidad',
                 'ultima_actualizacion',
             ]);
 

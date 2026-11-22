@@ -18,16 +18,16 @@ trait PreparaBaseRestaurante
 {
     protected function prepararBaseRestaurante(): void
     {
-        foreach (['inventario', 'catalogos', 'restaurante', 'operaciones'] as $esquema) {
+        foreach (['inventario', 'catalogos', 'restaurante', 'operaciones', 'configuracion'] as $esquema) {
             DB::statement("ATTACH DATABASE ':memory:' AS {$esquema}");
         }
 
-        DB::statement('CREATE TABLE inventario.sucursales (id_sucursal INTEGER PRIMARY KEY, nombre TEXT, direccion TEXT NULL, telefono TEXT NULL, estado BOOLEAN DEFAULT 1, slug TEXT NULL UNIQUE, horario_atencion TEXT NULL)');
+        DB::statement('CREATE TABLE configuracion.sucursales (id_sucursal INTEGER PRIMARY KEY, nombre TEXT, direccion TEXT NULL, telefono TEXT NULL, estado BOOLEAN DEFAULT 1, slug TEXT NULL UNIQUE, horario_atencion TEXT NULL)');
         DB::statement('CREATE TABLE catalogos.categorias (id_categoria INTEGER PRIMARY KEY, nombre TEXT UNIQUE, descripcion TEXT NULL, estado BOOLEAN DEFAULT 1)');
         DB::statement('CREATE TABLE catalogos.unidades_medida (id_unidad INTEGER PRIMARY KEY, codigo_sunat TEXT UNIQUE, nombre TEXT, estado BOOLEAN DEFAULT 1)');
         DB::statement('CREATE TABLE catalogos.presentaciones (id_presentacion INTEGER PRIMARY KEY, nombre TEXT UNIQUE, estado BOOLEAN DEFAULT 1)');
-        DB::statement("CREATE TABLE catalogos.productos (id_producto INTEGER PRIMARY KEY, id_categoria INTEGER NULL, id_marca INTEGER NULL, id_unidad_base INTEGER NULL, codigo_barras TEXT NULL, codigo_sunat TEXT NULL, nombre TEXT, afecta_igv BOOLEAN DEFAULT 1, es_servicio BOOLEAN DEFAULT 0, usa_vencimiento BOOLEAN DEFAULT 0, estado BOOLEAN DEFAULT 1, tipo_producto TEXT DEFAULT 'DIRECTO', codigo_carta TEXT NULL, codigo_externo TEXT NULL UNIQUE)");
-        DB::statement('CREATE TABLE inventario.precio_producto (id_precio INTEGER PRIMARY KEY, id_producto INTEGER, id_presentacion INTEGER, factor_conversion NUMERIC DEFAULT 1, precio_venta NUMERIC, porcentaje_utilidad NUMERIC NULL, estado BOOLEAN DEFAULT 1, id_producto_stock INTEGER NULL, UNIQUE (id_producto, id_presentacion))');
+        DB::statement("CREATE TABLE catalogos.productos (id_producto INTEGER PRIMARY KEY, id_categoria INTEGER NULL, id_marca INTEGER NULL, id_unidad_base INTEGER NULL, codigo_barras TEXT NULL, codigo_sunat TEXT NULL, nombre TEXT, afecta_igv BOOLEAN DEFAULT 1, es_servicio BOOLEAN DEFAULT 0, estado BOOLEAN DEFAULT 1, tipo_producto TEXT DEFAULT 'DIRECTO', codigo_carta TEXT NULL, codigo_externo TEXT NULL UNIQUE)");
+        DB::statement('CREATE TABLE catalogos.producto_presentaciones (id_precio INTEGER PRIMARY KEY, id_producto INTEGER, id_presentacion INTEGER, factor_conversion NUMERIC DEFAULT 1, precio_venta NUMERIC, estado BOOLEAN DEFAULT 1, id_producto_stock INTEGER NULL, UNIQUE (id_producto, id_presentacion))');
         DB::statement('CREATE TABLE restaurante.precios_sucursal (id_sucursal INTEGER, id_precio INTEGER, precio_venta NUMERIC NULL, disponible BOOLEAN DEFAULT 1, created_at DATETIME, updated_at DATETIME, PRIMARY KEY (id_sucursal, id_precio))');
         DB::statement('CREATE TABLE restaurante.categorias_carta (id_categoria INTEGER PRIMARY KEY, orden INTEGER DEFAULT 0, icono TEXT NULL, nota TEXT NULL, visible BOOLEAN DEFAULT 1, created_at DATETIME, updated_at DATETIME)');
 
@@ -55,9 +55,9 @@ trait PreparaBaseRestaurante
 
         DB::statement('CREATE TABLE inventario.kardex (id_kardex INTEGER PRIMARY KEY, id_producto INTEGER, id_sucursal INTEGER, cantidad_entrada NUMERIC, cantidad_salida NUMERIC, stock_actual NUMERIC, precio_costo NUMERIC, tipo_operacion TEXT, id_referencia INTEGER, documento TEXT, id_usuario INTEGER, ultima_actualizacion DATETIME)');
         DB::statement('CREATE TABLE restaurante.receta_insumos (id_sucursal INTEGER, id_precio_plato INTEGER, id_precio_insumo INTEGER, cantidad NUMERIC, PRIMARY KEY (id_sucursal, id_precio_plato, id_precio_insumo))');
-        DB::statement("CREATE TABLE restaurante.consumos_insumos (id_consumo INTEGER PRIMARY KEY, id_sucursal INTEGER, id_detalle_pedido INTEGER, id_producto INTEGER, cantidad_base NUMERIC, costo_unitario NUMERIC DEFAULT 0, lotes TEXT, estado TEXT DEFAULT 'CONSUMIDO', consumido_en DATETIME, resuelto_en DATETIME, UNIQUE (id_detalle_pedido, id_producto))");
+        DB::statement("CREATE TABLE restaurante.consumos_insumos (id_consumo INTEGER PRIMARY KEY, id_sucursal INTEGER, id_detalle_pedido INTEGER, id_producto INTEGER, cantidad_base NUMERIC, costo_unitario NUMERIC DEFAULT 0, estado TEXT DEFAULT 'CONSUMIDO', consumido_en DATETIME, resuelto_en DATETIME, UNIQUE (id_detalle_pedido, id_producto))");
 
-        DB::table('inventario.sucursales')->insert([['id_sucursal' => 1, 'nombre' => 'Centro'], ['id_sucursal' => 2, 'nombre' => 'Norte']]);
+        DB::table('configuracion.sucursales')->insert([['id_sucursal' => 1, 'nombre' => 'Centro'], ['id_sucursal' => 2, 'nombre' => 'Norte']]);
         DB::table('restaurante.areas')->insert([
             ['id_area' => 1, 'id_sucursal' => 1, 'nombre' => 'Salón'],
             ['id_area' => 2, 'id_sucursal' => 2, 'nombre' => 'Terraza'],
@@ -73,7 +73,7 @@ trait PreparaBaseRestaurante
             ['id_producto' => 2, 'nombre' => 'Gaseosa', 'tipo_producto' => 'DIRECTO'],
             ['id_producto' => 3, 'nombre' => 'Papa', 'tipo_producto' => 'INSUMO'],
         ]);
-        DB::table('inventario.precio_producto')->insert([
+        DB::table('catalogos.producto_presentaciones')->insert([
             ['id_precio' => 1, 'id_producto' => 1, 'id_presentacion' => 1, 'precio_venta' => 30],
             ['id_precio' => 2, 'id_producto' => 2, 'id_presentacion' => 1, 'precio_venta' => 5],
             ['id_precio' => 3, 'id_producto' => 3, 'id_presentacion' => 1, 'precio_venta' => 2],

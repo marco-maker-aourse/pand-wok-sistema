@@ -194,7 +194,6 @@ class ImportarCartaService
             'tipo_producto' => $esBebida ? Producto::DIRECTO : Producto::PREPARADO,
             'afecta_igv' => true,
             'es_servicio' => false,
-            'usa_vencimiento' => false,
         ]), true];
     }
 

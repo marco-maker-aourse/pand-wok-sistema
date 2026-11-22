@@ -21,7 +21,7 @@ function Aviso({ tono, icono: Icono, children }) {
  */
 export default function Login({ status }) {
     const { empresa = {}, organization = {} } = usePage().props;
-    const info = empresa?.id_datos_gen ? empresa : organization;
+    const info = empresa?.id_empresa ? empresa : organization;
 
     const nombreEmpresa = info?.nombre_comercial || info?.razon_social || NOMBRE_PRODUCTO;
     const tituloLogin = info?.texto_login_titulo || 'Iniciar sesión';

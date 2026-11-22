@@ -3,7 +3,7 @@ import { Check, ChevronDown } from 'lucide-react';
 import { formatoMoneda } from './formato';
 
 /*
- * Selectores desplegables del punto de venta (tipo de documento, lote y
+ * Selectores desplegables del punto de venta (tipo de documento y
  * presentación). Se trasladaron sin cambios de comportamiento desde Ventas/Create.
  */
 export function SelectorTipoDocumento({ tipos, seleccionadoId, onSeleccionar }) {
@@ -52,84 +52,6 @@ export function SelectorTipoDocumento({ tipos, seleccionadoId, onSeleccionar }) 
                             </button>
                         );
                     })}
-                </div>
-            )}
-        </div>
-    );
-}
-
-export function SelectorLote({ lotes = [], loteActual, onCambiarLote }) {
-    const [open, setOpen] = useState(false);
-    const dropRef = useRef(null);
-
-    useEffect(() => {
-        const handleClick = (e) => {
-            if (dropRef.current && !dropRef.current.contains(e.target)) setOpen(false);
-        };
-        document.addEventListener('mousedown', handleClick);
-        return () => document.removeEventListener('mousedown', handleClick);
-    }, []);
-
-    const hayLotes = lotes && lotes.length > 0;
-
-    return (
-        <div className="relative inline-flex items-center" ref={dropRef}>
-            <button
-                type="button"
-                onClick={() => hayLotes && setOpen(!open)}
-                disabled={!hayLotes}
-                className="inline-flex items-center gap-1.5 px-2 py-1 bg-white hover:bg-slate-50 border border-slate-200/90 rounded-xl text-xs font-bold text-slate-800 transition cursor-pointer disabled:cursor-default disabled:opacity-70"
-            >
-                <span className="px-1.5 py-0.2 rounded bg-brand-soft text-brand-ink font-semibold text-xs uppercase">
-                    FIFO
-                </span>
-                <span className="font-mono text-slate-800 font-bold truncate max-w-[130px]">
-                    {loteActual ? `Lote: ${loteActual}` : 'Lote General'}
-                </span>
-                {hayLotes && <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`} />}
-            </button>
-
-            {open && hayLotes && (
-                <div className="absolute left-0 bottom-full mb-1.5 z-50 w-72 bg-white border border-slate-200 rounded-lg shadow-xl p-2 space-y-1">
-                    <div className="px-2 py-1 text-xs font-semibold uppercase text-slate-400 border-b border-slate-100 flex justify-between items-center">
-                        <span>Lotes en Almacén (Prioridad FIFO)</span>
-                        <span className="text-xs font-mono">Stock</span>
-                    </div>
-
-                    <div className="max-h-40 overflow-y-auto space-y-1 [scrollbar-width:thin] pr-1">
-                        {lotes.map((l, idx) => {
-                            const isSelected = l.codigo_lote === loteActual;
-                            return (
-                                <button
-                                    key={l.id_lote || l.codigo_lote}
-                                    type="button"
-                                    onClick={() => { onCambiarLote(l.codigo_lote); setOpen(false); }}
-                                    className={`w-full text-left p-2 rounded-xl text-xs transition flex items-center justify-between cursor-pointer ${
-                                        isSelected ? 'bg-slate-900 text-white font-bold' : 'hover:bg-slate-50 border border-slate-100'
-                                    }`}
-                                >
-                                    <div>
-                                        <div className="flex items-center gap-1.5">
-                                            {idx === 0 && (
-                                                <span className={`text-xs font-semibold px-1.5 py-0.2 rounded uppercase ${isSelected ? 'bg-brand text-white' : 'bg-brand-soft text-brand-ink'}`}>
-                                                    Recomendado
-                                                </span>
-                                            )}
-                                            <span className="font-mono font-bold">{l.codigo_lote}</span>
-                                        </div>
-                                        {l.fecha_vencimiento && (
-                                            <p className={`text-xs mt-0.5 ${isSelected ? 'text-slate-300' : 'text-slate-500'}`}>
-                                                Caduca: {l.fecha_vencimiento}
-                                            </p>
-                                        )}
-                                    </div>
-                                    <span className={`font-mono font-semibold text-xs ${isSelected ? 'text-white' : 'text-slate-900'}`}>
-                                        {l.stock}
-                                    </span>
-                                </button>
-                            );
-                        })}
-                    </div>
                 </div>
             )}
         </div>

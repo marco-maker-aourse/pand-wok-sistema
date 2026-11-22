@@ -30,8 +30,6 @@ class StoreIngresoRequest extends FormRequest
             'detalles.*.cantidad'           => ['required', 'numeric', 'min:1'],
             'detalles.*.precio_costo'       => ['required', 'numeric', 'min:0'],
             'detalles.*.precio_venta'       => ['nullable', 'numeric', 'min:0'],
-            'detalles.*.lote'               => ['nullable', 'string', 'max:50'],
-            'detalles.*.fecha_vencimiento'  => ['nullable'],
         ];
     }
 

@@ -128,7 +128,8 @@ class GestionarTurnoCajaService
             ->where('pago.estado_pago', 'COMPLETADO')
             ->select('metodo.nombre', 'metodo.tipo')
             ->selectRaw('SUM(pago.monto) as monto_bruto')
-            ->selectRaw('SUM(pago.monto_neto) as monto_neto')
+            // Neto = bruto menos la comisión de la pasarela; no se guarda porque se deriva.
+            ->selectRaw('SUM(pago.monto - pago.comision_pasarela) as monto_neto')
             ->groupBy('metodo.nombre', 'metodo.tipo')
             ->get();
 

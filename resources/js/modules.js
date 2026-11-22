@@ -22,7 +22,6 @@ export const navigationModules = [
     { label: 'Inventario', items: [
         { label: 'Recetas e insumos', href: '/recetas', icon: FiBookOpen, permiso: 'recetas.gestionar' },
         { label: 'Entradas', href: '/ingresos', icon: FiArchive },
-        { label: 'Salidas y ajustes', href: '/salidas', icon: FiBox },
         { label: 'Mermas', href: '/mermas', icon: FiArchive, permiso: 'mermas.registrar' },
         { label: 'Movimientos de existencias', href: '/kardex', icon: FiBarChart2 },
     ] },

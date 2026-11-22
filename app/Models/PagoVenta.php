@@ -14,7 +14,7 @@ class PagoVenta extends Model
 
     protected $fillable = [
         'id_venta', 'id_metodo', 'monto', 'monto_recibido', 'vuelto', 'nro_referencia', 'fecha_pago',
-        'monto_neto', 'comision_pasarela', 'estado_pago',
+        'comision_pasarela', 'estado_pago',
     ];
 
     protected function casts(): array
@@ -24,7 +24,6 @@ class PagoVenta extends Model
             'monto' => 'decimal:2',
             'monto_recibido' => 'decimal:2',
             'vuelto' => 'decimal:2',
-            'monto_neto' => 'decimal:2',
             'comision_pasarela' => 'decimal:2',
         ];
     }

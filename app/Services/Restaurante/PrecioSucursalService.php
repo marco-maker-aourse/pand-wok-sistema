@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\DB;
  * Regla única para todo el restaurante (toma de pedidos, carta y carta pública):
  * - Con fila en restaurante.precios_sucursal y disponible = true → ese precio.
  * - Con fila y disponible = false → no se vende en esa sucursal.
- * - Sin fila → precio general de inventario.precio_producto.
+ * - Sin fila → precio general de catalogos.producto_presentaciones.
  */
 class PrecioSucursalService
 {

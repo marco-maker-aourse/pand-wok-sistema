@@ -28,7 +28,6 @@ class User extends Authenticatable
         'id_rol',
         'id_sucursal',
         'id_tipo_documento',
-        'id_ubigeo',
         'num_documento',
         'email',
         'password',

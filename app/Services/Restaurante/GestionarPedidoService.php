@@ -309,7 +309,7 @@ class GestionarPedidoService
     /** Correlativo por sucursal. El bloqueo de la fila de la sucursal serializa las aperturas. */
     private function siguienteNumero(int $sucursalId): int
     {
-        $sucursal = DB::table('inventario.sucursales')->where('id_sucursal', $sucursalId)->lockForUpdate()->first(['id_sucursal']);
+        $sucursal = DB::table('configuracion.sucursales')->where('id_sucursal', $sucursalId)->lockForUpdate()->first(['id_sucursal']);
         if (! $sucursal) {
             throw new DomainException('La sucursal no existe.');
         }

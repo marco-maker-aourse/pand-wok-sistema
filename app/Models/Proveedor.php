@@ -14,7 +14,6 @@ class Proveedor extends Model
 
     protected $fillable = [
         'id_tipo_documento',
-        'id_ubigeo',
         'num_documento',
         'razon_social',
         'direccion_fiscal',
