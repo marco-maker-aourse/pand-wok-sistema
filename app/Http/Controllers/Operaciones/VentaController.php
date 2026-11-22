@@ -154,7 +154,7 @@ class VentaController extends Controller
         }
 
         try {
-            $isRuc = (string) $documentType->codigo_sunat === '6';
+            $isRuc = (string) $documentType->codigo_sunat === TipoDocumento::RUC;
             $result = $documentos->lookup($isRuc ? 'ruc' : 'dni', $documento);
             $cliente = Cliente::query()->create([
                 'id_tipo_documento' => $documentType->id_tipo_documento,
@@ -187,7 +187,7 @@ class VentaController extends Controller
         }
 
         $receipt = TipoComprobante::query()
-            ->where('codigo_sunat', $data['tipo_comprobante'] === 'FACTURA' ? '01' : '03')
+            ->where('codigo_sunat', $data['tipo_comprobante'] === 'FACTURA' ? TipoComprobante::FACTURA : TipoComprobante::BOLETA)
             ->where('estado', true)
             ->firstOrFail();
 

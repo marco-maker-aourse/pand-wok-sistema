@@ -82,7 +82,7 @@ class ConfigurarSopasMenuService
     {
         $categoria = Categoria::query()->whereRaw('LOWER(nombre) = ?', ['sopas'])->first()
             ?? Categoria::query()->create(['nombre' => 'Sopas', 'estado' => true]);
-        $unidad = UnidadMedida::query()->firstOrCreate(['codigo_sunat' => 'NIU'], ['nombre' => 'Unidad', 'estado' => true]);
+        $unidad = UnidadMedida::query()->firstOrCreate(['codigo_sunat' => UnidadMedida::UNIDAD], ['nombre' => 'Unidad', 'estado' => true]);
         $presentacion = Presentacion::query()->whereRaw('LOWER(nombre) = ?', ['unidad'])->first()
             ?? Presentacion::query()->create(['nombre' => 'Unidad', 'estado' => true]);
 

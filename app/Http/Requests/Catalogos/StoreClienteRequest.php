@@ -62,7 +62,7 @@ class StoreClienteRequest extends FormRequest
 
                     $numDocumento = $this->input('num_documento', '');
 
-                    if ($tipoDocumento->codigo_sunat === '6') { // RUC
+                    if ($tipoDocumento->codigo_sunat === TipoDocumento::RUC) {
                         if (str_starts_with($numDocumento, '20')) {
                             if ($value !== 'JURIDICA') {
                                 $fail('Para RUC iniciado en 20, el tipo persona debe ser JURIDICA.');
@@ -100,11 +100,11 @@ class StoreClienteRequest extends FormRequest
                         return;
                     }
 
-                    if ($tipoDocumento->codigo_sunat === '1') { // DNI
+                    if ($tipoDocumento->codigo_sunat === TipoDocumento::DNI) {
                         if (! preg_match('/^\d{8}$/', $value)) {
                             $fail('El DNI debe tener exactamente 8 dígitos numéricos.');
                         }
-                    } elseif ($tipoDocumento->codigo_sunat === '6') { // RUC
+                    } elseif ($tipoDocumento->codigo_sunat === TipoDocumento::RUC) {
                         if (! preg_match(Ruc::PATRON, $value)) {
                             $fail(Ruc::MENSAJE);
                         }

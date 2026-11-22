@@ -2,6 +2,8 @@
 
 namespace App\Services\Ventas;
 
+use App\Models\TipoDocumento;
+use App\Models\TipoComprobante;
 use App\Models\Venta;
 use App\Services\Comprobantes\DescripcionItems;
 use App\Services\Impresion\CrearTrabajoImpresionService;
@@ -222,7 +224,7 @@ class SunatEmisionService
 
     private function validarDatos(object $venta, object $emisor, \Illuminate\Support\Collection $detalles): void
     {
-        if (! in_array((string) $venta->cod_comprobante, ['01', '03'], true)) {
+        if (! in_array((string) $venta->cod_comprobante, TipoComprobante::EMITIDOS_EN_VENTA, true)) {
             throw new \RuntimeException('Solo se pueden emitir facturas y boletas electrónicas.');
         }
 
@@ -230,8 +232,8 @@ class SunatEmisionService
             throw new \RuntimeException('El RUC del emisor debe tener 11 dígitos.');
         }
 
-        if ((string) $venta->cod_comprobante === '01'
-            && ((string) $venta->cod_doc_cliente !== '6' || ! preg_match('/^\d{11}$/', (string) $venta->num_documento))) {
+        if ((string) $venta->cod_comprobante === TipoComprobante::FACTURA
+            && ((string) $venta->cod_doc_cliente !== TipoDocumento::RUC || ! preg_match('/^\d{11}$/', (string) $venta->num_documento))) {
             throw new \RuntimeException('La factura requiere un cliente identificado con RUC de 11 dígitos.');
         }
 

@@ -2,6 +2,7 @@
 
 namespace App\Services\Restaurante;
 
+use App\Models\TipoDocumento;
 use App\Models\Cliente;
 use App\Models\Producto;
 use App\Models\Restaurante\Pedido;
@@ -93,7 +94,7 @@ class CobrarPedidoService
             if (! $factura && $totalCobro > self::LIMITE_BOLETA_SIN_IDENTIFICAR && ! self::clienteIdentificado($cliente)) {
                 throw new DomainException('Para boletas mayores a S/ 700, identifica al cliente con su DNI.');
             }
-            $tipo = TipoComprobante::query()->where('codigo_sunat', $factura ? '01' : '03')->where('estado', true)->value('id_tipo_comprobante');
+            $tipo = TipoComprobante::query()->where('codigo_sunat', $factura ? TipoComprobante::FACTURA : TipoComprobante::BOLETA)->where('estado', true)->value('id_tipo_comprobante');
             if (! $tipo) {
                 throw new DomainException('El tipo de comprobante todavía no está habilitado.');
             }
@@ -136,7 +137,7 @@ class CobrarPedidoService
         if (! $cliente) {
             throw new DomainException('Selecciona un cliente activo o configura el cliente de público general.');
         }
-        if ($factura && ($cliente->tipoDocumento?->codigo_sunat !== '6' || ! preg_match('/^\d{11}$/', $cliente->num_documento))) {
+        if ($factura && ($cliente->tipoDocumento?->codigo_sunat !== TipoDocumento::RUC || ! preg_match('/^\d{11}$/', $cliente->num_documento))) {
             throw new DomainException('La factura requiere un cliente registrado con RUC.');
         }
 

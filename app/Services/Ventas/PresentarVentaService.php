@@ -2,6 +2,7 @@
 
 namespace App\Services\Ventas;
 
+use App\Models\TipoComprobante;
 use App\Models\Venta;
 
 /**
@@ -37,7 +38,7 @@ class PresentarVentaService
                 'pdf' => filled($venta->enlace_pdf),
             ],
             ...$this->totales($venta),
-            'tipo_comprobante' => $venta->comprobante?->codigo_sunat === '01' ? 'FACTURA' : 'BOLETA',
+            'tipo_comprobante' => $venta->comprobante?->codigo_sunat === TipoComprobante::FACTURA ? 'FACTURA' : 'BOLETA',
             'codigo_comprobante' => $venta->comprobante?->codigo_sunat,
             'nombre_razon_social' => $venta->cliente?->nombre_razon_social ?? 'PÚBLICO EN GENERAL',
             'num_documento' => $venta->cliente?->num_documento ?? '00000000',

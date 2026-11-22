@@ -157,7 +157,7 @@ class RegistrarVentaService
             }
             $cashReceived = null;
             $change = null;
-            if ($method->tipo === 'EFECTIVO') {
+            if ($method->tipo === MetodoPago::EFECTIVO) {
                 if (! isset($payment['monto_recibido']) || ! is_numeric($payment['monto_recibido'])) {
                     throw new DomainException('Indica cuánto efectivo recibiste del cliente.');
                 }
@@ -173,7 +173,7 @@ class RegistrarVentaService
             }
             // Los métodos no efectivos se confirman presencialmente por el cajero.
             // La aplicación no declara verificado un pago de billetera o terminal físico.
-            $commission = $method->tipo === 'PASARELA'
+            $commission = $method->tipo === MetodoPago::PASARELA
                 ? round(((float) $payment['monto'] * (float) $method->comision_porcentaje / 100) + (float) $method->comision_fija, 2)
                 : 0.0;
             if ($commission > (float) $payment['monto']) { throw new DomainException('La comisión no puede superar el monto cobrado.'); }

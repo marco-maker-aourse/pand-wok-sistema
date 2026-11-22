@@ -2,6 +2,7 @@
 
 namespace App\Services\Comprobantes;
 
+use App\Models\TipoComprobante;
 use App\Models\SerieSucursal;
 use App\Services\Configuracion\DatosGeneralesService;
 use DomainException;
@@ -17,8 +18,8 @@ class ReservarCorrelativoService
     public function execute(int $branchId, string $codigoSunat): array
     {
         [$seriesField, $numberField] = match ($codigoSunat) {
-            '03' => ['serie_boleta', 'ult_nro_boleta'],
-            '01' => ['serie_factura', 'ult_nro_factura'],
+            TipoComprobante::BOLETA => ['serie_boleta', 'ult_nro_boleta'],
+            TipoComprobante::FACTURA => ['serie_factura', 'ult_nro_factura'],
             default => throw new DomainException('Tipo de comprobante no soportado.'),
         };
 
