@@ -27,7 +27,7 @@ export function EstadoImpresion({ impresion }) {
     );
 }
 
-export function ReimprimirComanda({ id, impresion, disabled = false }) {
+export function ReimprimirComanda({ id, impresion, disabled = false, soloIcono = false }) {
     const [enviando, setEnviando] = useState(false);
     const solicitud = useRef(null);
     const enCola = ['PENDIENTE', 'ENTREGADO_AGENTE'].includes(impresion?.estado);
@@ -52,7 +52,9 @@ export function ReimprimirComanda({ id, impresion, disabled = false }) {
         });
     };
 
-    return <Button variant="secondary" icon={Printer} disabled={disabled || enCola} loading={enviando} onClick={reimprimir}>Reimprimir</Button>;
+    return soloIcono
+        ? <Button variant="secondary" icon={Printer} disabled={disabled || enCola} loading={enviando} onClick={reimprimir} aria-label="Reimprimir comanda" title="Reimprimir comanda" />
+        : <Button variant="secondary" icon={Printer} disabled={disabled || enCola} loading={enviando} onClick={reimprimir}>Reimprimir</Button>;
 }
 
 export default function ComandasPedido({ comandas, puedeReimprimir, disabled }) {

@@ -99,6 +99,10 @@ return [
             // El resto enumera todos los esquemas del sistema para que migrate:fresh los limpie;
             // el código siempre califica sus tablas (catalogos.productos, operaciones.ventas...).
             'search_path' => 'public,configuracion,seguridad,catalogos,restaurante,inventario,operaciones',
+            // La sesión usa la misma zona que la aplicación (UTC): Laravel envía las fechas sin zona y
+            // PostgreSQL las interpretaría con la zona del servidor (p. ej. America/Lima, +5 h de error).
+            // Las pantallas convierten a la hora local del navegador.
+            'timezone' => 'UTC',
             'sslmode' => env('DB_SSLMODE', 'prefer'),
             'options' => extension_loaded('pdo_pgsql') ? [
                 PDO::PGSQL_ATTR_DISABLE_PREPARES => true,

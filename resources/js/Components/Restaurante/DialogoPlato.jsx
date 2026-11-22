@@ -13,7 +13,10 @@ import { soles } from './formato';
  */
 
 /** Pedidos más comunes a cocina: un toque los agrega a la nota. */
-const NOTAS_RAPIDAS = ['Sin cebolla', 'Sin ají', 'Poco ají', 'Sin sillao', 'Bien cocido', 'Para llevar'];
+const NOTAS_RAPIDAS = [
+    'Sin cebolla china', 'Sin cebolla', 'Poco sillao', 'Poco sal', 'Sin ajinomoto', 'Sin kion',
+    'Picante', 'Sin ají', 'Bien cocido', 'Bien frito', 'Arroz aparte', 'Para llevar',
+];
 
 const agregarNota = (actual, texto) => {
     const partes = actual.split(',').map((p) => p.trim()).filter(Boolean);
@@ -205,7 +208,7 @@ export default function DialogoPlato({ producto, grupos, onCerrar, onAgregar }) 
                             </div>
                         </Field>
                         <Field label="Nota para cocina">
-                            <Input value={nota} onChange={(e) => setNota(e.target.value)} maxLength={255} placeholder="Ej.: sin cebolla" />
+                            <Input value={nota} onChange={(e) => setNota(e.target.value)} maxLength={255} placeholder="Escribe o toca una sugerencia" />
                             <div className="mt-2 flex flex-wrap gap-1.5">
                                 {NOTAS_RAPIDAS.map((texto) => (
                                     <button key={texto} type="button" onClick={() => setNota(agregarNota(nota, texto))}
