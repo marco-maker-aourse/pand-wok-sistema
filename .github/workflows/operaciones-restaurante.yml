@@ -10,6 +10,8 @@ name: Operaciones del restaurante
 # 4. cargar_datos_base  → agrega los catálogos que falten (comprobantes, unidades,
 #                          métodos de pago, presentaciones, cliente genérico). No borra
 #                          ni cambia nada existente. Exige confirmar un respaldo.
+# 5. opciones_carta     → menú con sopa opcional (mismo precio) y adicional de las
+#                          combinaciones (sopa o 3 wantanes fritos, + S/ 1.00). Repetible.
 
 on:
   workflow_dispatch:
@@ -17,7 +19,7 @@ on:
       accion:
         description: 'Operación'
         type: choice
-        options: [listar_sucursales, simular_carta, importar_carta, cargar_datos_base]
+        options: [listar_sucursales, simular_carta, importar_carta, cargar_datos_base, opciones_carta]
         default: listar_sucursales
       sedes:
         description: 'Sede de la carta = ID de sucursal, separadas por coma (p. ej. chilca=1,tambo=2,tingomaria=3)'
@@ -28,7 +30,7 @@ on:
         type: boolean
         default: false
       respaldo_bd_confirmado:
-        description: 'Confirmo que tengo un respaldo de la base (obligatorio para importar_carta y cargar_datos_base)'
+        description: 'Confirmo que tengo un respaldo de la base (obligatorio para importar_carta, cargar_datos_base y opciones_carta)'
         type: boolean
         default: false
 
@@ -73,7 +75,7 @@ jobs:
           if [ -n "$SEDES" ] && ! printf '%s' "$SEDES" | grep -Eq '^[a-z0-9]+(-[a-z0-9]+)*=[0-9]+(,[a-z0-9]+(-[a-z0-9]+)*=[0-9]+)*$'; then
             echo '::error::Formato de "sedes" inválido. Ejemplo: chilca=1,tambo=2,tingomaria=3'; exit 1
           fi
-          if [ "$ACCION" = cargar_datos_base ]; then
+          if [ "$ACCION" = cargar_datos_base ] || [ "$ACCION" = opciones_carta ]; then
             [ "$RESPALDO" = true ] || { echo '::error::Para cargar datos, confirma primero un respaldo de la base.'; exit 1; }
           fi
           if [ "$ACCION" = importar_carta ]; then
@@ -106,6 +108,7 @@ jobs:
 
           case "$ACCION" in
             listar_sucursales) comandos="artisan restaurante:sucursales" ;;
+            opciones_carta)    comandos="artisan restaurante:sopas-menu --menus=Menu && \$PHP artisan restaurante:adicionales-combinacion && \$PHP artisan cache:clear" ;;
             cargar_datos_base) comandos="artisan db:seed --class=DatosBaseSeeder --force --no-interaction && \$PHP artisan cache:clear" ;;
             simular_carta)     comandos="artisan restaurante:importar-carta $CARTA --simular $mapa" ;;
             importar_carta)

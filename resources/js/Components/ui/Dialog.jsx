@@ -31,7 +31,8 @@ export default function Dialog({ open, onClose, title, description, size = 'md',
                             )}
                         </div>
                     )}
-                    <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
+                    {/* Único contenedor con scroll del diálogo: el contenido no debe declarar otro overflow-y. */}
+                    <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">{children}</div>
                     {footer && <div className="flex flex-wrap justify-end gap-2 border-t border-slate-200 bg-slate-50 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-5">{footer}</div>}
                 </DialogPanel>
             </div>
