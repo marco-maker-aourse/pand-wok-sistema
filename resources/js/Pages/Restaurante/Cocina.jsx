@@ -10,6 +10,7 @@ import { EstadoImpresion, ReimprimirComanda } from '@/Components/Restaurante/Com
 import { minutosDesde, reloj, urgencia, URGENCIA } from '@/Components/Restaurante/cocina';
 import { cantidad, hora, primerError, tituloCuenta } from '@/Components/Restaurante/formato';
 import useAvisoCocina from '@/hooks/useAvisoCocina';
+import Distintivo from '@/Components/Restaurante/Distintivo';
 
 /** Columnas del tablero, en el orden en que avanza una comanda. */
 const COLUMNAS = [
@@ -84,7 +85,9 @@ function Comanda({ comanda, puedeGestionar, ahora }) {
                             {cantidad(item.cantidad)}
                         </span>
                         <div className="min-w-0 flex-1 space-y-0.5">
-                            <p className={cx('text-lg leading-snug font-semibold', item.anulado ? 'text-rose-700 line-through' : 'text-slate-900')}>{item.nombre}</p>
+                            <p className={cx('flex flex-wrap items-center gap-x-2 text-lg leading-snug font-semibold', item.anulado ? 'text-rose-700 line-through' : 'text-slate-900')}>
+                                {item.nombre}<Distintivo texto={item.distintivo} grande />
+                            </p>
                             {item.anulado && <p className="text-sm font-semibold text-rose-700">Anulado: no preparar</p>}
                             {item.cuenta && <p className="text-sm font-medium text-brand-ink">Para {tituloCuenta(item.cuenta)}</p>}
                             {item.opciones.map((opcion) => (

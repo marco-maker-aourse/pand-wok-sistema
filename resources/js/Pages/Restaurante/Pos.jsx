@@ -11,6 +11,7 @@ import LineaCuenta from '@/Components/Restaurante/LineaCuenta';
 import SelectorMesa from '@/Components/Restaurante/SelectorMesa';
 import { cambiarCantidadLinea, nuevaClave, primerError, soles, tituloCuenta } from '@/Components/Restaurante/formato';
 import useImprimirTicket from '@/hooks/useImprimirTicket';
+import Distintivo from '@/Components/Restaurante/Distintivo';
 
 const TIPOS = [
     { clave: 'PARA_LLEVAR', etiqueta: 'Mostrador', icono: ShoppingBag },
@@ -75,7 +76,7 @@ export default function Pos({ carta, sugerencias = null, salon, cuenta, inicio, 
             return;
         }
         const p = producto.presentaciones[0];
-        agregar({ id_producto: producto.id_producto, id_precio: p.id_precio, cantidad: 1, selecciones: [], observacion: null, nombre: producto.nombre, detalle: [], precio_estimado: p.precio_venta });
+        agregar({ id_producto: producto.id_producto, id_precio: p.id_precio, cantidad: 1, selecciones: [], observacion: null, nombre: producto.nombre, distintivo: producto.distintivo ?? null, detalle: [], precio_estimado: p.precio_venta });
     };
 
     const agregar = (linea) => {
@@ -284,7 +285,7 @@ export default function Pos({ carta, sugerencias = null, salon, cuenta, inicio, 
                                     {borrador.map((l) => (
                                         <li key={l.clave} className="flex items-center gap-3 px-4 py-2.5">
                                             <div className="min-w-0 flex-1">
-                                                <p className="text-sm font-medium text-slate-900">{l.nombre}</p>
+                                                <p className="flex flex-wrap items-center gap-x-1.5 text-sm font-medium text-slate-900">{l.nombre}<Distintivo texto={l.distintivo} /></p>
                                                 {l.detalle.length > 0 && <p className="text-xs text-slate-600">{l.detalle.join(' · ')}</p>}
                                                 {l.observacion && <p className="text-xs text-amber-700 italic">“{l.observacion}”</p>}
                                                 <p className="font-mono text-xs text-slate-500 tabular-nums">{soles(centimos(l.cantidad, l.precio_estimado) / 100)}</p>

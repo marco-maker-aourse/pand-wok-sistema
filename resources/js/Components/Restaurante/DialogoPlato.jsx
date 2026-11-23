@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Minus, Plus } from 'lucide-react';
 import { Badge, Button, Dialog, Field, Input, cx } from '@/Components/ui';
 import { soles } from './formato';
+import Distintivo from '@/Components/Restaurante/Distintivo';
 
 /**
  * Elige presentación, opciones (sopa del menú, acompañamientos, término…), cantidad y nota.
@@ -107,6 +108,7 @@ export default function DialogoPlato({ producto, grupos, onCerrar, onAgregar }) 
             observacion: nota.trim() || null,
             // Solo para mostrar en el borrador; el servidor no los usa.
             nombre: producto.nombre + (producto.presentaciones.length > 1 ? ` (${presentacion?.nombre})` : ''),
+            distintivo: producto.distintivo ?? null,
             detalle: elegidas.map((o) => (cantidad > 1 && conteos[o.id_opcion] !== cantidad ? `${conteos[o.id_opcion]} × ${o.nombre}` : o.nombre)),
             precio_estimado: total / cantidad,
         });
@@ -116,7 +118,7 @@ export default function DialogoPlato({ producto, grupos, onCerrar, onAgregar }) 
         <Dialog
             open={abierto}
             onClose={onCerrar}
-            title={producto?.nombre}
+            title={producto && <span className="flex flex-wrap items-center gap-2">{producto.nombre}<Distintivo texto={producto.distintivo} grande /></span>}
             size="lg"
             footer={(
                 <>

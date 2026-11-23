@@ -2,6 +2,7 @@
 
 namespace App\Services\Restaurante;
 
+use App\Support\Restaurante\DistintivoCategoria;
 use App\Models\Categoria;
 use App\Models\Kardex;
 use App\Models\Producto;
@@ -95,7 +96,8 @@ class PresentarRestauranteService
     public function pedido(Pedido $pedido): array
     {
         $pedido->loadMissing(['mesa.area:id_area,nombre', 'usuario:id_usuario,nombres']);
-        $detalles = $pedido->detalles()->with('modificadores')->orderBy('id_detalle_pedido')->get();
+        $detalles = $pedido->detalles()->with(['modificadores', 'producto:id_producto,id_categoria', 'producto.categoria:id_categoria,nombre'])
+            ->orderBy('id_detalle_pedido')->get();
 
         $comandas = Comanda::query()->where('id_sucursal', $pedido->id_sucursal)
             ->whereKey($detalles->pluck('id_comanda')->filter()->unique()->values()->all())
@@ -133,6 +135,7 @@ class PresentarRestauranteService
             'detalles' => $detalles->map(fn (PedidoDetalle $detalle): array => [
                 'id_detalle_pedido' => $detalle->id_detalle_pedido,
                 'nombre_producto' => $detalle->nombre_producto,
+                'distintivo' => DistintivoCategoria::deProducto($detalle->producto),
                 'cantidad' => (float) $detalle->cantidad,
                 'precio_unitario' => (float) $detalle->precio_unitario,
                 'subtotal' => (float) $detalle->subtotal,
@@ -207,7 +210,10 @@ class PresentarRestauranteService
             ->where('estado', true)
             ->where('tipo_producto', '!=', Producto::INSUMO)
             ->whereHas('presentaciones', fn ($query) => $query->where('estado', true))
-            ->with(['presentaciones' => fn ($query) => $query->where('estado', true)->with('presentacion:id_presentacion,nombre')->orderBy('factor_conversion')])
+            ->with([
+                'presentaciones' => fn ($query) => $query->where('estado', true)->with('presentacion:id_presentacion,nombre')->orderBy('factor_conversion'),
+                'categoria:id_categoria,nombre',
+            ])
             ->orderBy('nombre')
             ->limit(1500)
             ->get(['id_producto', 'id_categoria', 'nombre', 'tipo_producto', 'codigo_carta', 'es_servicio'])
@@ -242,6 +248,7 @@ class PresentarRestauranteService
                 'id_producto' => $producto->id_producto,
                 'id_categoria' => $producto->id_categoria,
                 'nombre' => $producto->nombre,
+                'distintivo' => DistintivoCategoria::deProducto($producto),
                 'codigo_carta' => $producto->codigo_carta,
                 'tipo_producto' => $producto->tipo_producto,
                 'agotado' => isset($agotados[$producto->id_producto]) || $sinOpciones,

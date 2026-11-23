@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Ban, SlidersHorizontal } from 'lucide-react';
 import { SearchInput, cx } from '@/Components/ui';
 import { soles } from './formato';
+import Distintivo from '@/Components/Restaurante/Distintivo';
 
 const MINIMO_FRECUENTES = 8;
 
@@ -88,7 +89,8 @@ export default function CartaPedido({ carta, onElegir, sugerencias = null, relac
                         )}
                         <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 2xl:grid-cols-4">
                             {seccion.productos.map((producto) => (
-                                <TarjetaPlato key={producto.id_producto} producto={producto} cantidad={enTicket[producto.id_producto] ?? 0} recien={recien === producto.id_producto} onElegir={onElegir} />
+                                <TarjetaPlato key={producto.id_producto} producto={producto} cantidad={enTicket[producto.id_producto] ?? 0} recien={recien === producto.id_producto} onElegir={onElegir}
+                                    conDistintivo={!seccion.titulo && (Boolean(busqueda) || categoria !== producto.id_categoria)} />
                             ))}
                         </div>
                     </section>
@@ -99,7 +101,7 @@ export default function CartaPedido({ carta, onElegir, sugerencias = null, relac
 }
 
 /** Plato de la carta: número, nombre, precio, si tiene opciones y cuántos van en el ticket. */
-function TarjetaPlato({ producto, cantidad, recien, onElegir }) {
+function TarjetaPlato({ producto, cantidad, recien, onElegir, conDistintivo }) {
     const precio = producto.presentaciones[0]?.precio_venta;
     const conOpciones = producto.grupos.length > 0 || producto.presentaciones.length > 1;
 
@@ -114,6 +116,7 @@ function TarjetaPlato({ producto, cantidad, recien, onElegir }) {
             {cantidad > 0 && (
                 <span className="absolute -top-2 -right-2 grid h-7 min-w-7 place-items-center rounded-full bg-brand px-1.5 font-mono text-sm font-bold text-on-brand shadow" aria-label={`${cantidad} en el ticket`}>{cantidad}</span>
             )}
+            {conDistintivo && <Distintivo texto={producto.distintivo} className="mb-1.5 self-start" />}
             <span className="flex items-start gap-1.5">
                 {producto.codigo_carta && <span className="mt-0.5 shrink-0 rounded bg-slate-100 px-1 font-mono text-[0.6875rem] font-semibold text-slate-600">{producto.codigo_carta}</span>}
                 <span className="text-sm leading-snug font-medium text-slate-900">{producto.nombre}</span>
