@@ -2,6 +2,7 @@
 
 namespace App\Services\Restaurante;
 
+use App\Support\Restaurante\DistintivoCategoria;
 use App\Models\Restaurante\Comanda;
 use App\Models\Restaurante\Estacion;
 use App\Models\Restaurante\PedidoDetalle;
@@ -57,6 +58,7 @@ class CocinaService
                 'usuario:id_usuario,nombres',
                 'detalles' => fn ($query) => $query->with([
                     'modificadores', 'pedido:id_pedido,numero,tipo,id_mesa,nombre_contacto', 'pedido.mesa:id_mesa,codigo',
+                    'producto:id_producto,id_categoria', 'producto.categoria:id_categoria,nombre',
                 ])->orderBy('id_detalle_pedido'),
             ]);
         $activas = (clone $comandas)->whereIn('estado', Comanda::ACTIVAS)
@@ -92,6 +94,7 @@ class CocinaService
                 'id_detalle_pedido' => $detalle->id_detalle_pedido,
                 'cantidad' => (float) $detalle->cantidad,
                 'nombre' => $detalle->nombre_producto,
+                'distintivo' => DistintivoCategoria::deProducto($detalle->producto),
                 'opciones' => $detalle->modificadores->map->etiqueta((float) $detalle->cantidad)->values()->all(),
                 'observacion' => $detalle->observacion,
                 'anulado' => $detalle->estaAnulado(),
