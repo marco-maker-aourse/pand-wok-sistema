@@ -31,3 +31,35 @@ export function comandasNuevas(anteriores, comandas, filtro) {
 
     return { nuevas, vistos: { filtro, ids } };
 }
+
+/**
+ * Toca la campana de comanda nueva ("ding-dong"), más insistente con varias comandas (tope 3).
+ * Si el navegador suspendió el audio (pantalla apagada, pestaña atrás), primero lo reanuda.
+ * Devuelve false si no pudo sonar: hace falta que alguien toque la pantalla.
+ */
+export async function sonarCampana(contexto, comandas = 1) {
+    if (!contexto) return false;
+    if (contexto.state !== 'running') {
+        try { await contexto.resume(); } catch { /* el navegador exige un toque */ }
+    }
+    if (contexto.state !== 'running') return false;
+
+    const inicio = contexto.currentTime;
+    for (let r = 0; r < Math.min(Math.max(comandas, 1), 3); r++) {
+        [[988, 0], [740, 0.22]].forEach(([frecuencia, desfase]) => {
+            const t = inicio + r * 0.75 + desfase;
+            const tono = contexto.createOscillator();
+            const volumen = contexto.createGain();
+            tono.type = 'triangle';
+            tono.frequency.value = frecuencia;
+            volumen.gain.setValueAtTime(0.0001, t);
+            // Fuerte para una cocina ruidosa, sin saturar cuando las dos notas se solapan.
+            volumen.gain.exponentialRampToValueAtTime(0.6, t + 0.02);
+            volumen.gain.exponentialRampToValueAtTime(0.0001, t + 0.6);
+            tono.connect(volumen).connect(contexto.destination);
+            tono.start(t);
+            tono.stop(t + 0.62);
+        });
+    }
+    return true;
+}
