@@ -2,6 +2,7 @@
 
 namespace App\Services\Asistente;
 
+use App\Services\Inventario\TipoExistencia;
 use App\Models\TipoComprobante;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Session\Session;
@@ -135,7 +136,7 @@ class ServicioAsistenteOperativo
     {
         [$inicio, $fin] = $this->rangoDia(CarbonImmutable::now('America/Lima'));
         $pendientesSunat = DB::table('operaciones.ventas')->where('id_sucursal', $sucursalId)->where('fecha_emision', '>=', $inicio)->where('fecha_emision', '<', $fin)->whereIn('estado_sunat', ['PENDIENTE', 'ERROR'])->count();
-        $sinStock = DB::selectOne("WITH ultimo_kardex AS (SELECT DISTINCT ON (id_producto) id_producto, stock_actual FROM inventario.kardex WHERE id_sucursal = ? ORDER BY id_producto, id_kardex DESC) SELECT COUNT(*) AS total FROM catalogos.productos producto LEFT JOIN ultimo_kardex kardex ON kardex.id_producto = producto.id_producto WHERE producto.estado = TRUE AND producto.es_servicio = FALSE AND COALESCE(kardex.stock_actual, 0) <= 0", [$sucursalId]);
+        $sinStock = DB::selectOne("WITH ultimo_kardex AS (SELECT DISTINCT ON (id_producto) id_producto, stock_actual FROM inventario.kardex WHERE id_sucursal = ? ORDER BY id_producto, id_kardex DESC) SELECT COUNT(*) AS total FROM catalogos.productos producto LEFT JOIN ultimo_kardex kardex ON kardex.id_producto = producto.id_producto WHERE ".TipoExistencia::condicionSql('producto')." AND COALESCE(kardex.stock_actual, 0) <= 0", [$sucursalId]);
         $prioridades = [];
         if ((int) ($sinStock->total ?? 0) > 0) $prioridades[] = (int) $sinStock->total . ' producto(s) sin stock';
         if ($pendientesSunat > 0) $prioridades[] = $pendientesSunat . ' comprobante(s) pendientes o con error';
@@ -177,7 +178,7 @@ class ServicioAsistenteOperativo
 
     private function responderStock(int $sucursalId): string
     {
-        $productos = DB::select("WITH ultimo_kardex AS (SELECT DISTINCT ON (id_producto) id_producto, stock_actual FROM inventario.kardex WHERE id_sucursal = ? ORDER BY id_producto, id_kardex DESC) SELECT producto.nombre FROM catalogos.productos producto LEFT JOIN ultimo_kardex kardex ON kardex.id_producto = producto.id_producto WHERE producto.estado = TRUE AND producto.es_servicio = FALSE AND COALESCE(kardex.stock_actual, 0) <= 0 ORDER BY producto.nombre LIMIT 5", [$sucursalId]);
+        $productos = DB::select("WITH ultimo_kardex AS (SELECT DISTINCT ON (id_producto) id_producto, stock_actual FROM inventario.kardex WHERE id_sucursal = ? ORDER BY id_producto, id_kardex DESC) SELECT producto.nombre FROM catalogos.productos producto LEFT JOIN ultimo_kardex kardex ON kardex.id_producto = producto.id_producto WHERE ".TipoExistencia::condicionSql('producto')." AND COALESCE(kardex.stock_actual, 0) <= 0 ORDER BY producto.nombre LIMIT 5", [$sucursalId]);
         return $productos === []
             ? $this->respuesta('No hay productos sin existencias en esta sucursal.', 'El inventario no presenta quiebres de stock en este momento.')
             : $this->respuesta('Productos sin existencias: ' . collect($productos)->pluck('nombre')->implode(', ') . (count($productos) === 5 ? '. Se muestran los primeros 5.' : '.'), 'Conviene registrar una entrada de mercadería antes de intentar venderlos.');

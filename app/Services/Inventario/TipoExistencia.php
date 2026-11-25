@@ -40,4 +40,20 @@ final class TipoExistencia
             'stock_en' => $tipo === Producto::PREPARADO ? [] : $stockEn,
         ];
     }
+
+    /**
+     * Misma regla en SQL: condición para el alias de catalogos.productos indicado. Deja fuera
+     * los platos preparados y los productos cuyas presentaciones descuentan de una variante
+     * física; incluye los que no tienen presentaciones activas.
+     */
+    public static function condicionSql(string $alias): string
+    {
+        if (! preg_match('/^[a-z_]+$/', $alias)) {
+            throw new \InvalidArgumentException('Alias de tabla no válido.');
+        }
+
+        return "{$alias}.estado = TRUE AND {$alias}.es_servicio = FALSE AND {$alias}.tipo_producto <> 'PREPARADO'"
+            ." AND (EXISTS (SELECT 1 FROM catalogos.producto_presentaciones pp WHERE pp.id_producto = {$alias}.id_producto AND pp.estado = TRUE AND pp.id_producto_stock IS NULL)"
+            ." OR NOT EXISTS (SELECT 1 FROM catalogos.producto_presentaciones pp WHERE pp.id_producto = {$alias}.id_producto AND pp.estado = TRUE))";
+    }
 }

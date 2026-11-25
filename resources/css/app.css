@@ -52,6 +52,20 @@
    --shadow-flotante: 0 2px 4px rgb(15 23 42 / 0.06), 0 24px 48px -12px rgb(15 23 42 / 0.22);
 }
 
+/*
+ * Altura que ocupa la barra inferior del celular. La activa AuthenticatedLayout con la clase
+ * `con-barra-inferior` en <html>, para que botones flotantes (asistente) queden encima de ella.
+ */
+html.con-barra-inferior {
+   --alto-barra-inferior: calc(4rem + env(safe-area-inset-bottom));
+}
+
+@media (min-width: 64rem) {
+   html.con-barra-inferior {
+      --alto-barra-inferior: 0px;
+   }
+}
+
 @layer base {
    html {
       -webkit-text-size-adjust: 100%;

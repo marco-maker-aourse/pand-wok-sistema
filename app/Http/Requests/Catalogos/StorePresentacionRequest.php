@@ -13,6 +13,20 @@ class StorePresentacionRequest extends FormRequest
         return true;
     }
 
+    /** "taza " y "TAZA" son el mismo empaque: se guarda en mayúsculas y sin espacios sobrantes. */
+    protected function prepareForValidation(): void
+    {
+        if (is_string($this->input('nombre'))) {
+            $this->merge(['nombre' => mb_strtoupper(trim((string) preg_replace('/\s+/u', ' ', $this->input('nombre'))))]);
+        }
+    }
+
+    /** Alta rápida desde el formulario de producto (JSON): si el nombre ya existe, se reutiliza. */
+    public function esAltaRapida(): bool
+    {
+        return $this->expectsJson() && ! $this->route('presentacion');
+    }
+
     public function rules(): array
     {
         $presentacion = $this->route('presentacion');
@@ -24,7 +38,7 @@ class StorePresentacionRequest extends FormRequest
                 'string',
                 'max:100',
                 // Uso directo del modelo para no disparar el error de conexión
-                Rule::unique(Presentacion::class, 'nombre')->ignore($id, 'id_presentacion'),
+                ...($this->esAltaRapida() ? [] : [Rule::unique(Presentacion::class, 'nombre')->ignore($id, 'id_presentacion')]),
             ],
             'estado' => ['sometimes', 'boolean'],
         ];

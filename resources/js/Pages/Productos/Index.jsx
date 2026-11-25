@@ -93,6 +93,7 @@ export default function Index({ productos = [], categorias = [], unidades = [], 
                 show={Boolean(productoEmpaques)}
                 onClose={() => setProductoEmpaques(null)}
                 catalogoPresentaciones={f.catalogoLocalPresentaciones}
+                onPresentacionCreada={f.registrarPresentacion}
                 unidades={unidades}
             />
         </AuthenticatedLayout>

@@ -1,5 +1,5 @@
 import { FileClock, PackageSearch, ReceiptText } from 'lucide-react';
-import { Badge, Card, CardHeader, EmptyState } from '@/Components/ui';
+import { Badge, Button, Card, CardHeader, EmptyState } from '@/Components/ui';
 
 const moneda = new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' });
 
@@ -21,7 +21,7 @@ export function UltimasVentas({ ventas = [], pendientesSunat = 0, className }) {
                         <li key={venta.id} className="flex items-center justify-between gap-3 py-3">
                             <div className="min-w-0">
                                 <p className="truncate text-sm font-medium text-slate-900">{venta.customer || 'Cliente no registrado'}</p>
-                                <p className="text-xs text-slate-500"><span className="font-mono">{venta.document}</span> · {venta.receipt}</p>
+                                <p className="text-xs text-slate-500">{venta.receipt} <span className="font-mono">{venta.document}</span></p>
                             </div>
                             <span className="shrink-0 text-sm font-semibold text-slate-900 tabular-nums">{moneda.format(Number(venta.total) || 0)}</span>
                         </li>
@@ -36,9 +36,10 @@ export function UltimasVentas({ ventas = [], pendientesSunat = 0, className }) {
 export function AlertasInventario({ alertas = [], className }) {
     return (
         <Card className={className}>
-            <CardHeader icon={PackageSearch} title="Atención de inventario" description="Productos sin disponibilidad" />
+            <CardHeader icon={PackageSearch} title="Sin stock" description="Insumos y bebidas agotados en esta sucursal"
+                actions={<Button variant="ghost" size="sm" href="/kardex">Existencias</Button>} />
             {alertas.length === 0 ? (
-                <EmptyState icon={PackageSearch} title="Todo con existencias" description="No hay productos agotados." />
+                <EmptyState icon={PackageSearch} title="Todo con stock" description="Ningún insumo ni bebida está agotado." />
             ) : (
                 <ul className="divide-y divide-slate-100 px-5">
                     {alertas.slice(0, 6).map((alerta) => (

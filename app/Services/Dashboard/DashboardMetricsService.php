@@ -2,12 +2,14 @@
 
 namespace App\Services\Dashboard;
 
+use App\Services\Inventario\TipoExistencia;
 use Illuminate\Support\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
 
 class DashboardMetricsService
 {
+
     /**
      * Rango elegido por el operador. Las consultas siguen agregando en PostgreSQL,
      * evitando cargar ventas completas para filtrar o calcular métricas en PHP.
@@ -108,7 +110,7 @@ class DashboardMetricsService
                      AND registrada_en >= (((now() AT TIME ZONE 'America/Lima')::date) - {$interval})::timestamp AT TIME ZONE 'America/Lima'
                      AND registrada_en < ((((now() AT TIME ZONE 'America/Lima')::date) + INTERVAL '1 day')::timestamp AT TIME ZONE 'America/Lima')
                    ) AS adjustments_count,
-                   (SELECT COUNT(*) FROM catalogos.productos products LEFT JOIN latest_stock stock ON stock.id_producto = products.id_producto WHERE products.estado = TRUE AND products.es_servicio = FALSE AND COALESCE(stock.stock_actual, 0) <= 0) AS zero_stock_count
+                   (SELECT COUNT(*) FROM catalogos.productos products LEFT JOIN latest_stock stock ON stock.id_producto = products.id_producto WHERE ".TipoExistencia::condicionSql('products')." AND COALESCE(stock.stock_actual, 0) <= 0) AS zero_stock_count
         ", [$branchId, $branchId, $branchId, $branchId, $branchId]);
 
         return [
@@ -249,7 +251,7 @@ class DashboardMetricsService
             SELECT products.id_producto, products.nombre, COALESCE(stock.stock_actual, 0) AS stock 
             FROM catalogos.productos products 
             LEFT JOIN latest_stock stock ON stock.id_producto = products.id_producto 
-            WHERE products.estado = TRUE AND products.es_servicio = FALSE AND COALESCE(stock.stock_actual, 0) <= 0 
+            WHERE ".TipoExistencia::condicionSql('products')." AND COALESCE(stock.stock_actual, 0) <= 0 
             ORDER BY products.nombre LIMIT 5
         ", [$branchId]);
 
@@ -280,7 +282,7 @@ class DashboardMetricsService
 
     private function summaryByRange(int $branchId, CarbonInterface $inicio, CarbonInterface $fin): array
     {
-        $row = DB::selectOne("\n            WITH period_sales AS (\n                SELECT total_venta, id_cliente, estado_sunat FROM operaciones.ventas\n                WHERE id_sucursal = ? AND fecha_emision >= ? AND fecha_emision < ?\n            ), latest_stock AS (\n                SELECT DISTINCT ON (id_producto) id_producto, stock_actual\n                FROM inventario.kardex WHERE id_sucursal = ? ORDER BY id_producto, id_kardex DESC\n            )\n            SELECT COALESCE((SELECT SUM(total_venta) FROM period_sales), 0) AS sales_total,\n                   (SELECT COUNT(*) FROM period_sales) AS sales_count,\n                   COALESCE((SELECT AVG(total_venta) FROM period_sales), 0) AS average_ticket,\n                   (SELECT COUNT(DISTINCT id_cliente) FROM period_sales) AS unique_customers,\n                   (SELECT COUNT(*) FROM period_sales WHERE estado_sunat IN ('PENDIENTE', 'ERROR')) AS pending_sunat_count,\n                   COALESCE((SELECT SUM(total_ingreso) FROM operaciones.ingresos WHERE id_sucursal = ? AND fecha_emision >= ?::date AND fecha_emision < ?::date), 0) AS purchases_total,\n                   (SELECT COUNT(*) FROM operaciones.ingresos WHERE id_sucursal = ? AND fecha_emision >= ?::date AND fecha_emision < ?::date) AS purchases_count,\n                   (SELECT COUNT(*) FROM catalogos.productos products LEFT JOIN latest_stock stock ON stock.id_producto = products.id_producto WHERE products.estado = TRUE AND products.es_servicio = FALSE AND COALESCE(stock.stock_actual, 0) <= 0) AS zero_stock_count\n        ", [$branchId, $inicio, $fin, $branchId, $branchId, $inicio->toDateString(), $fin->toDateString(), $branchId, $inicio->toDateString(), $fin->toDateString()]);
+        $row = DB::selectOne("\n            WITH period_sales AS (\n                SELECT total_venta, id_cliente, estado_sunat FROM operaciones.ventas\n                WHERE id_sucursal = ? AND fecha_emision >= ? AND fecha_emision < ?\n            ), latest_stock AS (\n                SELECT DISTINCT ON (id_producto) id_producto, stock_actual\n                FROM inventario.kardex WHERE id_sucursal = ? ORDER BY id_producto, id_kardex DESC\n            )\n            SELECT COALESCE((SELECT SUM(total_venta) FROM period_sales), 0) AS sales_total,\n                   (SELECT COUNT(*) FROM period_sales) AS sales_count,\n                   COALESCE((SELECT AVG(total_venta) FROM period_sales), 0) AS average_ticket,\n                   (SELECT COUNT(DISTINCT id_cliente) FROM period_sales) AS unique_customers,\n                   (SELECT COUNT(*) FROM period_sales WHERE estado_sunat IN ('PENDIENTE', 'ERROR')) AS pending_sunat_count,\n                   COALESCE((SELECT SUM(total_ingreso) FROM operaciones.ingresos WHERE id_sucursal = ? AND fecha_emision >= ?::date AND fecha_emision < ?::date), 0) AS purchases_total,\n                   (SELECT COUNT(*) FROM operaciones.ingresos WHERE id_sucursal = ? AND fecha_emision >= ?::date AND fecha_emision < ?::date) AS purchases_count,\n                   (SELECT COUNT(*) FROM catalogos.productos products LEFT JOIN latest_stock stock ON stock.id_producto = products.id_producto WHERE ".TipoExistencia::condicionSql('products')." AND COALESCE(stock.stock_actual, 0) <= 0) AS zero_stock_count\n        ", [$branchId, $inicio, $fin, $branchId, $branchId, $inicio->toDateString(), $fin->toDateString(), $branchId, $inicio->toDateString(), $fin->toDateString()]);
 
         return [
             'salesTotal' => (float) ($row->sales_total ?? 0), 'salesCount' => (int) ($row->sales_count ?? 0),

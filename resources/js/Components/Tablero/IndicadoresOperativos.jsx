@@ -32,7 +32,7 @@ export default function IndicadoresOperativos({ resumen, etiquetaPeriodo, insigh
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <Stat
                 destacado
-                label={`Ventas · ${etiquetaPeriodo}`}
+                label={`Ventas (${etiquetaPeriodo.toLowerCase()})`}
                 value={moneda.format(ventas)}
                 extra={<Variacion valor={insights.salesVariation} />}
                 hint={`${plural(comprobantes, 'comprobante')} ${comprobantes === 1 ? 'emitido' : 'emitidos'}`}
@@ -43,7 +43,7 @@ export default function IndicadoresOperativos({ resumen, etiquetaPeriodo, insigh
             <Stat
                 label="Sin existencias"
                 value={sinStock}
-                hint={sinStock > 0 ? 'Artículos por reponer' : 'Stock en niveles óptimos'}
+                hint={sinStock > 0 ? 'Insumos y bebidas por reponer' : 'Insumos y bebidas con stock'}
                 icon={AlertTriangle}
                 tone={sinStock > 0 ? 'danger' : 'default'}
                 iconTone={sinStock > 0 ? 'danger' : 'neutral'}
