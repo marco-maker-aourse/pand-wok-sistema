@@ -12,14 +12,15 @@ const ESTADO_IMPRESION = {
     CONFIRMADO: 'Impresión confirmada',
     FALLIDO: 'Error de impresión',
     REQUIERE_REVISION: 'Impresión por revisar',
-    CANCELADO: 'Impresión cancelada',
+    CANCELADO: 'No se imprimió',
 };
 
 /** `soloAvisos`: muestra solo los problemas de impresión (tablero de cocina). */
 export function EstadoImpresion({ impresion, soloAvisos = false }) {
     if (!impresion) return null;
 
-    const error = ['FALLIDO', 'REQUIERE_REVISION'].includes(impresion.estado);
+    // Una cancelada con motivo (p. ej. venció en la cola) también necesita que alguien la vea.
+    const error = ['FALLIDO', 'REQUIERE_REVISION'].includes(impresion.estado) || (impresion.estado === 'CANCELADO' && Boolean(impresion.error));
     if (soloAvisos) {
         if (!error) return null;
         return (

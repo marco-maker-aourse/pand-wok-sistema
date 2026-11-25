@@ -61,6 +61,14 @@ class CloudPrntTest extends TestCase
         $this->assertDatabaseHas('catalogos.impresoras', ['id_impresora' => 1, 'ultimo_resultado_impresion' => 'correcta']);
     }
 
+    public function test_una_comanda_que_espero_demasiado_no_se_imprime_al_reconectar(): void
+    {
+        TrabajoImpresion::query()->update(['disponible_desde' => now()->subMinutes(30), 'created_at' => now()->subMinutes(30)]);
+
+        $this->withBasicAuth('1', self::CLAVE)->postJson(self::API.'1', ['statusCode' => '200 OK'])->assertJsonPath('jobReady', false);
+        $this->assertSame('CANCELADO', TrabajoImpresion::query()->sole()->estado);
+    }
+
     public function test_exige_https_credencial_propia_y_trabajo_de_su_impresora(): void
     {
         $token = TrabajoImpresion::query()->sole()->getKey();

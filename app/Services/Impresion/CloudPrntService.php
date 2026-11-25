@@ -41,6 +41,8 @@ class CloudPrntService
                 return null;
             }
 
+            TrabajoImpresion::vencerPendientes($cola);
+
             return $this->pendientes($cola)->value('id_trabajo_impresion');
         }, 3);
     }
