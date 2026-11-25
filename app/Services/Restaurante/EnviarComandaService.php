@@ -62,7 +62,7 @@ class EnviarComandaService
             }
 
             $pendientes = $pedido->detalles()
-                ->where('estado', PedidoDetalle::PENDIENTE)
+                ->pendientesDeEnvio()
                 ->with('producto:id_producto,id_categoria,tipo_producto')
                 ->lockForUpdate()
                 ->orderBy('id_detalle_pedido')

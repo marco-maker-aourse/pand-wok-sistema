@@ -9,7 +9,7 @@ import { toast } from '@/Components/ui';
  * Productos/Index; los avisos de éxito ahora son toasts.
  * `setDialogo` recibe { tipo: 'exito' | 'error' | 'alerta', titulo, mensaje }.
  */
-export default function useFormularioProducto({ categorias, marcas, unidades, catalogoPresentaciones, setDialogo }) {
+export default function useFormularioProducto({ categorias, unidades, catalogoPresentaciones, setDialogo }) {
     // Modales y control de asistente
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingProduct, setEditingProduct] = useState(null);
@@ -18,7 +18,7 @@ export default function useFormularioProducto({ categorias, marcas, unidades, ca
     const [pasoActual, setPasoActual] = useState(1);
 
     // Catálogos reactivos
-    const [localCatalogs, setLocalCatalogs] = useState({ categorias, marcas, unidades });
+    const [localCatalogs, setLocalCatalogs] = useState({ categorias, unidades });
     const [catalogoLocalPresentaciones, setCatalogoLocalPresentaciones] = useState(catalogoPresentaciones);
     const [quickCatalog, setQuickCatalog] = useState(null);
     const [quickName, setQuickName] = useState('');
@@ -34,7 +34,6 @@ export default function useFormularioProducto({ categorias, marcas, unidades, ca
     const { data, setData, post, put, processing, errors, reset, clearErrors } = useForm({
         nombre: '',
         id_categoria: '',
-        id_marca: '',
         id_unidad_base: '',
         codigo_barras: '',
         codigo_sunat: '',
@@ -150,7 +149,6 @@ export default function useFormularioProducto({ categorias, marcas, unidades, ca
         setData({
             nombre: (prod.nombre || '').toUpperCase(),
             id_categoria: prod.id_categoria || '',
-            id_marca: prod.id_marca || '',
             id_unidad_base: prod.id_unidad_base || '',
             codigo_barras: prod.codigo_barras || '',
             codigo_sunat: prod.codigo_sunat || '',
@@ -172,16 +170,15 @@ export default function useFormularioProducto({ categorias, marcas, unidades, ca
         reset();
     };
 
-    // Alta Rápida de Categoría / Marca
+    // Alta rápida de categoría o unidad
     const saveQuickCatalog = async (e) => {
         e.preventDefault();
         if (!quickName.trim()) return;
 
         const tipo = quickCatalog;
         const config = {
-            categoria: { url: '/categorias', key: 'categorias', id: 'id_categoria' },
-            marca: { url: '/marcas', key: 'marcas', id: 'id_marca' },
-            unidad: { url: '/unidades', key: 'unidades', id: 'id_unidad' }
+            categoria: { url: '/categorias', key: 'categorias', id: 'id_categoria', campo: 'id_categoria' },
+            unidad: { url: '/unidades', key: 'unidades', id: 'id_unidad', campo: 'id_unidad_base' }
         }[tipo];
 
         setQuickSaving(true);
@@ -198,7 +195,7 @@ export default function useFormularioProducto({ categorias, marcas, unidades, ca
                 [config.key]: [...prev[config.key], nuevo].sort((a, b) => a.nombre.localeCompare(b.nombre))
             }));
 
-            setData(tipo === 'categoria' ? 'id_categoria' : tipo === 'marca' ? 'id_marca' : 'id_unidad_base', nuevo[config.id]);
+            setData(config.campo, nuevo[config.id]);
             setQuickCatalog(null);
             setQuickName('');
             setQuickCode('');

@@ -77,6 +77,8 @@ class RegistrarVentaService
                 'op_gravadas' => $totals['gravadas'], 'op_exoneradas' => $totals['exoneradas'],
                 'igv' => $totals['igv'], 'descuento_global' => $totals['descuento'],
                 'total_venta' => $totals['total'],
+                // La nota de venta es interna: no se envía a SUNAT.
+                ...($receiptType->codigo_sunat === Venta::NOTA_VENTA ? ['estado_sunat' => Venta::SIN_ENVIO_SUNAT] : []),
             ]);
 
             foreach ($lines as $line) {

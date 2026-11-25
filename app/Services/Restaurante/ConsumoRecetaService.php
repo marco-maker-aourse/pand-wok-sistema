@@ -15,7 +15,8 @@ class ConsumoRecetaService
     public function __construct(private readonly GestionarExistenciaService $inventario) {}
 
     /**
-     * Se invoca dentro de la transacción de envío, con el pedido y sus ítems bloqueados.
+     * Se invoca dentro de la transacción de envío o primer cobro sin comanda,
+     * con el pedido y sus ítems bloqueados.
      *
      * Por cada plato preparado se descuenta, en la unidad base de cada insumo:
      * - su receta (la de su presentación: taza = 1 filtro, jarra = 2) × cantidad;

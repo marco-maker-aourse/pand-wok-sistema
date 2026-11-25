@@ -75,7 +75,7 @@ export default function Show({ auth, producto, existencia }) {
 
                     <div className="grid gap-3 p-6 sm:grid-cols-2 lg:grid-cols-3">
                         <DataItem label="Categoría"><span className="inline-flex items-center gap-1.5"><Tags className="h-3.5 w-3.5 text-brand-ink" />{producto.categoria?.nombre || 'General'}</span></DataItem>
-                        <DataItem label="Marca">{producto.marca?.nombre || 'Sin marca'}</DataItem>
+                        {producto.marca?.nombre && <DataItem label="Marca">{producto.marca.nombre}</DataItem>}
                         <DataItem label="Unidad base"><span className="inline-flex items-center gap-1.5"><Box className="h-3.5 w-3.5 text-brand-ink" />{producto.unidad_base?.nombre || '—'}</span></DataItem>
                         <DataItem label="Afectación tributaria">{producto.afecta_igv ? 'Afecto a IGV' : 'Inafecto a IGV'}</DataItem>
                         <DataItem label="Tipo">{esServicio ? 'Servicio' : 'Producto inventariable'}</DataItem>

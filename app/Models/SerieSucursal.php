@@ -10,10 +10,10 @@ class SerieSucursal extends Model
     protected $table = 'operaciones.series_sucursal';
     protected $primaryKey = 'id_sucursal';
     public $incrementing = false;
-    protected $fillable = ['id_sucursal', 'serie_boleta', 'ult_nro_boleta', 'serie_factura', 'ult_nro_factura', 'serie_guia'];
+    protected $fillable = ['id_sucursal', 'serie_boleta', 'ult_nro_boleta', 'serie_factura', 'ult_nro_factura', 'serie_guia', 'serie_nota_venta', 'ult_nro_nota_venta'];
 
     protected function casts(): array
     {
-        return ['ult_nro_boleta' => 'integer', 'ult_nro_factura' => 'integer'];
+        return ['ult_nro_boleta' => 'integer', 'ult_nro_factura' => 'integer', 'ult_nro_nota_venta' => 'integer'];
     }
 }

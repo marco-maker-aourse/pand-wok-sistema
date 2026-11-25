@@ -10,11 +10,8 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * Punto de venta único del restaurante. Todo se vende como una cuenta (pedido):
- * mostrador/para llevar, delivery o mesa. Así cada plato llega a cocina, descuenta su
- * receta y queda en los reportes, y las bebidas se entregan directo.
- *
- * - enviar(): abre la cuenta si es nueva, guarda las líneas y envía lo pendiente a cocina.
- * - cobrar(): lo mismo y además cobra todo lo que falte de la cuenta, en una sola transacción.
+ * mostrador/para llevar, delivery o mesa. El envío a cocina se solicita por separado
+ * o al cobrar. La venta y el inventario se registran en cualquiera de los dos casos.
  *
  * Idempotencia: cada operación trae una clave. La cuenta nueva se abre con "pos:{clave}" y el
  * cobro usa la clave como clave_cobro; repetir la petición devuelve la misma cuenta/venta.
@@ -27,6 +24,15 @@ class VentaPosService
         private readonly CobrarPedidoService $cobros,
     ) {}
 
+    public function guardar(?int $pedidoId, array $datos, int $usuario, int $sucursal): Pedido
+    {
+        if (empty($datos['items'])) {
+            throw new DomainException('Agrega ítems al pedido para guardarlo.');
+        }
+
+        return DB::transaction(fn () => $this->prepararCuenta($pedidoId, $datos, $usuario, $sucursal), 3);
+    }
+
     /** @return array{pedido: Pedido, comandas: int} */
     public function enviar(?int $pedidoId, array $datos, int $usuario, int $sucursal): array
     {
@@ -34,11 +40,11 @@ class VentaPosService
             $pedido = $this->prepararCuenta($pedidoId, $datos, $usuario, $sucursal);
             $comandas = $this->enviarPendientes($pedido, $datos['clave'], $usuario, $sucursal);
 
-            if (! $comandas && empty($datos['items']) && $pedidoId !== null) {
+            if ($comandas === null && empty($datos['items']) && $pedidoId !== null) {
                 throw new DomainException('No hay ítems nuevos para enviar a cocina.');
             }
 
-            return ['pedido' => $pedido->refresh(), 'comandas' => $comandas];
+            return ['pedido' => $pedido->refresh(), 'comandas' => $comandas ?? 0];
         }, 3);
     }
 
@@ -52,7 +58,9 @@ class VentaPosService
             }
 
             $pedido = $this->prepararCuenta($pedidoId, $datos, $usuario, $sucursal);
-            $this->enviarPendientes($pedido, $datos['clave'], $usuario, $sucursal);
+            if ($datos['enviar_a_cocina'] ?? false) {
+                $this->enviarPendientes($pedido, $datos['clave'], $usuario, $sucursal);
+            }
 
             $items = $pedido->detalles()
                 ->where('estado', '!=', PedidoDetalle::ANULADO)
@@ -114,12 +122,11 @@ class VentaPosService
         return $pedido;
     }
 
-    /** Envía a cocina lo pendiente; devuelve cuántas comandas se generaron. */
-    private function enviarPendientes(Pedido $pedido, string $clave, int $usuario, int $sucursal): int
+    /** Devuelve null si no había ítems por enviar y 0 si todos eran de entrega directa. */
+    private function enviarPendientes(Pedido $pedido, string $clave, int $usuario, int $sucursal): ?int
     {
-        $pendientes = $pedido->detalles()->where('estado', PedidoDetalle::PENDIENTE)->exists();
-        if (! $pendientes) {
-            return 0;
+        if (! $pedido->detalles()->pendientesDeEnvio()->exists()) {
+            return null;
         }
 
         return $this->envios->enviar($pedido->id_pedido, "pos:{$clave}:envio", $usuario, $sucursal)['comandas']->count();

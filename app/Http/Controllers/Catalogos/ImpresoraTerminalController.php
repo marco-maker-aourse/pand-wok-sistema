@@ -11,6 +11,7 @@ use App\Services\Impresion\CrearTrabajoImpresionService;
 use App\Services\Impresion\GestionarVinculacionAgenteService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -73,11 +74,20 @@ class ImpresoraTerminalController extends Controller
         return back()->with('success', 'Terminal POS registrada.');
     }
 
-    public function updateTerminal(StoreTerminalPosRequest $request, TerminalPos $terminalPos): RedirectResponse
+    public function updateTerminal(StoreTerminalPosRequest $request, TerminalPos $terminalPos, CrearTrabajoImpresionService $impresion): RedirectResponse
     {
         abort_unless((int) $terminalPos->id_sucursal === $request->user()->idSucursalActiva(), 404);
-        $terminalPos->update($this->terminalData($request, $terminalPos->id_sucursal));
-        return back()->with('success', 'Terminal POS actualizada.');
+        $datos = $this->terminalData($request, $terminalPos->id_sucursal);
+        $canceladas = DB::transaction(function () use ($terminalPos, $datos, $impresion): int {
+            $terminal = TerminalPos::query()->lockForUpdate()->findOrFail($terminalPos->getKey());
+            $terminal->update($datos);
+
+            return $terminal->impresion_automatica ? 0 : $impresion->cancelarAutomaticasPendientes($terminal);
+        }, 3);
+
+        return back()->with('success', $canceladas > 0
+            ? 'Terminal actualizada. Se cancelaron los comprobantes automáticos que seguían en cola.'
+            : 'Terminal POS actualizada.');
     }
 
     /** El código se muestra una sola vez y caduca; no se guarda ni se reenvía al frontend. */

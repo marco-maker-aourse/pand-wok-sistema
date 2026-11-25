@@ -4,6 +4,7 @@ namespace App\Models\Restaurante;
 
 use App\Models\Producto;
 use App\Models\ProductoPresentacion;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -66,7 +67,13 @@ class PedidoDetalle extends Model
         return $this->tipo_producto ?? $this->producto?->tipo_producto;
     }
 
-    /** Pendiente = aún no salió a cocina; se puede editar o quitar sin permiso especial. */
+    /** Una línea con cobros previos se sigue atendiendo por el flujo elegido al cobrarla. */
+    public function scopePendientesDeEnvio(Builder $query): Builder
+    {
+        return $query->where('estado', self::PENDIENTE)->where('cantidad_cobrada', 0);
+    }
+
+    /** Pendiente = aún no salió a cocina; se puede editar o quitar si no tiene cobros. */
     public function estaPendiente(): bool
     {
         return $this->estado === self::PENDIENTE;

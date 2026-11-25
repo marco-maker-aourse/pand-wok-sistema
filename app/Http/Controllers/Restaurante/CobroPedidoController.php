@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Restaurante\CobrarPedidoRequest;
 use App\Jobs\EmitirComprobanteSunatJob;
 use App\Models\Cliente;
-use App\Models\Producto;
 use App\Models\Restaurante\Pedido;
 use App\Models\Restaurante\PedidoDetalle;
 use App\Models\Venta;
@@ -37,11 +36,7 @@ class CobroPedidoController extends Controller
                 'mesa' => $cuenta->mesa?->codigo,
             ],
             'items' => $cuenta->detalles()->where('estado', '!=', PedidoDetalle::ANULADO)
-                ->with('producto:id_producto,tipo_producto')->orderBy('id_detalle_pedido')->get()
-                ->map(fn (PedidoDetalle $item): array => [
-                    ...$item->only(['id_detalle_pedido', 'nombre_producto', 'cantidad', 'cantidad_cobrada', 'precio_unitario']),
-                    'por_enviar' => $item->estaPendiente() && $item->tipoRestaurante() === Producto::PREPARADO,
-                ]),
+                ->orderBy('id_detalle_pedido')->get(['id_detalle_pedido', 'nombre_producto', 'cantidad', 'cantidad_cobrada', 'precio_unitario']),
             'cobros' => fn () => Venta::query()->where('id_pedido', $pedido)->where('id_sucursal', $sucursal)
                 ->latest('id_venta')->get(['id_venta', 'serie', 'correlativo', 'total_venta', 'estado_sunat']),
             'clienteInicial' => $cliente,
@@ -59,7 +54,12 @@ class CobroPedidoController extends Controller
             $pedido, $usuario->idSucursalActiva(), $usuario->id_usuario, $request->validated(), $usuario->hasPermission('pos.descuentos'),
         ), 'cobro');
 
-        if ($nueva || $venta->estado_sunat === 'PENDIENTE') {
+        // La nota de venta no se envía a SUNAT: se imprime de inmediato si la caja imprime sola.
+        if ($venta->estado_sunat === Venta::SIN_ENVIO_SUNAT) {
+            if ($nueva) {
+                app(\App\Services\Impresion\CrearTrabajoImpresionService::class)->comprobanteFiscalAceptado($venta);
+            }
+        } elseif ($nueva || $venta->estado_sunat === 'PENDIENTE') {
             EmitirComprobanteSunatJob::dispatchAfterResponse($venta->id_venta);
         }
 

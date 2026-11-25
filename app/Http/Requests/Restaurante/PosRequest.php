@@ -7,7 +7,7 @@ use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 /**
- * Operación del punto de venta: enviar a cocina o cobrar. La cuenta es nueva (sin
+ * Operación del punto de venta: guardar, enviar a cocina o cobrar. La cuenta es nueva (sin
  * id_pedido) o una abierta. Los precios nunca vienen del navegador.
  */
 class PosRequest extends FormRequest
@@ -45,7 +45,8 @@ class PosRequest extends FormRequest
             'items.*.selecciones.*.id_opcion' => ['required', 'integer', 'min:1'],
             'items.*.selecciones.*.cantidad' => ['required', 'numeric', 'gt:0', 'max:999'],
 
-            'tipo_comprobante' => [$cobrar ? 'required' : 'prohibited', Rule::in(['BOLETA', 'FACTURA'])],
+            'enviar_a_cocina' => [$cobrar ? 'sometimes' : 'prohibited', 'boolean'],
+            'tipo_comprobante' => [$cobrar ? 'required' : 'prohibited', Rule::in(['BOLETA', 'FACTURA', 'NOTA_VENTA'])],
             'id_cliente' => ['nullable', 'integer', 'min:1'],
             'descuento_global' => ['nullable', 'numeric', 'min:0', 'decimal:0,2', 'max:999999999.99'],
             'pagos' => [$cobrar ? 'required' : 'prohibited', 'array', 'min:1', 'max:20'],
@@ -66,6 +67,10 @@ class PosRequest extends FormRequest
     public function datos(): array
     {
         $datos = $this->validated();
+        if ($this->routeIs('restaurante.pos.cobrar')) {
+            $datos['enviar_a_cocina'] = $this->boolean('enviar_a_cocina');
+        }
+
         $datos['items'] = array_map(fn (array $item): array => [
             'clave' => $item['clave'],
             'id_precio' => (int) $item['id_precio'],

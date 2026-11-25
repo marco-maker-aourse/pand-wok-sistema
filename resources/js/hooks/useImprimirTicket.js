@@ -17,7 +17,7 @@ export default function useImprimirTicket() {
         setImprimiendo(true);
         try {
             const { data } = await axios.post(`/ventas/${idVenta}/imprimir-ticket`, { solicitud: nuevaSolicitud() });
-            toast.success('Ticket enviado', data?.message || 'Ticket enviado a la impresora de la caja.');
+            toast.success('Ticket en cola', data?.message || 'La solicitud de impresión quedó registrada.');
             return true;
         } catch (error) {
             toast.error('No se pudo imprimir', error.response?.data?.message || 'Revisa la conexión e inténtalo de nuevo.');

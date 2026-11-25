@@ -22,6 +22,7 @@ class ReservarCorrelativoService
         [$seriesField, $numberField] = match ($codigoSunat) {
             '03' => ['serie_boleta', 'ult_nro_boleta'],
             '01' => ['serie_factura', 'ult_nro_factura'],
+            'NV' => ['serie_nota_venta', 'ult_nro_nota_venta'],
             default => throw new DomainException('Tipo de comprobante no soportado.'),
         };
 
@@ -29,6 +30,10 @@ class ReservarCorrelativoService
             ?? SerieSucursal::query()->whereKey($branchId)->lockForUpdate()->first();
         if (! $config) {
             throw new DomainException('Configura las series de boleta y factura de esta sucursal en Datos generales.');
+        }
+        // La nota de venta es interna: si la sucursal no definió serie, toma NV + su número (NV02).
+        if ($codigoSunat === 'NV' && blank($config->{$seriesField})) {
+            $config->{$seriesField} = 'NV'.str_pad((string) min(99, $branchId), 2, '0', STR_PAD_LEFT);
         }
         if (blank($config->{$seriesField})) {
             throw new DomainException('La serie del comprobante no está configurada para esta sucursal (Datos generales).');
@@ -40,7 +45,7 @@ class ReservarCorrelativoService
         }
 
         $next = (int) $config->{$numberField} + 1;
-        $config->update([$numberField => $next]);
+        $config->update([$numberField => $next, $seriesField => $config->{$seriesField}]);
 
         return ['serie' => $config->{$seriesField}, 'correlativo' => $next, 'igv' => (string) $igv];
     }

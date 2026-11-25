@@ -22,12 +22,18 @@ class ContratoVentaReactTest extends TestCase
         $datos = app(PresentarVentaService::class)->paraHistorial($this->venta());
 
         $this->assertSame([
-            'id_venta', 'serie', 'correlativo', 'fecha_emision', 'estado_sunat', 'hash_cpe', 'archivos',
+            'id_venta', 'serie', 'correlativo', 'fecha_emision', 'estado_sunat',
+            'mensaje_sunat', 'codigo_respuesta_sunat', 'intentos_sunat', 'ultimo_intento_sunat',
+            'hash_cpe', 'archivos',
             'op_gravadas', 'op_exoneradas', 'igv', 'descuento_global', 'total_venta',
             'tipo_comprobante', 'codigo_comprobante', 'nombre_razon_social', 'num_documento',
             'direccion_cliente', 'codigo_tipo_documento_cliente', 'detalles', 'pagos',
         ], array_keys($datos));
         $this->assertSame('FACTURA', $datos['tipo_comprobante']);
+        $this->assertSame('Comprobante aceptado', $datos['mensaje_sunat']);
+        $this->assertSame('0', $datos['codigo_respuesta_sunat']);
+        $this->assertSame(2, $datos['intentos_sunat']);
+        $this->assertNull($datos['ultimo_intento_sunat']);
         $this->assertSame(['xml' => true, 'cdr' => false, 'pdf' => false], $datos['archivos']);
         $this->assertSame(['producto', 'codigo', 'afecta_igv', 'presentacion', 'cantidad', 'precio_unitario', 'subtotal'], array_keys($datos['detalles'][0]));
         $this->assertSame(['metodo', 'tipo', 'monto', 'monto_recibido', 'vuelto'], array_keys($datos['pagos'][0]));
@@ -64,6 +70,7 @@ class ContratoVentaReactTest extends TestCase
     {
         $venta = (new Venta)->forceFill([
             'id_venta' => 7, 'serie' => 'F001', 'correlativo' => 15, 'estado_sunat' => 'ACEPTADO',
+            'mensaje_sunat' => 'Comprobante aceptado', 'codigo_respuesta_sunat' => '0', 'intentos_sunat' => 2,
             'op_gravadas' => 20, 'op_exoneradas' => 0, 'igv' => 3.6, 'descuento_global' => 0,
             'total_venta' => 23.6, 'enlace_xml' => 'sunat/xml/F001-15.xml',
         ]);

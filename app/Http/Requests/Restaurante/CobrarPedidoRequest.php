@@ -11,7 +11,7 @@ class CobrarPedidoRequest extends FormRequest
     {
         return [
             'clave_cobro' => ['required', 'alpha_num:ascii', 'min:16', 'max:80'],
-            'tipo_comprobante' => ['required', Rule::in(['BOLETA', 'FACTURA'])],
+            'tipo_comprobante' => ['required', Rule::in(['BOLETA', 'FACTURA', 'NOTA_VENTA'])],
             'id_cliente' => ['nullable', 'integer', 'min:1'],
             'descuento_global' => ['nullable', 'numeric', 'min:0', 'decimal:0,2', 'max:999999999.99'],
             'items' => ['required', 'array', 'min:1', 'max:300'],

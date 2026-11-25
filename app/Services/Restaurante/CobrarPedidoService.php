@@ -21,6 +21,7 @@ class CobrarPedidoService
         private readonly CerrarCuentaSaldada $cierre,
         private readonly RegistrarEventoPedido $eventos,
         private readonly CatalogoPosService $catalogo,
+        private readonly ConsumoRecetaService $consumo,
     ) {}
 
     /** @return array{venta: Venta, nueva: bool} */
@@ -63,10 +64,6 @@ class CobrarPedidoService
                 if (! $item || isset($cantidades[$id])) {
                     throw new DomainException('Uno de los ítems no está disponible en esta cuenta.');
                 }
-                if ($item->estaPendiente() && $item->tipoRestaurante() === Producto::PREPARADO) {
-                    throw new DomainException("Envía {$item->nombre_producto} a cocina antes de cobrarlo.");
-                }
-
                 $cobrada = round((float) $item->cantidad_cobrada, 3);
                 $cantidad = round((float) $solicitud['cantidad'], 3);
                 $nuevo = round($cobrada + $cantidad, 3);
@@ -87,16 +84,25 @@ class CobrarPedidoService
             }
 
             $factura = $datos['tipo_comprobante'] === 'FACTURA';
+            $nota = $datos['tipo_comprobante'] === 'NOTA_VENTA';
             $cliente = $this->cliente($datos['id_cliente'] ?? null, $pedido, $factura);
             // SUNAT: una boleta por más de S/ 700 debe identificar al cliente (DNI u otro documento).
+            // La nota de venta no es comprobante electrónico: no aplica.
             $totalCobro = round(collect($lineas)->sum('subtotal') - $descuento, 2);
-            if (! $factura && $totalCobro > self::LIMITE_BOLETA_SIN_IDENTIFICAR && ! self::clienteIdentificado($cliente)) {
-                throw new DomainException('Para boletas mayores a S/ 700, identifica al cliente con su DNI.');
+            if (! $factura && ! $nota && $totalCobro > self::LIMITE_BOLETA_SIN_IDENTIFICAR && ! self::clienteIdentificado($cliente)) {
+                throw new DomainException('Para boletas mayores a S/ 700, identifica al cliente con su DNI (o emite una nota de venta).');
             }
-            $tipo = TipoComprobante::query()->where('codigo_sunat', $factura ? '01' : '03')->where('estado', true)->value('id_tipo_comprobante');
+            $codigo = $factura ? '01' : ($nota ? Venta::NOTA_VENTA : '03');
+            $tipo = TipoComprobante::query()->where('codigo_sunat', $codigo)->where('estado', true)->value('id_tipo_comprobante');
             if (! $tipo) {
                 throw new DomainException('El tipo de comprobante todavía no está habilitado.');
             }
+
+            // Un plato atendido fuera de cocina registra su receta en el primer cobro
+            // de la línea. Los platos enviados ya registraron su consumo en la comanda.
+            $sinEnvio = $items->only(array_keys($cantidades))
+                ->filter(fn (PedidoDetalle $item) => $item->estaPendiente() && ! $item->tieneCobro());
+            $this->consumo->descontar($sinEnvio, $sucursal, $usuario);
 
             $venta = $this->ventas->registrarPedido([
                 'id_sucursal' => $sucursal, 'id_usuario' => $usuario, 'id_turno' => $turno,

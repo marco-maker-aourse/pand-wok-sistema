@@ -10,7 +10,7 @@ import PresentacionesModal from './PresentacionesModal';
 
 const TONO_DIALOGO = { exito: 'success', error: 'danger', alerta: 'warning' };
 
-export default function Index({ productos = [], categorias = [], marcas = [], unidades = [], catalogoPresentaciones = [] }) {
+export default function Index({ productos = [], categorias = [], unidades = [], catalogoPresentaciones = [] }) {
     const listaProductos = useMemo(() => {
         if (Array.isArray(productos)) return productos;
         return productos?.data ?? [];
@@ -20,9 +20,8 @@ export default function Index({ productos = [], categorias = [], marcas = [], un
     const [productoEmpaques, setProductoEmpaques] = useState(null);
     const [busqueda, setBusqueda] = useRemember('', 'productos:busqueda');
     const [filtroCategoria, setFiltroCategoria] = useRemember('', 'productos:categoria');
-    const [filtroMarca, setFiltroMarca] = useRemember('', 'productos:marca');
 
-    const f = useFormularioProducto({ categorias, marcas, unidades, catalogoPresentaciones, setDialogo });
+    const f = useFormularioProducto({ categorias, unidades, catalogoPresentaciones, setDialogo });
     const { localCatalogs, modalEliminar, setModalEliminar, ejecutarEliminacion } = f;
 
     const productosFiltrados = useMemo(() => {
@@ -30,16 +29,14 @@ export default function Index({ productos = [], categorias = [], marcas = [], un
         return listaProductos.filter((p) => {
             const coincideTexto = !q || (p.nombre || '').toUpperCase().includes(q) || (p.codigo_barras || '').includes(q);
             const coincideCategoria = !filtroCategoria || String(p.id_categoria) === String(filtroCategoria);
-            const coincideMarca = !filtroMarca || String(p.id_marca) === String(filtroMarca);
-            return coincideTexto && coincideCategoria && coincideMarca;
+            return coincideTexto && coincideCategoria;
         });
-    }, [listaProductos, busqueda, filtroCategoria, filtroMarca]);
+    }, [listaProductos, busqueda, filtroCategoria]);
 
-    const hayFiltros = Boolean(busqueda || filtroCategoria || filtroMarca);
+    const hayFiltros = Boolean(busqueda || filtroCategoria);
     const limpiarFiltros = () => {
         setBusqueda('');
         setFiltroCategoria('');
-        setFiltroMarca('');
     };
 
     return (
@@ -50,7 +47,7 @@ export default function Index({ productos = [], categorias = [], marcas = [], un
                 <PageHeader
                     breadcrumbs={[{ label: 'Gestión' }, { label: 'Productos' }]}
                     title="Productos"
-                    description="Catálogo de productos, unidades base, precios y empaques mayoristas."
+                    description="Productos e insumos, unidades de medida, precios y presentaciones."
                     actions={<Button icon={Plus} onClick={f.openCreate}>Nuevo producto</Button>}
                 />
 
@@ -60,10 +57,6 @@ export default function Index({ productos = [], categorias = [], marcas = [], un
                         <Select aria-label="Filtrar por categoría" value={filtroCategoria} onChange={(e) => setFiltroCategoria(e.target.value)} className="w-auto max-w-[14rem]">
                             <option value="">Todas las categorías</option>
                             {localCatalogs.categorias.map((c) => <option key={c.id_categoria} value={c.id_categoria}>{c.nombre}</option>)}
-                        </Select>
-                        <Select aria-label="Filtrar por marca" value={filtroMarca} onChange={(e) => setFiltroMarca(e.target.value)} className="w-auto max-w-[14rem]">
-                            <option value="">Todas las marcas</option>
-                            {localCatalogs.marcas.map((m) => <option key={m.id_marca} value={m.id_marca}>{m.nombre}</option>)}
                         </Select>
                         {hayFiltros && <Button variant="ghost" size="sm" icon={RotateCcw} onClick={limpiarFiltros}>Limpiar filtros</Button>}
                     </div>

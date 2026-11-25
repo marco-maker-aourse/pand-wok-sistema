@@ -37,7 +37,7 @@ class SunatEmisionService
         }
 
         try {
-            return $this->emitirBajoBloqueo($idVenta);
+            return $this->registrarIntento($idVenta, $this->emitirBajoBloqueo($idVenta));
         } catch (Throwable $exception) {
             Log::error('Falló la emisión del comprobante SUNAT.', [
                 'id_venta' => $idVenta,
@@ -56,12 +56,48 @@ class SunatEmisionService
                 && (str_ends_with((string) $exception->faultcode, '.2335')
                     || str_contains($exception->getMessage(), 'Incorrect reference digest value'))
                     ? 'SUNAT rechazó la firma digital del XML (error 2335). La venta está registrada y puede reintentarse después de corregir la firma.'
-                    : 'No se pudo completar la emisión. Revisa el registro del servidor para conocer el motivo.';
+                    : self::motivoLegible($exception);
 
-            return $this->result(false, 'PENDIENTE', $message);
+            return $this->registrarIntento($idVenta, $this->result(false, 'PENDIENTE', $message), $exception instanceof \SoapFault ? (string) $exception->faultcode : null);
         } finally {
             $lock->release();
         }
+    }
+
+    /**
+     * Guarda en la venta el motivo exacto del intento (mensaje y código del CDR o del fallo):
+     * así la pantalla de comprobantes explica por qué un comprobante no está aceptado.
+     */
+    private function registrarIntento(int $idVenta, array $resultado, ?string $codigo = null): array
+    {
+        // Sin envío real (ya aceptado/rechazado, nota de venta, venta inexistente): se conserva el motivo previo.
+        if (! empty($resultado['sin_intento']) || in_array($resultado['estado'] ?? null, ['ERROR', Venta::SIN_ENVIO_SUNAT], true)) {
+            unset($resultado['sin_intento']);
+
+            return $resultado;
+        }
+        DB::table('operaciones.ventas')->where('id_venta', $idVenta)->update([
+            'mensaje_sunat' => mb_substr((string) ($resultado['mensaje'] ?? ''), 0, 2000) ?: null,
+            'codigo_respuesta_sunat' => $codigo !== null ? mb_substr($codigo, 0, 10) : ($resultado['codigo'] ?? null),
+            'intentos_sunat' => DB::raw('intentos_sunat + 1'),
+            'ultimo_intento_sunat' => now(),
+        ]);
+
+        return $resultado;
+    }
+
+    /** Mensaje para la pantalla sin datos sensibles (nunca claves ni rutas del servidor). */
+    private static function motivoLegible(Throwable $exception): string
+    {
+        $mensaje = trim($exception->getMessage());
+        if ($exception instanceof \SoapFault) {
+            return 'SUNAT respondió: '.mb_substr($mensaje, 0, 300);
+        }
+        if ($exception instanceof \RuntimeException && $mensaje !== '' && ! preg_match('#[A-Za-z]:\\\\|/(var|home|storage)/#', $mensaje)) {
+            return $mensaje;
+        }
+
+        return 'No se pudo completar la emisión ('.class_basename($exception).'). Revisa el diagnóstico SUNAT en Comprobantes.';
     }
 
     private function emitirBajoBloqueo(int $idVenta): array
@@ -72,14 +108,18 @@ class SunatEmisionService
             return $this->result(false, 'ERROR', 'La venta indicada no existe.');
         }
 
+        if ((string) $venta->cod_comprobante === Venta::NOTA_VENTA) {
+            return $this->result(true, Venta::SIN_ENVIO_SUNAT, 'Nota de venta: documento interno, no se envía a SUNAT.');
+        }
+
         if ($venta->estado_sunat === 'ACEPTADO') {
             $impresion = $this->encolarRepresentacionFiscal($idVenta);
 
-            return $this->conImpresion($this->result(true, 'ACEPTADO', 'El comprobante ya fue aceptado por SUNAT.', $venta->hash_cpe), $impresion);
+            return $this->conImpresion([...$this->result(true, 'ACEPTADO', 'El comprobante ya fue aceptado por SUNAT.', $venta->hash_cpe), 'sin_intento' => true], $impresion);
         }
 
         if ($venta->estado_sunat === 'RECHAZADO') {
-            return $this->result(false, 'RECHAZADO', 'El comprobante fue rechazado. No se reenviará con el mismo número.');
+            return [...$this->result(false, 'RECHAZADO', 'El comprobante fue rechazado. No se reenviará con el mismo número.'), 'sin_intento' => true];
         }
 
         // Datos fiscales: los propios de la sucursal o, si los comparte, los de la empresa;
@@ -160,12 +200,12 @@ class SunatEmisionService
             $impresion = $this->encolarRepresentacionFiscal($idVenta);
         }
 
-        return $this->conImpresion($this->result(
+        return $this->conImpresion([...$this->result(
             $accepted,
             $accepted ? 'ACEPTADO' : 'RECHAZADO',
-            $cdr['descripcion'],
+            $cdr['descripcion'].($cdr['observaciones'] !== [] ? ' Observaciones: '.implode(' | ', array_slice($cdr['observaciones'], 0, 5)) : ''),
             $hash,
-        ), $impresion ?? null);
+        ), 'codigo' => mb_substr((string) $cdr['codigo'], 0, 10)], $impresion ?? null);
     }
 
     private function obtenerVenta(int $idVenta): ?object

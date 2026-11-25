@@ -23,6 +23,8 @@ class DatosGen extends Model
         'ult_nro_boleta',
         'serie_factura',
         'ult_nro_factura',
+        'serie_nota_venta',
+        'ult_nro_nota_venta',
         'serie_guia',
         'ult_nro_guia',
         'pie_ticket',

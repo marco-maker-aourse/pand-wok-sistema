@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Catalogos\StoreProductoRequest;
 use App\Http\Requests\Catalogos\UpdateProductoRequest;
 use App\Models\Categoria;
-use App\Models\Marca;
 use App\Models\Presentacion;
 use App\Models\Producto;
 use App\Models\ProductoPresentacion;
@@ -29,7 +28,6 @@ class ProductoController extends Controller
             ->where('estado', true)
             ->with([
                 'categoria:id_categoria,nombre',
-                'marca:id_marca,nombre',
                 'unidadBase:id_unidad,nombre,codigo_sunat',
                 'presentaciones.presentacion:id_presentacion,nombre',
             ])
@@ -44,7 +42,6 @@ class ProductoController extends Controller
         return Inertia::render('Productos/Index', [
             'productos'              => $productos,
             'categorias'             => Categoria::where('estado', true)->orderBy('nombre')->get(['id_categoria', 'nombre']),
-            'marcas'                 => Marca::where('estado', true)->orderBy('nombre')->get(['id_marca', 'nombre']),
             'unidades'               => UnidadMedida::orderBy('nombre')->get(['id_unidad', 'nombre', 'codigo_sunat']),
             'catalogoPresentaciones' => Presentacion::where('estado', true)->orderBy('nombre')->get(['id_presentacion', 'nombre']),
         ]);
