@@ -51,7 +51,7 @@ class CloudPrntTest extends TestCase
         $this->delete(self::API."1?code=200&token={$token}")->assertConflict();
         $descarga = self::API."1?type=text%2Fplain&token={$token}";
         $this->get($descarga)->assertOk()->assertHeader('Content-Type', 'text/plain; charset=utf-8')
-            ->assertSeeText('Lomo saltado')->assertSeeText('Sin cebolla')->assertDontSeeText('S/');
+            ->assertSeeText('COMANDA')->assertSeeText('x LOMO SALTADO')->assertSee('>> SIN CEBOLLA', false)->assertSeeText('1 plato')->assertDontSeeText('S/');
         $this->get($descarga)->assertConflict();
         $this->postJson(self::API.'1', ['statusCode' => '200 OK'])->assertJsonPath('jobReady', false);
         $this->delete(self::API."1?code=200%20OK&token={$token}")->assertOk();
