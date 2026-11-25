@@ -77,6 +77,34 @@ class CocinaTest extends TestCase
         $this->assertSame('Gaseosa', $this->cocina->tablero(1, $bar->id_estacion)[0]['items'][0]['nombre']);
     }
 
+    public function test_el_envio_informa_las_comandas_que_no_se_pudieron_imprimir(): void
+    {
+        // Sin estaciones: la comanda va a "Cocina general", que no tiene impresora.
+        $pedido = $this->abrir();
+        $this->pedidos->agregarItems($pedido->id_pedido, [$this->lomo('lomo')], 10, 1);
+        $this->assertSame(['Cocina general'], $this->envio->enviar($pedido->id_pedido, 'sin-estacion', 10, 1)['sin_imprimir']);
+
+        // Estación predeterminada sin impresora.
+        $this->estaciones->guardar(['nombre' => 'Caliente', 'por_defecto' => true], 1);
+        $this->pedidos->agregarItems($pedido->id_pedido, [$this->lomo('lomo2')], 10, 1);
+        $this->assertSame(['Caliente'], $this->envio->enviar($pedido->id_pedido, 'sin-impresora', 10, 1)['sin_imprimir']);
+        $this->assertDatabaseCount('operaciones.trabajos_impresion', 0);
+    }
+
+    public function test_con_impresora_la_comanda_se_encola_sola_al_enviar(): void
+    {
+        $this->prepararImpresora();
+        $pedido = $this->abrir();
+        $this->pedidos->agregarItems($pedido->id_pedido, [$this->lomo('lomo')], 10, 1);
+        $resultado = $this->envio->enviar($pedido->id_pedido, 'envio', 10, 1);
+
+        $this->assertSame([], $resultado['sin_imprimir']);
+        $this->assertSame('PENDIENTE', TrabajoImpresion::query()->sole()->estado);
+        // Repetir el envío no cambia el resultado ni duplica la impresión.
+        $this->assertSame([], $this->envio->enviar($pedido->id_pedido, 'envio', 10, 1)['sin_imprimir']);
+        $this->assertDatabaseCount('operaciones.trabajos_impresion', 1);
+    }
+
     public function test_repetir_un_envio_directo_no_arrastra_los_items_nuevos(): void
     {
         $pedido = $this->abrir();

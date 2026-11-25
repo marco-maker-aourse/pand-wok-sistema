@@ -40,6 +40,8 @@ export default function Pos({ carta, sugerencias = null, salon, cuenta, inicio, 
     useAvisoBorrador(borrador.length > 0, 'Hay platos sin guardar en este pedido. Si sales ahora se perderán.');
 
     useEffect(() => { if (flash.success) toast.success(flash.success); }, [flash.success]);
+    // La comanda salió a la pantalla de cocina, pero su estación no tiene impresora lista.
+    useEffect(() => { if (flash.warning) toast.warning('No se imprimió la comanda', flash.warning); }, [flash.warning]);
     useEffect(() => { if (ultimaVenta) setVenta(ultimaVenta); }, [ultimaVenta]);
     // Al cambiar de cuenta, el ticket nuevo se descarta y se toma el tipo de la cuenta.
     useEffect(() => {

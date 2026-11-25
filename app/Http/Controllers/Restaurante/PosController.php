@@ -10,6 +10,7 @@ use App\Models\Restaurante\Mesa;
 use App\Models\Venta;
 use App\Services\Impresion\CrearTrabajoImpresionService;
 use App\Models\Restaurante\Pedido;
+use App\Services\Restaurante\EnviarComandaService;
 use App\Services\Restaurante\PresentarRestauranteService;
 use App\Services\Restaurante\SugerenciasPosService;
 use App\Services\Restaurante\VentaPosService;
@@ -127,12 +128,16 @@ class PosController extends Controller
     public function enviar(PosRequest $request): RedirectResponse
     {
         $usuario = $request->user();
-        ['pedido' => $pedido, 'comandas' => $comandas] = $this->enDominio(fn () => $this->pos->enviar(
+        ['pedido' => $pedido, 'comandas' => $comandas, 'sin_imprimir' => $sinImprimir] = $this->enDominio(fn () => $this->pos->enviar(
             $request->filled('id_pedido') ? $request->integer('id_pedido') : null,
             $request->datos(),
             $usuario->id_usuario,
             $usuario->idSucursalActiva(),
         ), 'pos');
+
+        if ($aviso = EnviarComandaService::avisoSinImprimir($sinImprimir)) {
+            $request->session()->flash('warning', $aviso);
+        }
 
         return to_route('restaurante.pos', ['cuenta' => $pedido->id_pedido])
             ->with('success', $comandas ? "Enviado a cocina ({$comandas} comanda".($comandas === 1 ? '' : 's').').' : 'Cuenta guardada.');
@@ -144,13 +149,17 @@ class PosController extends Controller
         $datos = $request->datos();
         abort_if($datos['enviar_a_cocina'] && ! $usuario->hasPermission('comandas.enviar'), 403);
 
-        ['pedido' => $pedido, 'venta' => $venta, 'nueva' => $nueva] = $this->enDominio(fn () => $this->pos->cobrar(
+        ['pedido' => $pedido, 'venta' => $venta, 'nueva' => $nueva] = $resultado = $this->enDominio(fn () => $this->pos->cobrar(
             $request->filled('id_pedido') ? $request->integer('id_pedido') : null,
             $datos,
             $usuario->id_usuario,
             $usuario->idSucursalActiva(),
             $usuario->hasPermission('pos.descuentos'),
         ), 'pos');
+
+        if ($aviso = EnviarComandaService::avisoSinImprimir($resultado['sin_imprimir'] ?? [])) {
+            $request->session()->flash('warning', $aviso);
+        }
 
         // La nota de venta no se envía a SUNAT: se imprime de inmediato si la caja imprime sola.
         $nota = $venta->estado_sunat === Venta::SIN_ENVIO_SUNAT;

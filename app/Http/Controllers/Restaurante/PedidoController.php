@@ -91,7 +91,7 @@ class PedidoController extends Controller
             $pedido, $request->validated('clave_envio'), $usuario->id_usuario, $sucursal,
         ));
 
-        return back()->with('success', $this->mensajeEnvio($resultado));
+        return $this->conAvisoDeImpresion(back(), $resultado);
     }
 
     public function guardarYEnviar(AgregarItemsPedidoRequest $request, int $pedido): RedirectResponse
@@ -106,7 +106,17 @@ class PedidoController extends Controller
             return $this->envios->enviar($pedido, $request->validated('clave_envio'), $usuario->id_usuario, $sucursal);
         }, 3), 'items');
 
-        return back()->with('success', $this->mensajeEnvio($resultado));
+        return $this->conAvisoDeImpresion(back(), $resultado);
+    }
+
+    private function conAvisoDeImpresion(RedirectResponse $respuesta, array $resultado): RedirectResponse
+    {
+        $respuesta->with('success', $this->mensajeEnvio($resultado));
+        if ($aviso = EnviarComandaService::avisoSinImprimir($resultado['sin_imprimir'] ?? [])) {
+            $respuesta->with('warning', $aviso);
+        }
+
+        return $respuesta;
     }
 
     private function mensajeEnvio(array $resultado): string

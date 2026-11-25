@@ -33,22 +33,26 @@ class VentaPosService
         return DB::transaction(fn () => $this->prepararCuenta($pedidoId, $datos, $usuario, $sucursal), 3);
     }
 
-    /** @return array{pedido: Pedido, comandas: int} */
+    /** @return array{pedido: Pedido, comandas: int, sin_imprimir: list<string>} */
     public function enviar(?int $pedidoId, array $datos, int $usuario, int $sucursal): array
     {
         return DB::transaction(function () use ($pedidoId, $datos, $usuario, $sucursal): array {
             $pedido = $this->prepararCuenta($pedidoId, $datos, $usuario, $sucursal);
-            $comandas = $this->enviarPendientes($pedido, $datos['clave'], $usuario, $sucursal);
+            $envio = $this->enviarPendientes($pedido, $datos['clave'], $usuario, $sucursal);
 
-            if ($comandas === null && empty($datos['items']) && $pedidoId !== null) {
+            if ($envio === null && empty($datos['items']) && $pedidoId !== null) {
                 throw new DomainException('No hay ítems nuevos para enviar a cocina.');
             }
 
-            return ['pedido' => $pedido->refresh(), 'comandas' => $comandas ?? 0];
+            return [
+                'pedido' => $pedido->refresh(),
+                'comandas' => $envio ? $envio['comandas']->count() : 0,
+                'sin_imprimir' => $envio['sin_imprimir'] ?? [],
+            ];
         }, 3);
     }
 
-    /** @return array{pedido: Pedido, venta: Venta, nueva: bool} */
+    /** @return array{pedido: Pedido, venta: Venta, nueva: bool, sin_imprimir?: list<string>} */
     public function cobrar(?int $pedidoId, array $datos, int $usuario, int $sucursal, bool $permiteDescuento): array
     {
         return DB::transaction(function () use ($pedidoId, $datos, $usuario, $sucursal, $permiteDescuento): array {
@@ -58,9 +62,9 @@ class VentaPosService
             }
 
             $pedido = $this->prepararCuenta($pedidoId, $datos, $usuario, $sucursal);
-            if ($datos['enviar_a_cocina'] ?? false) {
-                $this->enviarPendientes($pedido, $datos['clave'], $usuario, $sucursal);
-            }
+            $sinImprimir = ($datos['enviar_a_cocina'] ?? false)
+                ? ($this->enviarPendientes($pedido, $datos['clave'], $usuario, $sucursal)['sin_imprimir'] ?? [])
+                : [];
 
             $items = $pedido->detalles()
                 ->where('estado', '!=', PedidoDetalle::ANULADO)
@@ -88,7 +92,7 @@ class VentaPosService
                 'pagos' => $datos['pagos'],
             ], $permiteDescuento);
 
-            return ['pedido' => $pedido->refresh(), 'venta' => $venta, 'nueva' => $nueva];
+            return ['pedido' => $pedido->refresh(), 'venta' => $venta, 'nueva' => $nueva, 'sin_imprimir' => $sinImprimir];
         }, 3);
     }
 
@@ -122,14 +126,14 @@ class VentaPosService
         return $pedido;
     }
 
-    /** Devuelve null si no había ítems por enviar y 0 si todos eran de entrega directa. */
-    private function enviarPendientes(Pedido $pedido, string $clave, int $usuario, int $sucursal): ?int
+    /** Devuelve null si no había ítems por enviar; si no, el resultado del envío a cocina. */
+    private function enviarPendientes(Pedido $pedido, string $clave, int $usuario, int $sucursal): ?array
     {
         if (! $pedido->detalles()->pendientesDeEnvio()->exists()) {
             return null;
         }
 
-        return $this->envios->enviar($pedido->id_pedido, "pos:{$clave}:envio", $usuario, $sucursal)['comandas']->count();
+        return $this->envios->enviar($pedido->id_pedido, "pos:{$clave}:envio", $usuario, $sucursal);
     }
 
     private function ventaPrevia(?int $pedidoId, string $clave, int $sucursal): ?Venta

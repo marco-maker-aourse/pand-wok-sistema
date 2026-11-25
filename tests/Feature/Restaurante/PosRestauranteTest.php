@@ -186,6 +186,15 @@ class PosRestauranteTest extends TestCase
         $this->assertSame('ENTREGADO', $cuenta->detalles()->sole()->estado);
     }
 
+    public function test_el_pos_avisa_si_la_comanda_no_se_imprimio(): void
+    {
+        $this->actingAs(User::query()->findOrFail(10))->post('/pos/enviar', [
+            'clave' => 'aviso0000000000001', 'tipo' => 'PARA_LLEVAR', 'items' => [$this->lomo('lomoavisoaaaaaaaaa')],
+        ])->assertSessionHasNoErrors()
+            ->assertSessionHas('success', 'Enviado a cocina (1 comanda).')
+            ->assertSessionHas('warning', fn (string $aviso) => str_contains($aviso, 'Cocina general') && str_contains($aviso, 'Estaciones de cocina'));
+    }
+
     public function test_comprobantes_se_filtran_por_tipo_en_todo_el_historial(): void
     {
         Bus::fake();

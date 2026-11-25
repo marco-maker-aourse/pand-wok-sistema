@@ -2,6 +2,7 @@
 
 namespace App\Services\Impresion;
 
+use App\Support\Restaurante\TicketComandaTexto;
 use App\Models\Impresora;
 use App\Models\TrabajoImpresion;
 use Illuminate\Database\Eloquent\Builder;
@@ -52,7 +53,7 @@ class CloudPrntService
             $trabajo = (clone $cola)->findOrFail($id);
             abort_unless((int) $this->pendientes($cola)->value('id_trabajo_impresion') === $id, 409);
             abort_if($this->cola($impresora)->where('estado', 'ENTREGADO_AGENTE')->exists(), 409);
-            $ticket = $this->ticket($trabajo->contenido['comanda']);
+            $ticket = TicketComandaTexto::render($trabajo->contenido['comanda'], data_get($trabajo->contenido, 'impresora.ancho_papel_mm'));
 
             $trabajo->update([
                 'estado' => 'ENTREGADO_AGENTE',
@@ -118,47 +119,5 @@ class CloudPrntService
     private function codigoCorrecto(int $codigo): bool
     {
         return $codigo >= 200 && $codigo < 300;
-    }
-
-    /** Texto ASCII sin controles de impresora. La impresora aplica el corte del trabajo. */
-    private function ticket(array $comanda): string
-    {
-        $cuenta = match ($comanda['tipo_pedido']) {
-            'MESA' => 'Mesa '.$comanda['mesa'],
-            'PARA_LLEVAR' => 'Para llevar',
-            'DELIVERY' => 'Delivery',
-            default => $comanda['tipo_pedido'],
-        };
-
-        $lineas = [
-            "{$comanda['tipo']} #{$comanda['numero']}",
-            $comanda['estacion'],
-            "{$cuenta} / Pedido #{$comanda['pedido']}",
-            "{$comanda['fecha']} {$comanda['hora']}",
-        ];
-        foreach (['mozo' => 'Mozo', 'nota' => 'Nota'] as $campo => $etiqueta) {
-            if (! empty($comanda[$campo])) {
-                $lineas[] = "{$etiqueta}: {$comanda[$campo]}";
-            }
-        }
-        $lineas[] = str_repeat('-', 28);
-        foreach ($comanda['items'] as $item) {
-            $lineas[] = "{$item['cantidad']} x {$item['nombre']}";
-            if (! empty($item['cuenta'])) {
-                $cuentaItem = $item['cuenta'];
-                $destino = $cuentaItem['mesa'] ? "Mesa {$cuentaItem['mesa']} / " : '';
-                $lineas[] = "  {$destino}Pedido #{$cuentaItem['numero']}";
-            }
-            foreach ($item['opciones'] as $opcion) {
-                $lineas[] = "  + {$opcion}";
-            }
-            if ($item['observacion']) {
-                $lineas[] = "  Nota: {$item['observacion']}";
-            }
-        }
-
-        $lineas = array_map(fn (string $linea): string => preg_replace('/[^\x20-\x7E]/', ' ', Str::ascii($linea)), $lineas);
-
-        return implode("\n", $lineas)."\n\n";
     }
 }

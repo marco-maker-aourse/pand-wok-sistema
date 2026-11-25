@@ -34,6 +34,9 @@ export default function Pedido({ pedido, carta, destinos, puede }) {
     useEffect(() => {
         if (flash.success) toast.success(flash.success);
     }, [flash.success]);
+    useEffect(() => {
+        if (flash.warning) toast.warning('No se imprimió la comanda', flash.warning);
+    }, [flash.warning]);
 
     useAvisoBorrador(borrador.length > 0, 'Hay platos sin guardar en la cuenta. Si sales ahora se perderán.');
 
