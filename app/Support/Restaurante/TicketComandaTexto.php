@@ -5,16 +5,26 @@ namespace App\Support\Restaurante;
 use Illuminate\Support\Str;
 
 /**
- * Comanda en texto plano ASCII (Star CloudPRNT text/plain): sin controles de impresora,
- * así que la jerarquía se marca con mayúsculas, separadores y posición.
+ * Comanda en texto plano ASCII para Star CloudPRNT (text/plain). Sigue el diseño de la
+ * comanda del agente de impresión, adaptado a una impresora sin negrita ni negativo:
  *
- * - Lo que identifica el pedido (mesa o cliente) va primero, luego la nota general del
- *   pedido: el cocinero la lee antes de empezar, no al final.
- * - Platos en mayúsculas, opciones con "+", indicaciones del plato con ">>".
- * - Una anulación repite "ANULADO" en cada plato: nadie debe prepararlo por error.
- * - Al pie, el total de platos para comprobar que el ticket salió completo.
+ *   MESA M2                    14:32     <- a quién va, con la hora
+ *   #41 - Caliente - Ana - 3 pers.
+ *   --------------------------------
+ *   [NOTA] Cliente con prisa             <- antes de los platos
+ *   --------------------------------
+ *   2   CHAUFA DE POLLO                  <- cantidad en su columna
+ *       [MENU]                           <- etiqueta que distingue platos parecidos
+ *       + Sopa wantan
+ *       ! SIN CEBOLLA CHINA              <- indicación del plato
  *
- * Recibe el bloque `comanda` del contenido del trabajo (ImprimirComandaService::contenido).
+ *   1   TALLARIN SALTADO DE CARNE CON    <- sangría francesa
+ *       VERDURAS
+ *   --------------------------------
+ *   MESA M2                   3 platos   <- el ticket colgado se identifica desde abajo
+ *
+ * Una anulación abre con "NO PREPARAR" y lleva [ANULADO] en cada plato; una reimpresión
+ * lleva [COPIA] con la hora original. Recibe el bloque `comanda` del trabajo de impresión.
  */
 final class TicketComandaTexto
 {
@@ -23,111 +33,118 @@ final class TicketComandaTexto
     public static function render(array $comanda, ?int $anchoPapelMm = 58): string
     {
         $ancho = self::COLUMNAS[$anchoPapelMm] ?? self::COLUMNAS[58];
-        $anulacion = ($comanda['tipo'] ?? 'COMANDA') === 'ANULACION';
+        $anulada = ($comanda['tipo'] ?? 'COMANDA') === 'ANULACION';
+        $destino = self::destino($comanda);
         $lineas = [];
-        $agregar = function (string $texto, string $sangria = '') use (&$lineas, $ancho): void {
-            foreach (self::envolver(self::ascii($texto), $ancho - strlen($sangria)) as $i => $parte) {
-                $lineas[] = ($i === 0 ? $sangria : str_repeat(' ', strlen($sangria))).$parte;
+        $separador = function () use (&$lineas, $ancho): void {
+            $lineas[] = str_repeat('-', $ancho);
+        };
+        // Renglones con sangría francesa: el primero tras `prefijo`, los siguientes alineados con él.
+        $parrafo = function (string $prefijo, string $texto) use (&$lineas, $ancho): void {
+            foreach (self::envolver(self::ascii($texto), $ancho - strlen($prefijo)) as $i => $parte) {
+                $lineas[] = rtrim(($i === 0 ? $prefijo : str_repeat(' ', strlen($prefijo))).$parte);
             }
         };
-        $separador = function (string $caracter = '-') use (&$lineas, $ancho): void {
-            $lineas[] = str_repeat($caracter, $ancho);
-        };
 
-        // Encabezado: tipo de ticket y destino del pedido.
-        if ($anulacion) {
-            $separador('*');
-            $lineas[] = rtrim(self::centrar('ANULACION - NO PREPARAR', $ancho));
-            $separador('*');
-        } else {
-            $separador('=');
+        if ($anulada) {
+            $lineas[] = str_repeat('*', $ancho);
+            $lineas[] = rtrim(str_pad('NO PREPARAR - PLATOS ANULADOS', $ancho, ' ', STR_PAD_BOTH));
+            $lineas[] = str_repeat('*', $ancho);
         }
-        $titulo = (($comanda['tipo'] ?? '') === 'REIMPRESION' ? 'COPIA ' : '')."COMANDA {$comanda['numero']}";
-        $lineas[] = self::aLosLados(self::ascii($titulo), self::ascii((string) ($comanda['hora'] ?? '')), $ancho);
-        $agregar(Str::upper(self::destino($comanda)));
-        $agregar(implode(' | ', array_filter([$comanda['estacion'] ?? null, isset($comanda['pedido']) ? "Pedido {$comanda['pedido']}" : null])));
-        $personas = ! empty($comanda['comensales']) ? $comanda['comensales'].' '.($comanda['comensales'] == 1 ? 'persona' : 'personas') : null;
-        $atiende = implode(' | ', array_filter([! empty($comanda['mozo']) ? "Mozo: {$comanda['mozo']}" : null, $personas]));
-        if ($atiende !== '') {
-            $agregar($atiende);
-        }
+
+        $lineas[] = self::aLosLados($destino, self::ascii((string) ($comanda['hora'] ?? '')), $ancho);
         if (($comanda['tipo'] ?? '') === 'REIMPRESION') {
-            $agregar("Enviada {$comanda['fecha']} {$comanda['hora']}");
+            $lineas[] = '[COPIA] Original '.substr((string) ($comanda['fecha'] ?? ''), 0, 5).' '.($comanda['hora'] ?? '');
         }
-        $anulacion ? $separador('*') : $separador('=');
+        $parrafo('', implode(' - ', array_filter([
+            "#{$comanda['numero']}",
+            $comanda['estacion'] ?? null,
+            $comanda['mozo'] ?? null,
+            ! empty($comanda['comensales']) ? "{$comanda['comensales']} pers." : null,
+        ])));
+        $separador();
 
         if (! empty($comanda['nota'])) {
-            $agregar('NOTA: '.Str::upper($comanda['nota']));
+            $parrafo('[NOTA] ', (string) $comanda['nota']);
             $separador();
         }
 
-        // Platos.
+        $items = $comanda['items'] ?? [];
+        $columna = max(4, ...array_map(fn (array $item): int => strlen((string) $item['cantidad']) + 2, $items ?: [['cantidad' => '']]));
+        $sangria = str_repeat(' ', $columna);
         $total = 0.0;
-        foreach ($comanda['items'] ?? [] as $indice => $item) {
+        foreach ($items as $indice => $item) {
             if ($indice > 0) {
                 $lineas[] = '';
             }
             $total += (float) $item['cantidad'];
-            $agregar(($anulacion ? 'ANULADO ' : '')."{$item['cantidad']} x ".Str::upper($item['nombre']));
+            // "Chaufa de pollo [Menú]": la etiqueta que distingue platos parecidos va aparte.
+            $nombre = trim((string) $item['nombre']);
+            $etiqueta = preg_match('/^(.*?)\s*\[([^\]]+)\]$/u', $nombre, $partes) ? $partes[2] : null;
+            $nombre = $etiqueta !== null ? $partes[1] : $nombre;
+
+            $parrafo(str_pad((string) $item['cantidad'], $columna), Str::upper($nombre));
+            $marcas = array_filter([$anulada ? '[ANULADO]' : null, $etiqueta !== null ? '['.Str::upper(self::ascii($etiqueta)).']' : null]);
+            if ($marcas !== []) {
+                $lineas[] = $sangria.implode(' ', $marcas);
+            }
             foreach ($item['opciones'] ?? [] as $opcion) {
-                $agregar("+ {$opcion}", '    ');
+                $parrafo("{$sangria}+ ", (string) $opcion);
             }
             if (! empty($item['observacion'])) {
-                $agregar('>> '.Str::upper($item['observacion']), '    ');
+                $parrafo("{$sangria}! ", Str::upper((string) $item['observacion']));
             }
             if (! empty($item['cuenta'])) {
                 $cuenta = $item['cuenta'];
-                $agregar("Para pedido {$cuenta['numero']}".(! empty($cuenta['mesa']) ? " (mesa {$cuenta['mesa']})" : ''), '    ');
+                $parrafo($sangria, "Para pedido {$cuenta['numero']}".(! empty($cuenta['mesa']) ? " (mesa {$cuenta['mesa']})" : ''));
             }
         }
 
         $separador();
-        $cantidad = self::numero($total);
-        $agregar($cantidad.' '.($total == 1 ? 'plato' : 'platos').($anulacion ? ($total == 1 ? ' anulado' : ' anulados') : ''));
+        $cantidad = rtrim(rtrim(number_format($total, 3, '.', ''), '0'), '.');
+        $pie = $cantidad.' '.($total == 1 ? 'plato' : 'platos').($anulada ? ($total == 1 ? ' anulado' : ' anulados') : '');
+        $lineas[] = self::aLosLados(strlen($destino) + strlen($pie) < $ancho ? $destino : '', $pie, $ancho);
 
         return implode("\n", $lineas)."\n\n\n";
     }
 
     private static function destino(array $comanda): string
     {
-        return match ($comanda['tipo_pedido'] ?? null) {
-            'MESA' => trim('Mesa '.($comanda['mesa'] ?? '').(! empty($comanda['area']) ? " - {$comanda['area']}" : '')),
+        $destino = match ($comanda['tipo_pedido'] ?? null) {
+            'MESA' => 'Mesa '.($comanda['mesa'] ?? ''),
             'PARA_LLEVAR' => 'Para llevar'.(! empty($comanda['cliente']) ? " - {$comanda['cliente']}" : ''),
             'DELIVERY' => 'Delivery'.(! empty($comanda['cliente']) ? " - {$comanda['cliente']}" : ''),
             default => (string) ($comanda['tipo_pedido'] ?? ''),
         };
+
+        return Str::upper(self::ascii(trim($destino)));
     }
 
     /** Solo ASCII imprimible: la impresora no garantiza tildes ni ñ en text/plain. */
     private static function ascii(string $texto): string
     {
+        // "1 × Sopa" -> "1 x Sopa": Str::ascii() eliminaría el signo y el reparto se leería mal.
+        $texto = str_replace(['×', '·'], ['x', '-'], $texto);
+
         return trim((string) preg_replace('/\s+/', ' ', (string) preg_replace('/[^\x20-\x7E]/', ' ', Str::ascii($texto))));
     }
 
     /** Corta en palabras sin pasar el ancho; una palabra más larga se parte. */
     private static function envolver(string $texto, int $ancho): array
     {
-        if ($texto === '') {
-            return [''];
-        }
-
-        return explode("\n", wordwrap($texto, max(8, $ancho), "\n", true));
+        return $texto === '' ? [''] : explode("\n", wordwrap($texto, max(8, $ancho), "\n", true));
     }
 
+    /** Texto a la izquierda y a la derecha del mismo renglón; si no caben, en dos renglones. */
     private static function aLosLados(string $izquierda, string $derecha, int $ancho): string
     {
+        if ($izquierda === '') {
+            return str_pad($derecha, $ancho, ' ', STR_PAD_LEFT);
+        }
         $espacio = $ancho - strlen($izquierda) - strlen($derecha);
 
-        return $espacio >= 1 ? $izquierda.str_repeat(' ', $espacio).$derecha : substr("{$izquierda} {$derecha}", 0, $ancho);
-    }
-
-    private static function centrar(string $texto, int $ancho): string
-    {
-        return str_pad($texto, $ancho, ' ', STR_PAD_BOTH);
-    }
-
-    private static function numero(float $valor): string
-    {
-        return rtrim(rtrim(number_format($valor, 3, '.', ''), '0'), '.');
+        return $espacio >= 1
+            ? $izquierda.str_repeat(' ', $espacio).$derecha
+            : substr($izquierda, 0, $ancho)."\n".str_pad($derecha, $ancho, ' ', STR_PAD_LEFT);
     }
 }
