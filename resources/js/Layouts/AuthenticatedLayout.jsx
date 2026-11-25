@@ -73,6 +73,11 @@ export default function AuthenticatedLayout({ header, children, fullWidth = fals
     const accesos = useMemo(() => accesosBarraInferior(modulos), [modulos]);
     const conBarraInferior = !sinBarraInferior && accesos.length >= 2;
 
+    useEffect(() => {
+        document.documentElement.classList.toggle('con-barra-inferior', conBarraInferior);
+        return () => document.documentElement.classList.remove('con-barra-inferior');
+    }, [conBarraInferior]);
+
     const nombreUsuario = user.nombres || user.name || 'Usuario';
     const usuario = { nombre: nombreUsuario, email: user.email || '', rol: rolNombre, iniciales: iniciales(nombreUsuario) };
 

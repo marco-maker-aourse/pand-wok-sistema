@@ -20,6 +20,12 @@ export default function useFormularioProducto({ categorias, unidades, catalogoPr
     // Catálogos reactivos
     const [localCatalogs, setLocalCatalogs] = useState({ categorias, unidades });
     const [catalogoLocalPresentaciones, setCatalogoLocalPresentaciones] = useState(catalogoPresentaciones);
+    // Un empaque creado (o reactivado) en cualquier diálogo queda disponible en toda la pantalla.
+    const registrarPresentacion = (item) => {
+        if (!item?.id_presentacion) return;
+        setCatalogoLocalPresentaciones((actual) => [...actual.filter((p) => p.id_presentacion !== item.id_presentacion), item]
+            .sort((a, b) => a.nombre.localeCompare(b.nombre)));
+    };
     const [quickCatalog, setQuickCatalog] = useState(null);
     const [quickName, setQuickName] = useState('');
     const [quickCode, setQuickCode] = useState('');
@@ -288,7 +294,7 @@ export default function useFormularioProducto({ categorias, unidades, catalogoPr
     return {
         data, setData, errors, processing,
         isModalOpen, editingProduct, pasoActual, setPasoActual, guardandoProducto,
-        localCatalogs, catalogoLocalPresentaciones,
+        localCatalogs, catalogoLocalPresentaciones, registrarPresentacion,
         quickCatalog, setQuickCatalog, quickName, setQuickName, quickCode, setQuickCode, quickSaving, saveQuickCatalog,
         unidadNombre, costoNum, ventaUnitariaNum, gananciaUnitaria, margenPorcentajeUnitario,
         asignarUnidadRapida, agregarPresentacionFila, actualizarPresentacionFila, eliminarPresentacionFila,

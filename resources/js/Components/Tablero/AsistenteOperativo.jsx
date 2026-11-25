@@ -200,7 +200,7 @@ export default function AsistenteOperativo() {
             aria-label="Abrir asistente"
             title="Abrir asistente"
             className="volumen-marca fixed z-[70] grid h-16 w-16 place-items-center rounded-full border border-white/80 text-on-brand shadow-[0_18px_35px_rgba(15,23,42,0.24)] focus:outline-none focus-visible:ring-4 focus-visible:ring-brand/25 hover:brightness-105"
-            style={{ right: 'max(1.25rem, calc(env(safe-area-inset-right) + 1rem))', bottom: 'max(1.25rem, calc(env(safe-area-inset-bottom) + 1rem))' }}
+            style={{ right: 'max(1.25rem, calc(env(safe-area-inset-right) + 1rem))', bottom: 'calc(var(--alto-barra-inferior, env(safe-area-inset-bottom)) + 1rem)' }}
         >
             <span aria-hidden="true" className="absolute inset-0 rounded-full bg-white/10" />
             <Bot aria-hidden="true" className="relative h-8 w-8" strokeWidth={1.8} />

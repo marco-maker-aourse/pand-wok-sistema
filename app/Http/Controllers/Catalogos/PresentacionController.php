@@ -29,8 +29,23 @@ class PresentacionController extends Controller
 
     public function store(StorePresentacionRequest $request): RedirectResponse|JsonResponse
     {
+        $nombre = $request->validated('nombre');
+
+        // Alta rápida: el empaque pudo crearse en un intento anterior o estar desactivado;
+        // se devuelve (y reactiva) el existente en lugar de fallar por nombre repetido.
+        if ($request->esAltaRapida()) {
+            $existente = Presentacion::query()->whereRaw('UPPER(nombre) = ?', [$nombre])->first();
+            if ($existente) {
+                if (! $existente->estado) {
+                    $existente->update(['estado' => true]);
+                }
+
+                return response()->json(['data' => $existente->refresh()]);
+            }
+        }
+
         $presentacion = Presentacion::create([
-            'nombre' => trim($request->validated('nombre')),
+            'nombre' => $nombre,
             'estado' => $request->boolean('estado', true),
         ]);
 

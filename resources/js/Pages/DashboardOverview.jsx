@@ -1,21 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
-import {
-    AlertCircle,
-    Building2,
-    Calendar,
-    CheckCircle2,
-    Clock,
-    Coins,
-    Loader2,
-    PackagePlus,
-    Plus,
-    ShoppingCart,
-    Wallet,
-} from 'lucide-react';
+import { Building2, Calendar, ChartColumn, Clock, MonitorSmartphone, PackagePlus, Plus, Wallet } from 'lucide-react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Badge, Button, Card, CardHeader, PageHeader } from '@/Components/ui';
-import Modal from '@/Components/Modal';
+import { Badge, Button, Card, CardHeader, Field, Input, PageHeader } from '@/Components/ui';
 import DialogoAperturaCaja from '@/Components/Caja/DialogoAperturaCaja';
 import { AlertasInventario, UltimasVentas } from '@/Components/Tablero/ActividadComercial';
 import CobrosPorMetodo from '@/Components/Tablero/CobrosPorMetodo';
@@ -45,10 +32,6 @@ export default function DashboardOverview({
     terminales = [],
 }) {
     const [mostrarApertura, setMostrarApertura] = useState(false);
-    const [mostrarCierre, setMostrarCierre] = useState(false);
-    const [montoCierre, setMontoCierre] = useState('');
-    const [errorCierre, setErrorCierre] = useState(null);
-    const [procesandoCierre, setProcesandoCierre] = useState(false);
     const [mostrarFechas, setMostrarFechas] = useState(periodoActual === 'personalizado');
     const [desde, setDesde] = useState(filtrosFecha.desde ?? '');
     const [hasta, setHasta] = useState(filtrosFecha.hasta ?? '');
@@ -75,19 +58,6 @@ export default function DashboardOverview({
         router.get('/', { periodo: 'personalizado', desde, hasta }, { preserveState: true, preserveScroll: true, replace: true });
     };
 
-    const cerrarTurno = () => {
-        const idTurno = turno?.id_turno ?? turno?.id;
-        if (!idTurno || !montoCierre || procesandoCierre) return;
-        setProcesandoCierre(true);
-        setErrorCierre(null);
-        router.post(`/caja/${idTurno}/cerrar`, { monto_cierre_declarado: Number(montoCierre) }, {
-            preserveScroll: true,
-            onSuccess: () => { setMostrarCierre(false); setMontoCierre(''); },
-            onError: (errores) => setErrorCierre(Object.values(errores)[0] || 'No se pudo cerrar el turno.'),
-            onFinish: () => setProcesandoCierre(false),
-        });
-    };
-
     return (
         <AuthenticatedLayout header="Tablero principal">
             <Head title="Tablero principal" />
@@ -99,24 +69,24 @@ export default function DashboardOverview({
                         <span className="inline-flex items-center gap-1.5">
                             <Building2 className="h-3.5 w-3.5" aria-hidden="true" />
                             {sucursalActual}
-                            <span className="text-slate-300" aria-hidden="true">·</span>
-                            <Calendar className="h-3.5 w-3.5" aria-hidden="true" />
+                            <Calendar className="ml-2 h-3.5 w-3.5" aria-hidden="true" />
                             {etiquetaPeriodo}
                         </span>
                     }
                     actions={
                         <>
                             <SelectorPeriodo periodoActual={periodoActual} onCambiar={cambiarPeriodo} onFechas={() => setMostrarFechas((actual) => !actual)} />
-                            <Button href="/ventas/create" icon={ShoppingCart}>Punto de venta</Button>
-                            {puedeVerReportesRestaurante && <Button href="/reportes/restaurante" variant="secondary">Reportes del restaurante</Button>}
-                            <Button href="/ingresos" variant="secondary" icon={PackagePlus}>Entrada de stock</Button>
+                            <Button href="/pos" icon={MonitorSmartphone}>Punto de venta</Button>
+                            {puedeVerReportesRestaurante && <Button href="/reportes/restaurante" variant="secondary" icon={ChartColumn}>Reportes</Button>}
+                            <Button href="/ingresos/create" variant="secondary" icon={PackagePlus}>Registrar entrada</Button>
                         </>
                     }
                 />
                 {mostrarFechas && <FiltroFechas desde={desde} hasta={hasta} setDesde={setDesde} setHasta={setHasta} onAplicar={aplicarFechas} onPeriodo={cambiarPeriodo} />}
             </section>
 
-            <div className="space-y-5">
+            {/* El espacio inferior evita que el botón del asistente tape la última fila. */}
+            <div className="space-y-5 pb-20">
                 <IndicadoresOperativos resumen={resumen} etiquetaPeriodo={etiquetaPeriodo} insights={metrics.insights} />
                 <div className="grid grid-cols-1 gap-5 xl:grid-cols-3">
                     <GraficoVentas className="xl:col-span-2" datos={datosGrafico} esDiario={Boolean(metrics.esDiario)} etiquetaPeriodo={etiquetaPeriodo} />
@@ -125,12 +95,11 @@ export default function DashboardOverview({
                 <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 xl:grid-cols-3">
                     <UltimasVentas ventas={metrics.recentSales ?? []} pendientesSunat={Number(metrics.insights?.pendingSunatCount) || 0} />
                     <AlertasInventario alertas={metrics.stockAlerts ?? []} />
-                    <PanelCaja turno={turno} usuario={auth.user} onAbrir={() => setMostrarApertura(true)} onCerrar={() => { setErrorCierre(null); setMontoCierre(''); setMostrarCierre(true); }} />
+                    <PanelCaja turno={turno} usuario={auth.user} onAbrir={() => setMostrarApertura(true)} />
                 </div>
             </div>
             <AsistenteOperativo />
             <DialogoAperturaCaja isOpen={mostrarApertura} onClose={() => setMostrarApertura(false)} redirectTo="/" terminales={terminales} />
-            <ModalCaja abierta={Boolean(turno && mostrarCierre)} titulo="Cierre y arqueo de turno" descripcion="Ingresa el efectivo físico contado en la gaveta del terminal." etiqueta="Efectivo contado en gaveta (S/)" monto={montoCierre} setMonto={setMontoCierre} error={errorCierre} procesando={procesandoCierre} onCerrar={() => setMostrarCierre(false)} onConfirmar={cerrarTurno} textoConfirmar="Cerrar turno" icono={<Wallet className="w-6 h-6" />} />
         </AuthenticatedLayout>
     );
 }
@@ -141,26 +110,26 @@ function SelectorPeriodo({ periodoActual, onCambiar, onFechas }) {
 }
 
 function FiltroFechas({ desde, hasta, setDesde, setHasta, onAplicar, onPeriodo }) {
-    return <form onSubmit={onAplicar} className="rounded-2xl bg-white p-4 shadow-[var(--shadow-tarjeta)] ring-1 ring-slate-900/[0.05]">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-                <p className="text-xs font-semibold text-slate-900">Consulta por fechas</p>
-                <p className="mt-0.5 text-xs font-medium text-slate-400">Elige un inicio y un fin; el gráfico se mostrará por día.</p>
+    return (
+        <Card as="form" onSubmit={onAplicar} className="p-4">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
+                <div className="grid flex-1 grid-cols-2 gap-3 sm:max-w-md">
+                    <Field label="Desde"><Input type="date" required value={desde} max={hasta || undefined} onChange={(e) => setDesde(e.target.value)} /></Field>
+                    <Field label="Hasta"><Input type="date" required value={hasta} min={desde || undefined} onChange={(e) => setHasta(e.target.value)} /></Field>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                    <Button type="submit" icon={Calendar} disabled={!desde || !hasta}>Aplicar fechas</Button>
+                    {[['hoy', 'Hoy'], ['semana', '7 días'], ['mes', '30 días']].map(([periodo, etiqueta]) => (
+                        <Button key={periodo} variant="ghost" size="sm" onClick={() => onPeriodo(periodo)}>{etiqueta}</Button>
+                    ))}
+                </div>
             </div>
-            <div className="flex flex-wrap gap-2">
-                {[['hoy', 'Hoy'], ['semana', 'Últimos 7 días'], ['mes', 'Últimos 30 días']].map(([periodo, etiqueta]) => <button key={periodo} type="button" onClick={() => onPeriodo(periodo)} className="h-8 rounded-lg border border-slate-200 px-2.5 text-xs font-semibold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50">{etiqueta}</button>)}
-            </div>
-        </div>
-        <div className="mt-3 flex flex-wrap items-end gap-3 border-t border-slate-100 pt-3">
-            <label className="text-xs font-semibold text-slate-500">Desde<input type="date" value={desde} onChange={(event) => setDesde(event.target.value)} className="mt-1 block h-10 rounded-xl border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 focus:border-slate-400" required /></label>
-            <label className="text-xs font-semibold text-slate-500">Hasta<input type="date" value={hasta} onChange={(event) => setHasta(event.target.value)} className="mt-1 block h-10 rounded-xl border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 focus:border-slate-400" required /></label>
-            <button type="submit" className="volumen-marca text-on-brand inline-flex h-10 items-center gap-1.5 rounded-xl px-4 text-xs font-semibold transition hover:brightness-105"><Calendar className="h-3.5 w-3.5" />Aplicar fechas</button>
-            <p className="pb-2 text-xs text-slate-400">Máximo 366 días por consulta.</p>
-        </div>
-    </form>;
+            <p className="mt-2 text-xs text-slate-500">Hasta 366 días por consulta; el gráfico se muestra por día.</p>
+        </Card>
+    );
 }
 
-function PanelCaja({ turno, usuario, onAbrir, onCerrar }) {
+function PanelCaja({ turno, usuario, onAbrir }) {
     const montoInicial = Number(turno?.openingAmount ?? turno?.monto_apertura) || 0;
     const fechaApertura = turno?.openedAt ?? turno?.fecha_apertura;
 
@@ -181,13 +150,10 @@ function PanelCaja({ turno, usuario, onAbrir, onCerrar }) {
                     <p className="text-sm text-slate-500">Abre un turno para autorizar cobros y emitir comprobantes desde el punto de venta.</p>
                 )}
                 <div className="mt-auto pt-5">
-                    {turno ? <Button variant="secondary" block onClick={onCerrar}>Ver o cerrar turno</Button> : <Button block icon={Plus} onClick={onAbrir}>Abrir turno de caja</Button>}
+                    {/* El cierre pide PIN y arqueo: se hace en Caja, con el efectivo esperado a la vista. */}
+                    {turno ? <Button variant="secondary" block icon={Wallet} href="/caja">Ir a caja para arqueo y cierre</Button> : <Button block icon={Plus} onClick={onAbrir}>Abrir turno de caja</Button>}
                 </div>
             </div>
         </Card>
     );
-}
-
-function ModalCaja({ abierta, titulo, descripcion, etiqueta, monto, setMonto, error, procesando, onCerrar, onConfirmar, textoConfirmar, icono }) {
-    return <Modal show={abierta} onClose={onCerrar} maxWidth="sm"><div className="p-6"><div className="w-12 h-12 rounded-lg bg-emerald-50 text-emerald-800 flex items-center justify-center mb-4">{icono}</div><h3 className="text-base font-semibold text-slate-900 tracking-tight mb-1">{titulo}</h3><p className="text-xs text-slate-500 font-medium mb-5">{descripcion}</p><div className="mb-4"><label className="block text-xs font-semibold text-slate-600 mb-1.5">{etiqueta} *</label><input type="number" step="0.01" min="0" required value={monto} onChange={(event) => setMonto(event.target.value)} className="w-full h-11 px-3.5 font-mono font-bold text-sm text-slate-900 bg-white border border-slate-200 rounded-xl transition" autoFocus />{error && <p className="text-rose-600 text-xs font-bold mt-1 flex items-center gap-1"><AlertCircle className="w-3.5 h-3.5" />{error}</p>}</div><div className="flex gap-2"><button type="button" onClick={onCerrar} className="flex-1 h-10 rounded-xl border border-slate-200 text-slate-600 font-semibold text-xs hover:bg-slate-50 transition">Cancelar</button><button type="button" disabled={procesando || !monto} onClick={onConfirmar} className="volumen-marca text-on-brand flex-1 h-10 rounded-xl font-semibold text-xs transition disabled:opacity-50 flex items-center justify-center gap-2 hover:brightness-105">{procesando ? <Loader2 className="w-4 h-4 animate-spin" /> : textoConfirmar}</button></div></div></Modal>;
 }

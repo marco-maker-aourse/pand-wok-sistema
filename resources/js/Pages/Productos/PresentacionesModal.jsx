@@ -38,7 +38,8 @@ export default function PresentacionesModal({
     show,
     onClose,
     catalogoPresentaciones = [],
-    unidades = []
+    unidades = [],
+    onPresentacionCreada = () => {},
 }) {
     const { data, setData, reset } = useForm({
         id_presentacion: '',
@@ -78,16 +79,29 @@ export default function PresentacionesModal({
         ? (precioUnidadIndividual - precioUnitarioEquivalente)
         : null;
 
-    // Inicializar al abrir
+    // Inicializar al abrir. El catálogo se sincroniza aparte: si se reiniciara aquí, un
+    // empaque recién creado desaparecería de la lista y se perdería la selección.
     useEffect(() => {
         if (!show || !producto) return;
         setListaAsignadas(producto.presentaciones || []);
-        setCatalogoLocal(catalogoPresentaciones);
         reset();
         setData('factor_conversion', 1);
         setNuevoEmpaque('');
         setPresentacionEnEdicion(null);
-    }, [show, producto?.id_producto, catalogoPresentaciones]);
+    }, [show, producto?.id_producto]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    useEffect(() => {
+        setCatalogoLocal((actual) => {
+            const porId = new Map([...catalogoPresentaciones, ...actual].map((p) => [p.id_presentacion, p]));
+            return [...porId.values()].sort((a, b) => a.nombre.localeCompare(b.nombre));
+        });
+    }, [catalogoPresentaciones]);
+
+    /** Agrega (o actualiza) un empaque en la lista del diálogo y en la de la página. */
+    const incorporarEmpaque = (item) => {
+        setCatalogoLocal((prev) => [...prev.filter((p) => p.id_presentacion !== item.id_presentacion), item].sort((a, b) => a.nombre.localeCompare(b.nombre)));
+        onPresentacionCreada(item);
+    };
 
     if (!producto) return null;
 
@@ -155,7 +169,7 @@ export default function PresentacionesModal({
         try {
             const { data: response } = await axios.post('/presentaciones', { nombre: nombreUpper, estado: true }, { headers: { Accept: 'application/json' } });
             const item = response?.data ?? response;
-            setCatalogoLocal((prev) => [...prev, item].sort((a, b) => a.nombre.localeCompare(b.nombre)));
+            incorporarEmpaque(item);
             setData('id_presentacion', item.id_presentacion);
         } catch {
             // Si falla la creación rápida, no bloquea el formulario
@@ -166,15 +180,23 @@ export default function PresentacionesModal({
 
     // Crear empaque personalizado desde el input
     const crearPresentacionPersonalizada = async () => {
-        const nombre = nuevoEmpaque.trim().toUpperCase();
+        const nombre = nuevoEmpaque.trim().replace(/\s+/g, ' ').toUpperCase();
         if (!nombre) return;
+
+        // Si ya está en la lista, solo se selecciona.
+        const existente = catalogoLocal.find((p) => p.nombre.trim().toUpperCase() === nombre);
+        if (existente) {
+            handleSeleccionarEmpaque(existente.id_presentacion);
+            setNuevoEmpaque('');
+            return;
+        }
 
         setCreandoEmpaque(true);
         try {
             const { data: response } = await axios.post('/presentaciones', { nombre, estado: true }, { headers: { Accept: 'application/json' } });
             const item = response?.data ?? response;
 
-            setCatalogoLocal((prev) => [...prev, item].sort((a, b) => a.nombre.localeCompare(b.nombre)));
+            incorporarEmpaque(item);
             setData('id_presentacion', item.id_presentacion);
             
             const cant = detectarCantidadDesdeNombre(nombre);
@@ -182,8 +204,8 @@ export default function PresentacionesModal({
 
             setNuevoEmpaque('');
         } catch (error) {
-            const msg = error.response?.data?.errors ? Object.values(error.response.data.errors)[0][0] : 'NO SE PUDO CREAR EL TIPO DE EMPAQUE.';
-            setDialogo({ tipo: 'error', titulo: 'ERROR AL CREAR EMPAQUE', mensaje: String(msg).toUpperCase() });
+            const msg = error.response?.data?.errors ? Object.values(error.response.data.errors)[0][0] : 'Inténtalo de nuevo.';
+            setDialogo({ tipo: 'error', titulo: 'No se pudo crear el empaque', mensaje: String(msg) });
         } finally {
             setCreandoEmpaque(false);
         }

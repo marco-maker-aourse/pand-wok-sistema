@@ -65,4 +65,19 @@ class TipoExistenciaTest extends TestCase
         $this->assertSame('DIRECTO', $datos['tipo_producto']);
         $this->assertTrue($datos['controla_stock']);
     }
+
+    public function test_la_condicion_sql_excluye_preparados_y_variantes_fisicas(): void
+    {
+        $sql = TipoExistencia::condicionSql('producto');
+
+        $this->assertStringContainsString("producto.tipo_producto <> 'PREPARADO'", $sql);
+        $this->assertStringContainsString('pp.id_producto_stock IS NULL', $sql);
+        $this->assertStringContainsString('producto.es_servicio = FALSE', $sql);
+    }
+
+    public function test_la_condicion_sql_rechaza_alias_no_validos(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        TipoExistencia::condicionSql('producto; DROP TABLE x');
+    }
 }

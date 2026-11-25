@@ -2,6 +2,7 @@
 
 namespace App\Services\Asistente;
 
+use App\Services\Inventario\TipoExistencia;
 use App\Models\TipoComprobante;
 use App\Models\User;
 use Carbon\CarbonImmutable;
@@ -543,7 +544,7 @@ class HerramientasAsistente
     {
         return "WITH ultimo_kardex AS (SELECT DISTINCT ON (id_producto) id_producto, stock_actual FROM inventario.kardex WHERE id_sucursal = ? ORDER BY id_producto, id_kardex DESC) "
             . "SELECT {$columnas} FROM catalogos.productos producto LEFT JOIN ultimo_kardex kardex ON kardex.id_producto = producto.id_producto "
-            . "WHERE producto.estado = TRUE AND producto.es_servicio = FALSE AND COALESCE(kardex.stock_actual, 0) <= 0 {$sufijo}";
+            . "WHERE ".TipoExistencia::condicionSql('producto')." AND COALESCE(kardex.stock_actual, 0) <= 0 {$sufijo}";
     }
 
     /** @return array{0: CarbonImmutable, 1: CarbonImmutable} Fechas locales (inicio de día), ambas inclusive. */
