@@ -1,20 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { Head, router, usePoll } from '@inertiajs/react';
-import { Settings2, Volume2, VolumeX } from 'lucide-react';
+import { ChefHat, RefreshCw, Settings2, Volume2, VolumeX, WifiOff } from 'lucide-react';
 import AppLayout from '@/Layouts/AppLayout';
-import { Badge, Button, toast } from '@/Components/ui';
-import { EstadoImpresion, ReimprimirComanda } from '@/Components/Restaurante/ComandasPedido';
+import { Badge, Button, PageHeader, cx, toast } from '@/Components/ui';
+import TarjetaComanda from '@/Components/Restaurante/cocina/TarjetaComanda';
 import { ESTADO_COMANDA } from '@/Components/Restaurante/estados';
-import { cantidad, hora, primerError, tiempoDesde, tituloCuenta } from '@/Components/Restaurante/formato';
 
 const COLUMNAS = ['PENDIENTE', 'EN_PREPARACION', 'LISTA', 'ENTREGADA'];
-const ACCIONES = {
-    PENDIENTE: [['EN_PREPARACION', 'Iniciar'], ['LISTA', 'Marcar lista']],
-    EN_PREPARACION: [['LISTA', 'Marcar lista']],
-    LISTA: [['ENTREGADA', 'Entregar'], ['EN_PREPARACION', 'Volver a preparación']],
-    ENTREGADA: [],
-};
-
 function sonar(contexto) {
     if (contexto?.state !== 'running') return;
     const tono = contexto.createOscillator();
@@ -28,53 +20,11 @@ function sonar(contexto) {
     tono.stop(inicio + 0.25);
 }
 
-function TarjetaComanda({ comanda, puedeGestionar, ahora }) {
-    const [enviando, setEnviando] = useState(false);
-    const cambiar = (estado) => router.put(`/cocina/comandas/${comanda.id_comanda}/estado`, { estado }, {
-        preserveScroll: true,
-        onStart: () => setEnviando(true),
-        onFinish: () => setEnviando(false),
-        onError: (errores) => toast.error('No se cambió el estado', primerError(errores)),
-    });
-
-    return (
-        <article className="space-y-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-            <header>
-                <h3 className="font-semibold text-slate-900">#{comanda.numero} · {tituloCuenta(comanda.pedido)}</h3>
-                <p className="text-xs text-slate-600">{comanda.estacion}{comanda.mozo && ` · ${comanda.mozo}`}</p>
-                <p className="text-xs tabular-nums text-slate-600">
-                    {hora(comanda.enviada_en)} · {tiempoDesde(comanda.enviada_en, comanda.entregada_en ? Date.parse(comanda.entregada_en) : ahora)}
-                </p>
-                {comanda.pedido.observacion && <p className="mt-1 text-sm text-amber-800">{comanda.pedido.observacion}</p>}
-            </header>
-            <ul className="divide-y divide-slate-100 border-y border-slate-100">
-                {comanda.items.map((item) => (
-                    <li key={item.id_detalle_pedido} className="py-2 text-sm">
-                        <p className={item.anulado ? 'text-rose-700 line-through' : 'font-medium text-slate-900'}>{cantidad(item.cantidad)} × {item.nombre}</p>
-                        {item.cuenta && <p className="text-xs font-medium text-brand">{tituloCuenta(item.cuenta)}</p>}
-                        {item.anulado && <span className="text-xs font-medium text-rose-700">Anulado</span>}
-                        {item.opciones.length > 0 && <p className="text-xs text-slate-600">{item.opciones.join(' · ')}</p>}
-                        {item.observacion && <p className="text-xs text-amber-800">{item.observacion}</p>}
-                    </li>
-                ))}
-            </ul>
-            <EstadoImpresion impresion={comanda.impresion} />
-            {puedeGestionar && (
-                <div className="flex flex-wrap gap-2">
-                    {ACCIONES[comanda.estado].map(([estado, texto], indice) => (
-                        <Button key={estado} variant={indice ? 'secondary' : undefined} disabled={enviando} onClick={() => cambiar(estado)}>{texto}</Button>
-                    ))}
-                    <ReimprimirComanda id={comanda.id_comanda} impresion={comanda.impresion} disabled={enviando} />
-                </div>
-            )}
-        </article>
-    );
-}
-
 export default function Cocina({ comandas, estaciones, estacion, idSucursal, puedeGestionar, puedeConfigurar }) {
     const [sonido, setSonido] = useState(false);
     const [ahora, setAhora] = useState(Date.now);
     const [sinActualizar, setSinActualizar] = useState(false);
+    const [columnaMovil, setColumnaMovil] = useState('PENDIENTE');
     const audio = useRef(null);
     const vistos = useRef(null);
     usePoll(5000, {
@@ -114,39 +64,60 @@ export default function Cocina({ comandas, estaciones, estacion, idSucursal, pue
     return (
         <AppLayout title="Cocina">
             <Head title="Cocina" />
-            <header className="mb-4 flex flex-wrap items-end justify-between gap-3">
-                <div>
-                    <h1 className="text-2xl font-semibold text-slate-900">Cocina</h1>
-                    <p className="text-sm text-slate-600" role="status">{sinActualizar ? 'Sin conexión con el tablero. Reintentando…' : 'Actualización automática'}</p>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                    <label className="flex items-center gap-2 text-sm font-medium">
-                        Estación
-                        <select value={estacion ?? ''} onChange={(e) => router.get('/cocina', e.target.value === '' ? {} : { estacion: e.target.value }, { preserveState: true, replace: true })} className="min-h-10 rounded-lg border-slate-300 text-sm">
-                            <option value="">Todas</option>
-                            <option value="0">Cocina general</option>
-                            {estaciones.map((e) => <option key={e.id_estacion} value={e.id_estacion}>{e.nombre}</option>)}
-                        </select>
-                    </label>
-                    <Button variant="secondary" icon={sonido ? Volume2 : VolumeX} aria-pressed={sonido} onClick={alternarSonido}>Sonido {sonido ? 'activo' : 'apagado'}</Button>
-                    {puedeConfigurar && <Button variant="secondary" icon={Settings2} href="/cocina/estaciones">Estaciones</Button>}
-                </div>
-            </header>
+            <PageHeader
+                title="Cocina"
+                icon={ChefHat}
+                description={(
+                    <span role="status" className={cx('inline-flex items-center gap-1.5', sinActualizar && 'font-medium text-rose-700')}>
+                        {sinActualizar ? <WifiOff className="h-3.5 w-3.5" aria-hidden="true" /> : <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />}
+                        {sinActualizar ? 'Sin conexión con el tablero. Reintentando…' : 'Se actualiza solo cada 5 segundos'}
+                    </span>
+                )}
+                actions={(
+                    <>
+                        <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                            <span className="sr-only sm:not-sr-only">Estación</span>
+                            <select value={estacion ?? ''} onChange={(e) => router.get('/cocina', e.target.value === '' ? {} : { estacion: e.target.value }, { preserveState: true, replace: true })} className="min-h-10 rounded-lg text-sm">
+                                <option value="">Todas las estaciones</option>
+                                <option value="0">Cocina general</option>
+                                {estaciones.map((e) => <option key={e.id_estacion} value={e.id_estacion}>{e.nombre}</option>)}
+                            </select>
+                        </label>
+                        <Button variant="secondary" icon={sonido ? Volume2 : VolumeX} aria-pressed={sonido} onClick={alternarSonido}>
+                            {sonido ? 'Sonido activo' : 'Activar sonido'}
+                        </Button>
+                        {puedeConfigurar && <Button variant="secondary" icon={Settings2} href="/cocina/estaciones">Estaciones</Button>}
+                    </>
+                )}
+            />
 
-            <nav aria-label="Estados de comandas" className="mb-3 flex flex-wrap gap-3 text-sm font-medium text-brand sm:hidden">
-                {COLUMNAS.map((estado) => <a key={estado} href={`#cocina-${estado}`}>{ESTADO_COMANDA[estado].etiqueta}</a>)}
-            </nav>
+            {/* En celular se ve una columna a la vez, elegida con estas pestañas. */}
+            <div className="mt-4 mb-3 grid grid-cols-4 gap-1 rounded-xl bg-slate-200/60 p-1 sm:hidden" role="tablist" aria-label="Estados de comandas">
+                {COLUMNAS.map((estado) => {
+                    const total = comandas.filter((c) => c.estado === estado).length;
+                    return (
+                        <button key={estado} type="button" role="tab" aria-selected={columnaMovil === estado} onClick={() => setColumnaMovil(estado)}
+                            className={cx('flex h-12 flex-col items-center justify-center rounded-lg text-xs font-medium leading-tight', columnaMovil === estado ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600')}>
+                            <span className="truncate">{ESTADO_COMANDA[estado].etiqueta}</span>
+                            <span className="font-mono tabular-nums">{total}</span>
+                        </button>
+                    );
+                })}
+            </div>
 
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="grid gap-3 sm:mt-5 sm:grid-cols-2 xl:grid-cols-4">
                 {COLUMNAS.map((estado) => {
                     const columna = comandas.filter((comanda) => comanda.estado === estado);
                     const { etiqueta, tono } = ESTADO_COMANDA[estado];
                     return (
-                        <section key={estado} id={`cocina-${estado}`} className="min-w-0 scroll-mt-20 rounded-xl bg-slate-100 p-3" aria-label={etiqueta}>
-                            <h2 className="mb-3 flex items-center justify-between gap-2 font-semibold">{etiqueta}<Badge tone={tono}>{columna.length}</Badge></h2>
-                            <div className="space-y-2">
+                        <section key={estado} className={cx('min-w-0 rounded-2xl bg-slate-100/80 p-2.5 ring-1 ring-slate-200/70', columnaMovil !== estado && 'hidden sm:block')} aria-label={etiqueta}>
+                            <h2 className="mb-2.5 flex items-center justify-between gap-2 px-1 text-sm font-semibold text-slate-800">
+                                {etiqueta}
+                                <Badge tone={tono}>{columna.length}</Badge>
+                            </h2>
+                            <div className="space-y-2.5">
                                 {columna.map((comanda) => <TarjetaComanda key={comanda.id_comanda} comanda={comanda} puedeGestionar={puedeGestionar} ahora={ahora} />)}
-                                {columna.length === 0 && <p className="py-3 text-sm text-slate-600">Sin comandas</p>}
+                                {columna.length === 0 && <p className="rounded-xl border border-dashed border-slate-300 py-6 text-center text-sm text-slate-500">Sin comandas</p>}
                             </div>
                         </section>
                     );

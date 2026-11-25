@@ -67,7 +67,7 @@ class IngresoController extends Controller
                         ->orderBy('factor_conversion')
                 ])
                 ->orderBy('nombre')
-                ->get(['id_producto', 'nombre', 'codigo_barras', 'id_unidad_base']),
+                ->get(['id_producto', 'nombre', 'codigo_barras', 'id_unidad_base', 'tipo_producto']),
 
             'tipos_comprobante' => TipoComprobante::query()
                 ->where('estado', true)

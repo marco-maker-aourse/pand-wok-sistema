@@ -1,524 +1,240 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { Head, router, useForm } from '@inertiajs/react';
+import { AlertTriangle, ArrowLeft, CheckCircle2, ChevronRight, ClipboardList, Minus, PackageMinus, Search, Trash2 } from 'lucide-react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Button, Dialog, EmptyState, IconButton, buttonClasses } from '@/Components/ui';
-import { Head, useForm, router, Link } from '@inertiajs/react';
-import {
-    Search,
-    Trash2,
-    CheckCircle2,
-    AlertCircle,
-    ArrowLeft,
-    Boxes,
-    Calendar,
-    FileText,
-    Loader2,
-    X,
-    ClipboardList,
-    AlertTriangle,
-    Tag
-} from 'lucide-react';
+import { Badge, Button, Card, ConfirmDialog, Dialog, EmptyState, Field, IconButton, Input, SearchInput, Select, Textarea, cx, toast } from '@/Components/ui';
 
-export default function Create({ auth, productos = [], motivos = [] }) {
-    const [busquedaProd, setBusquedaProd] = useState('');
-    const [carrito, setCarrito] = useState([]);
+const MOTIVOS_RESPALDO = ['MERMA', 'VENCIMIENTO', 'DETERIORO / ROTURA', 'AJUSTE DE INVENTARIO', 'USO INTERNO'];
 
-    // Modales Propios del Sistema
-    const [modalCargando, setModalCargando] = useState(false);
-    const [modalConfirmacion, setModalConfirmacion] = useState(false);
-    const [modalExito, setModalExito] = useState(null);
-    const [modalAlerta, setModalAlerta] = useState(null);
+const cantidadTexto = (valor) => {
+    const n = Number(valor || 0);
+    return Number.isInteger(n) ? String(n) : n.toFixed(3).replace(/0+$/, '').replace(/\.$/, '');
+};
+const unidad = (p) => p?.unidad_base?.nombre || 'unidades';
+const nombrePresentacion = (p) => p?.presentacion?.nombre || p?.nombre || 'Unidad';
+const etiquetaPresentacion = (p, producto) => (Number(p.factor_conversion) > 1 ? `${nombrePresentacion(p)} · ${cantidadTexto(p.factor_conversion)} ${unidad(producto)}` : nombrePresentacion(p));
 
-    const listaMotivos = motivos.length > 0 ? motivos : [
-        'MERMA',
-        'VENCIMIENTO',
-        'ROTURA / DETERIORO',
-        'AJUSTE DE INVENTARIO',
-        'CONSUMO INTERNO'
-    ];
+/** Baja de inventario por merma, vencimiento, deterioro o ajuste, con justificación para el kardex. */
+export default function Create({ productos = [], motivos = [] }) {
+    const listaMotivos = motivos.length ? motivos : MOTIVOS_RESPALDO;
+    const [busqueda, setBusqueda] = useState('');
+    const [lineas, setLineas] = useState([]);
+    const [confirmando, setConfirmando] = useState(false);
+    const [registrada, setRegistrada] = useState(null);
+    const [vista, setVista] = useState('catalogo');
+    const { data, setData, post, processing } = useForm({ motivo: listaMotivos[0], observacion: '', detalles: [] });
 
-    const { data, setData, post, processing } = useForm({
-        motivo: listaMotivos[0],
-        observacion: '',
-        detalles: []
+    useEffect(() => { setData('detalles', lineas); }, [lineas]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    const visibles = useMemo(() => {
+        const q = busqueda.toLowerCase().trim();
+        return q ? productos.filter((p) => (p.nombre || '').toLowerCase().includes(q) || (p.codigo_barras || '').includes(q)) : productos;
+    }, [productos, busqueda]);
+    const enLista = useMemo(() => lineas.reduce((m, l) => ({ ...m, [l.id_producto]: (m[l.id_producto] ?? 0) + 1 }), {}), [lineas]);
+
+    const agregar = (producto) => {
+        const presentaciones = producto.presentaciones || [];
+        const primera = presentaciones[0] || null;
+        setLineas((actual) => [{
+            uid: `${producto.id_producto}_${Date.now()}`,
+            id_producto: producto.id_producto,
+            id_prod_pres: primera ? primera.id_prod_pres : null,
+            nombre: producto.nombre,
+            presentaciones,
+            unidad_base: producto.unidad_base,
+            factor_conversion: primera ? Number(primera.factor_conversion) : 1,
+            cantidad: 1,
+            lote: producto.lote_recomendado?.codigo_lote || producto.lotes?.[0]?.codigo_lote || '',
+            lotes: producto.lotes || [],
+            stock_maximo: producto.stock_actual ?? 0,
+        }, ...actual]);
+    };
+
+    const cambiar = (uid, cambios) => setLineas((actual) => actual.map((l) => (l.uid === uid ? { ...l, ...cambios } : l)));
+    const cambiarPresentacion = (uid, id) => {
+        const linea = lineas.find((l) => l.uid === uid);
+        const pres = linea?.presentaciones.find((p) => String(p.id_prod_pres) === String(id));
+        cambiar(uid, { id_prod_pres: pres ? pres.id_prod_pres : linea.id_prod_pres, factor_conversion: pres ? Number(pres.factor_conversion) : 1 });
+    };
+
+    const faltante = lineas.length === 0 ? 'Agrega al menos un producto.' : !data.observacion.trim() ? 'Escribe la justificación de la baja.' : null;
+
+    const revisar = (e) => {
+        e.preventDefault();
+        if (faltante) {
+            toast.warning('Falta completar la salida', faltante);
+            return;
+        }
+        setConfirmando(true);
+    };
+
+    const confirmar = () => post('/salidas', {
+        preserveScroll: true,
+        onSuccess: () => {
+            setConfirmando(false);
+            setRegistrada({ motivo: data.motivo, observacion: data.observacion, lineas: lineas.length });
+        },
+        onError: (errores) => {
+            setConfirmando(false);
+            toast.error('No se pudo registrar la salida', Object.values(errores)[0] || 'Revisa los datos e inténtalo de nuevo.');
+        },
     });
 
-    useEffect(() => {
-        setData('detalles', carrito);
-    }, [carrito]);
-
-    const formatPresentacionLabel = (nombre, factor) => {
-        const f = Math.round(Number(factor) || 1);
-        if (f <= 1) return nombre || 'Unidad';
-        return `${nombre} (x${f})`;
-    };
-
-    // Agregar producto para dar de baja
-    const agregarAlCarrito = (producto) => {
-        const uid = `${producto.id_producto}_${Date.now()}`;
-        const listaPres = producto.presentaciones || [];
-        const presDefecto = listaPres[0] || null;
-
-        setCarrito([
-            {
-                uid: uid,
-                id_producto: producto.id_producto,
-                id_prod_pres: presDefecto ? presDefecto.id_prod_pres : null,
-                nombre: producto.nombre,
-                presentaciones: listaPres,
-                factor_conversion: presDefecto ? Number(presDefecto.factor_conversion) : 1,
-                cantidad: 1,
-                lote: producto.lote_recomendado?.codigo_lote || producto.lotes?.[0]?.codigo_lote || '',
-                lotes: producto.lotes || [],
-                stock_maximo: producto.stock_actual ?? 999
-            },
-            ...carrito
-        ]);
-    };
-
-    const cambiarPresentacion = (uid, idProdPres) => {
-        setCarrito(
-            carrito.map((item) => {
-                if (item.uid === uid) {
-                    const pres = item.presentaciones.find((p) => String(p.id_prod_pres) === String(idProdPres));
-                    return {
-                        ...item,
-                        id_prod_pres: pres ? pres.id_prod_pres : item.id_prod_pres,
-                        factor_conversion: pres ? Number(pres.factor_conversion) : 1
-                    };
-                }
-                return item;
-            })
-        );
-    };
-
-    // Escritura directa de cantidad (soporta 1000, 24, etc.) sin interferencia del scroll
-    const actualizarCantidadDirecta = (uid, val) => {
-        const cantLimpia = val.replace(/\D/g, '');
-        const nuevaCant = cantLimpia === '' ? '' : parseInt(cantLimpia, 10);
-
-        setCarrito(
-            carrito.map((item) =>
-                item.uid === uid ? { ...item, cantidad: nuevaCant } : item
-            )
-        );
-    };
-
-    const validarCantidadOnBlur = (uid) => {
-        setCarrito(
-            carrito.map((item) => {
-                if (item.uid === uid) {
-                    const cant = Number(item.cantidad) || 1;
-                    return { ...item, cantidad: Math.max(1, cant) };
-                }
-                return item;
-            })
-        );
-    };
-
-    const actualizarLote = (uid, valor) => {
-        setCarrito(
-            carrito.map((item) =>
-                item.uid === uid ? { ...item, lote: valor.toUpperCase() } : item
-            )
-        );
-    };
-
-    const removerDelCarrito = (uid) => setCarrito(carrito.filter((item) => item.uid !== uid));
-    const totalUnidades = carrito.reduce(
-        (sum, item) => sum + (Number(item.cantidad) || 0) * item.factor_conversion,
-        0
-    );
-
-    const iniciarSalida = (e) => {
-        e.preventDefault();
-
-        if (carrito.length === 0) {
-            setModalAlerta({
-                titulo: 'Lista de baja vacía',
-                mensaje: 'Seleccione al menos un producto del inventario para registrar la salida.'
-            });
-            return;
-        }
-
-        if (!data.observacion.trim()) {
-            setModalAlerta({
-                titulo: 'Justificación requerida',
-                mensaje: 'Ingrese el motivo u observación detallada de la baja para la auditoría de Kardex.',
-                sugerencia: 'Indique número de acta, rotura en descarga o fecha de vencimiento detectada.'
-            });
-            return;
-        }
-
-        setModalConfirmacion(true);
-    };
-
-    const confirmarSalida = () => {
-        setModalConfirmacion(false);
-        setModalCargando(true);
-
-        post('/salidas', {
-            preserveScroll: true,
-            onSuccess: () => {
-                setModalCargando(false);
-                setModalExito({
-                    motivo: data.motivo,
-                    totalUnidades: totalUnidades,
-                    observacion: data.observacion,
-                    articulos: carrito.length
-                });
-            },
-            onError: (errs) => {
-                setModalCargando(false);
-                const msg = Object.values(errs)[0] || 'Ocurrió un error al procesar la salida en el servidor.';
-                setModalAlerta({
-                    titulo: 'No se pudo procesar la salida',
-                    mensaje: msg
-                });
-            }
-        });
-    };
-
-    const productosFiltrados = useMemo(() => {
-        if (!busquedaProd.trim()) return productos;
-        const q = busquedaProd.toLowerCase().trim();
-        return productos.filter(
-            (p) =>
-                (p.nombre || '').toLowerCase().includes(q) ||
-                (p.codigo_barras && p.codigo_barras.includes(q))
-        );
-    }, [productos, busquedaProd]);
+    const panel = 'flex h-[calc(100dvh-12.5rem)] min-h-[26rem] flex-col overflow-hidden lg:h-[calc(100dvh-9rem)]';
 
     return (
-        <AuthenticatedLayout header="Nuevo ajuste de inventario">
-            <Head title="Nuevo ajuste de inventario" />
+        <AuthenticatedLayout header="Nueva salida" sinBarraInferior>
+            <Head title="Nueva salida de inventario" />
 
-            <div className="h-[calc(100vh-6rem)] lg:h-[calc(100vh-7.5rem)] flex flex-col lg:flex-row gap-5">
-                {/* PANEL IZQUIERDO: PRODUCTOS DISPONIBLES EN STOCK */}
-                <div className="flex-1 flex flex-col bg-white rounded-2xl p-4 sm:p-5 overflow-hidden shadow-[var(--shadow-tarjeta)] ring-1 ring-slate-900/[0.05]">
-                    <div className="flex items-center justify-between mb-4">
-                        <div className="relative flex-1 mr-3">
-                            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5 pointer-events-none" />
-                            <input
-                                type="text"
-                                placeholder="Buscar producto en stock por nombre o código..."
-                                className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm placeholder:text-slate-400 transition"
-                                value={busquedaProd}
-                                onChange={(e) => setBusquedaProd(e.target.value)}
-                                autoFocus
-                            />
-                        </div>
-                        <Link href="/salidas" className={buttonClasses({ variant: 'secondary', className: 'shrink-0' })}>
-                            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-                            <span>Historial</span>
-                        </Link>
-                    </div>
-
-                    <div className="flex-1 overflow-y-auto pr-1 pb-2 [scrollbar-width:thin]">
-                        {productosFiltrados.length > 0 ? (
-                            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
-                                {productosFiltrados.map((prod) => {
-                                    const agotado = (prod.stock_actual ?? 0) <= 0;
-
-                                    return (
-                                        <button
-                                            type="button"
-                                            key={prod.id_producto}
-                                            disabled={agotado}
-                                            onClick={() => agregarAlCarrito(prod)}
-                                            className={`group flex flex-col justify-between rounded-xl p-3.5 text-left ring-1 select-none ${
-                                                agotado
-                                                    ? 'cursor-not-allowed bg-slate-50 opacity-50 ring-slate-200/60'
-                                                    : 'elevable cursor-pointer bg-white ring-slate-200 hover:ring-rose-200'
-                                            }`}
-                                        >
-                                            <div>
-                                                <span className="volumen-suave mb-2 grid h-8 w-8 place-items-center rounded-lg text-xs font-semibold text-brand-ink" aria-hidden="true">
-                                                    {prod.nombre?.charAt(0).toUpperCase()}
-                                                </span>
-                                                <h3 className="font-semibold text-xs leading-snug line-clamp-2 text-slate-800 group-hover:text-slate-900 transition-colors">
-                                                    {prod.nombre}
-                                                </h3>
-                                                <div className="mt-2 flex items-center gap-1.5">
-                                                    <span className="bg-slate-100 text-slate-700 text-xs font-bold px-2 py-0.5 rounded-md uppercase">
-                                                        Stock: {prod.stock_actual ?? 0}
-                                                    </span>
-                                                </div>
-                                            </div>
-
-                                            <div className="flex justify-between items-end mt-3 pt-2 border-t border-slate-100">
-                                                <span className="text-xs font-bold text-slate-400">
-                                                    {prod.presentaciones?.length || 1} empaque{prod.presentaciones?.length === 1 ? '' : 's'}
-                                                </span>
-                                                {!agotado && (
-                                                    <span className="w-6 h-6 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center text-xs font-bold group-hover:bg-rose-600 group-hover:text-white transition">
-                                                        -
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        ) : (
-                            <EmptyState icon={Search} title="No se encontraron artículos" description="Prueba con otra palabra clave en el buscador." />
-                        )}
-                    </div>
-                </div>
-
-                {/* PANEL DERECHO: MOTIVO, OBSERVACIÓN Y LISTA DE BAJA */}
-                <div className="w-full lg:w-[460px] flex flex-col bg-white rounded-2xl overflow-hidden shrink-0 shadow-[var(--shadow-tarjeta)] ring-1 ring-slate-900/[0.05]">
-                    {/* Configuración de la Salida */}
-                    <div className="p-4 border-b border-slate-100 bg-slate-50/60 space-y-3">
-                        <div>
-                            <label className="block text-xs font-semibold text-slate-500 mb-1 flex items-center gap-1.5">
-                                <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
-                                <span>Motivo de la Salida / Baja *</span>
-                            </label>
-                            <div className="grid grid-cols-2 gap-1.5">
-                                {listaMotivos.map((m) => {
-                                    const seleccionado = data.motivo === m;
-                                    return (
-                                        <button
-                                            key={m}
-                                            type="button"
-                                            onClick={() => setData('motivo', m)}
-                                            className={`py-2 px-2.5 rounded-xl text-xs font-semibold tracking-tight text-center border transition cursor-pointer ${
-                                                seleccionado
-                                                    ? 'volumen-marca text-on-brand border-transparent'
-                                                    : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
-                                            }`}
-                                        >
-                                            {m}
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        </div>
-
-                        <div>
-                            <label className="block text-xs font-semibold text-slate-500 mb-1 flex items-center gap-1.5">
-                                <FileText className="w-3.5 h-3.5 text-slate-400" />
-                                <span>Justificación para Kardex *</span>
-                            </label>
-                            <textarea
-                                rows={2}
-                                placeholder="Ej: Merma en transporte, empaque deteriorado en anaquel, ajuste físico..."
-                                className="w-full text-xs font-semibold text-slate-800 bg-white border border-slate-200 rounded-xl p-2.5 resize-none transition"
-                                value={data.observacion}
-                                onChange={(e) => setData('observacion', e.target.value)}
-                                required
-                            />
-                        </div>
-                    </div>
-
-                    {/* Lista de Productos Seleccionados para Salida */}
-                    <div className="flex-1 overflow-y-auto p-3.5 space-y-2.5 [scrollbar-width:thin]">
-                        {carrito.length === 0 ? (
-                            <EmptyState icon={ClipboardList} title="Lista de baja vacía" description="Elige productos del catálogo para agregarlos a la salida." />
-                        ) : (
-                            carrito.map((item) => (
-                                <div
-                                    key={item.uid}
-                                    className="bg-white p-3 rounded-2xl space-y-2 relative shadow-[var(--shadow-tarjeta)] ring-1 ring-slate-900/[0.05]"
-                                >
-                                    <div className="flex justify-between items-start">
-                                        <div className="min-w-0 pr-2">
-                                            <p className="font-bold text-xs text-slate-800 truncate">{item.nombre}</p>
-                                            <span className="text-xs font-semibold text-rose-600 uppercase">
-                                                Descuento: -{(Number(item.cantidad) || 0) * item.factor_conversion} un. base
-                                            </span>
-                                        </div>
-                                        <IconButton icon={Trash2} label={`Quitar ${item.nombre}`} onClick={() => removerDelCarrito(item.uid)} />
-                                    </div>
-
-                                    <div className="grid grid-cols-12 gap-2 items-center">
-                                        {/* Presentación */}
-                                        <div className="col-span-5">
-                                            <select
-                                                className="w-full text-xs font-bold text-slate-700 border border-slate-200 rounded-lg py-1 px-1.5 bg-white"
-                                                value={item.id_prod_pres || ''}
-                                                onChange={(e) => cambiarPresentacion(item.uid, e.target.value)}
-                                            >
-                                                {item.presentaciones.map((p) => (
-                                                    <option key={p.id_prod_pres} value={p.id_prod_pres}>
-                                                        {formatPresentacionLabel(p.nombre, p.factor_conversion)}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                        </div>
-
-                                        {/* ESCRITURA DIRECTA DE CANTIDAD (Sin rueda de ratón) */}
-                                        <div className="col-span-3">
-                                            <input
-                                                type="text"
-                                                value={item.cantidad}
-                                                onWheel={(e) => e.target.blur()}
-                                                onChange={(e) => actualizarCantidadDirecta(item.uid, e.target.value)}
-                                                onBlur={() => validarCantidadOnBlur(item.uid)}
-                                                className="w-full text-xs font-mono font-semibold text-center text-slate-900 bg-white border border-slate-200 rounded-lg py-1 px-1"
-                                                placeholder="1"
-                                                title="Cantidad a descontar"
-                                            />
-                                        </div>
-
-                                        {/* Lote */}
-                                        <div className="col-span-4">
-                                            <input
-                                                type="text"
-                                                placeholder="Lote (opcional)"
-                                                value={item.lote}
-                                                onChange={(e) => actualizarLote(item.uid, e.target.value)}
-                                                className="w-full text-xs font-mono font-bold uppercase bg-white border border-slate-200 rounded-lg py-1 px-2"
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-                            ))
-                        )}
-                    </div>
-
-                    {/* TOTAL Y ACCIÓN */}
-                    <div className="p-4 bg-slate-50 border-t border-slate-200/80">
-                        <form onSubmit={iniciarSalida} className="space-y-3">
-                            <div className="flex justify-between items-baseline">
-                                <span className="text-xs font-semibold text-slate-500">
-                                    Total Unidades Físicas:
-                                </span>
-                                <span className="text-2xl font-semibold text-rose-600 font-mono">
-                                    -{totalUnidades} un.
-                                </span>
-                            </div>
-
-                            <Button type="submit" variant="danger" size="lg" block icon={CheckCircle2} disabled={processing || carrito.length === 0}>
-                                Dar de baja y descontar en kardex
-                            </Button>
-                        </form>
-                    </div>
+            <div className="mb-3 flex items-center gap-2">
+                <Button variant="ghost" icon={ArrowLeft} href="/salidas">Salidas</Button>
+                <div className="ml-auto grid grid-cols-2 gap-1 rounded-xl bg-slate-200/60 p-1 lg:hidden" role="tablist" aria-label="Vista">
+                    {[['catalogo', 'Productos'], ['salida', lineas.length ? `Baja (${lineas.length})` : 'Baja']].map(([clave, etiqueta]) => (
+                        <button key={clave} type="button" role="tab" aria-selected={vista === clave} onClick={() => setVista(clave)}
+                            className={cx('h-9 rounded-lg px-3 text-sm font-medium', vista === clave ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600')}>
+                            {etiqueta}
+                        </button>
+                    ))}
                 </div>
             </div>
 
-            {/* MODAL 1: CARGANDO */}
-            <Dialog open={Boolean(modalCargando)} onClose={() => {}} size="sm" dismissible={false}>
-                {(modalCargando) && (
-                <div className="p-6 flex flex-col items-center text-center">
-                        <Loader2 className="w-10 h-10 animate-spin text-rose-600 mb-3" />
-                        <h4 className="text-sm font-semibold text-slate-900">Procesando Salida</h4>
-                        <p className="text-xs text-slate-500 mt-1 font-medium">
-                            Descontando existencias y registrando el movimiento de salida en Kardex...
-                        </p>
-                </div>
-                )}
-            </Dialog>
-
-            {/* MODAL 2: CONFIRMACIÓN */}
-            <Dialog open={Boolean(modalConfirmacion)} onClose={() => setModalConfirmacion(false)} size="md">
-                {(modalConfirmacion) && (
-                <div className="p-6">
-                        <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
-                            <h3 className="text-sm font-semibold text-slate-900">
-                                Confirmar Baja de Mercadería
-                            </h3>
-                            <IconButton icon={X} label="Cerrar" onClick={() => setModalConfirmacion(false)} />
-                        </div>
-
-                        <div className="space-y-3 mb-5">
-                            <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-1.5 text-xs">
-                                <p className="flex justify-between text-slate-600">
-                                    <span>Motivo Declarado:</span>
-                                    <span className="font-semibold text-rose-600 uppercase">{data.motivo}</span>
-                                </p>
-                                <p className="flex justify-between text-slate-600">
-                                    <span>Líneas Afectadas:</span>
-                                    <span className="font-bold text-slate-900">{carrito.length} productos</span>
-                                </p>
-                                <p className="flex justify-between text-slate-600">
-                                    <span>Total Unidades:</span>
-                                    <span className="font-mono font-semibold text-slate-900">-{totalUnidades} un.</span>
-                                </p>
-                            </div>
-                            <div className="p-3 bg-amber-50 border border-amber-200/80 rounded-lg text-xs text-amber-800">
-                                <AlertTriangle className="mr-1 inline h-3.5 w-3.5 align-[-2px]" aria-hidden="true" /><span className="font-bold">Aviso de auditoría:</span> Esta operación modificará el stock actual del inventario de forma inmediata.
-                            </div>
-                        </div>
-
-                        <div className="flex gap-2.5">
-                            <Button variant="secondary" className="flex-1" onClick={() => setModalConfirmacion(false)}>Revisar</Button>
-                            <Button variant="danger" className="flex-1" onClick={confirmarSalida}>Confirmar baja</Button>
-                        </div>
-                </div>
-                )}
-            </Dialog>
-
-            {/* MODAL 3: ÉXITO Y REDIRECCIÓN AL HISTORIAL */}
-            <Dialog open={Boolean(modalExito)} onClose={() => {}} size="sm" dismissible={false}>
-                {(modalExito) && (
-                <div className="p-6 text-center">
-                        <div className="w-12 h-12 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center mx-auto mb-3">
-                            <CheckCircle2 className="w-6 h-6" />
-                        </div>
-
-                        <span className="text-xs font-semibold text-rose-700 bg-rose-50 px-2.5 py-0.5 rounded-full inline-block mb-1">
-                            Baja Procesada
-                        </span>
-
-                        <h3 className="text-lg font-semibold text-slate-900 tracking-tight">
-                            Motivo: {modalExito.motivo}
-                        </h3>
-                        <p className="text-xs text-slate-500 font-medium mt-0.5 italic">
-                            "{modalExito.observacion}"
-                        </p>
-
-                        <div className="my-4 p-3 bg-slate-50 border border-slate-200 rounded-lg font-mono text-xs space-y-1.5 text-left">
-                            <div className="flex justify-between text-slate-500">
-                                <span>Artículos descontados:</span>
-                                <span className="font-bold text-slate-800">{modalExito.articulos} líneas</span>
-                            </div>
-                            <div className="flex justify-between text-slate-500 border-t border-slate-200 pt-1.5">
-                                <span className="font-bold text-slate-800">Unidades de baja:</span>
-                                <span className="font-semibold text-rose-600 text-sm">
-                                    -{modalExito.totalUnidades} un.
-                                </span>
-                            </div>
-                        </div>
-
-                        <button
-                            type="button"
-                            onClick={() => {
-                                setModalExito(null);
-                                router.visit('/salidas');
-                            }}
-                            className="volumen-marca text-on-brand w-full h-10 rounded-xl font-bold text-xs transition cursor-pointer hover:brightness-105"
-                        >
-                            Ir al Historial de Salidas
-                        </button>
-                </div>
-                )}
-            </Dialog>
-
-            {/* MODAL 4: ALERTA */}
-            <Dialog open={Boolean(modalAlerta)} onClose={() => setModalAlerta(null)} size="sm">
-                {(modalAlerta) && (
-                <div className="p-6">
-                        <div className="w-10 h-10 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center mb-3">
-                            <AlertCircle className="w-5 h-5" />
-                        </div>
-                        <h4 className="text-sm font-semibold text-slate-900">{modalAlerta.titulo}</h4>
-                        <p className="text-xs text-slate-600 font-medium mt-1.5 leading-relaxed">
-                            {modalAlerta.mensaje}
-                        </p>
-                        {modalAlerta.sugerencia && (
-                            <div className="mt-3 p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-500">
-                                <span className="font-bold">Sugerencia:</span> {modalAlerta.sugerencia}
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_28rem]">
+                <Card className={cx(panel, vista !== 'catalogo' && 'hidden lg:flex')}>
+                    <div className="border-b border-slate-100 p-3 sm:p-4">
+                        <SearchInput value={busqueda} onChange={setBusqueda} placeholder="Buscar insumo o producto…" label="Buscar producto para dar de baja" autoFocus />
+                    </div>
+                    <div className="flex-1 overflow-y-auto p-3 sm:p-4">
+                        {visibles.length === 0 ? (
+                            <EmptyState icon={Search} title="No hay productos que coincidan" description="Prueba con otra palabra." />
+                        ) : (
+                            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-4">
+                                {visibles.map((p) => {
+                                    const variantes = p.controla_stock === false;
+                                    const stock = Number(p.stock_actual ?? 0);
+                                    const sinStock = !variantes && stock <= 0;
+                                    const veces = enLista[p.id_producto] ?? 0;
+                                    return (
+                                        <button key={p.id_producto} type="button" disabled={variantes || sinStock} onClick={() => agregar(p)}
+                                            className={cx('group relative flex min-h-24 flex-col justify-between rounded-xl bg-white p-3 text-left ring-1 transition-[box-shadow,transform] enabled:hover:ring-rose-300 enabled:active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-slate-50 disabled:opacity-60', veces ? 'ring-2 ring-rose-400' : 'ring-slate-200')}>
+                                            {veces > 0 && <span className="absolute -top-2 -right-2 grid h-6 min-w-6 place-items-center rounded-full bg-rose-600 px-1.5 font-mono text-xs font-bold text-white">{veces}</span>}
+                                            <span className="text-sm leading-snug font-medium text-slate-900">{p.nombre}</span>
+                                            <span className="mt-2 flex items-end justify-between gap-2">
+                                                {variantes ? (
+                                                    <span className="text-xs text-slate-500">Stock en: {p.stock_en.join(', ')}</span>
+                                                ) : sinStock ? (
+                                                    <Badge tone="danger">Sin stock</Badge>
+                                                ) : (
+                                                    <span className="font-mono text-xs text-slate-600 tabular-nums">{cantidadTexto(stock)} {unidad(p)}</span>
+                                                )}
+                                                {!variantes && !sinStock && <Minus className="h-4 w-4 shrink-0 text-slate-300 group-hover:text-rose-600" aria-hidden="true" />}
+                                            </span>
+                                        </button>
+                                    );
+                                })}
                             </div>
                         )}
-                        <button
-                            type="button"
-                            onClick={() => setModalAlerta(null)}
-                            className="volumen-marca w-full mt-4 h-10 rounded-xl text-on-brand font-bold text-xs transition cursor-pointer hover:brightness-105"
-                        >
-                            Entendido
-                        </button>
-                </div>
+                    </div>
+                </Card>
+
+                <Card as="form" onSubmit={revisar} className={cx(panel, vista !== 'salida' && 'hidden lg:flex')}>
+                    <div className="space-y-3 border-b border-slate-100 bg-slate-50/60 p-4">
+                        <fieldset>
+                            <legend className="mb-1.5 text-xs font-medium text-slate-700">Motivo</legend>
+                            <div className="flex flex-wrap gap-1.5">
+                                {listaMotivos.map((m) => (
+                                    <button key={m} type="button" aria-pressed={data.motivo === m} onClick={() => setData('motivo', m)}
+                                        className={cx('h-8 rounded-lg px-2.5 text-xs font-medium ring-1 transition-colors', data.motivo === m ? 'bg-brand text-on-brand ring-brand' : 'bg-white text-slate-600 ring-slate-200 hover:bg-slate-50')}>
+                                        {m.charAt(0) + m.slice(1).toLowerCase()}
+                                    </button>
+                                ))}
+                            </div>
+                        </fieldset>
+                        <Field label="Justificación" required hint="Queda en el kardex: qué pasó y cuándo.">
+                            <Textarea rows={2} value={data.observacion} onChange={(e) => setData('observacion', e.target.value)} placeholder="Ej.: pollo vencido detectado en la cámara el 25/11" />
+                        </Field>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto overscroll-contain p-3">
+                        {lineas.length === 0 ? (
+                            <EmptyState icon={ClipboardList} title="Nada para dar de baja" description="Elige los productos afectados." />
+                        ) : (
+                            <ul className="space-y-2.5">
+                                {lineas.map((l) => {
+                                    const baja = (Number(l.cantidad) || 0) * l.factor_conversion;
+                                    const excede = l.stock_maximo > 0 && baja > l.stock_maximo;
+                                    return (
+                                        <li key={l.uid} className="space-y-2.5 rounded-xl bg-white p-3.5 ring-1 ring-slate-200">
+                                            <div className="flex items-start justify-between gap-2">
+                                                <div className="min-w-0">
+                                                    <p className="truncate text-sm font-semibold text-slate-900">{l.nombre}</p>
+                                                    <p className={cx('text-xs', excede ? 'font-medium text-rose-700' : 'text-slate-500')}>
+                                                        Descuenta <span className="font-mono tabular-nums">{cantidadTexto(baja)} {unidad(l)}</span> de {cantidadTexto(l.stock_maximo)}
+                                                    </p>
+                                                </div>
+                                                <IconButton icon={Trash2} tone="danger" label={`Quitar ${l.nombre}`} onClick={() => setLineas((a) => a.filter((x) => x.uid !== l.uid))} />
+                                            </div>
+                                            <div className="grid grid-cols-[minmax(0,1fr)_5rem] gap-2">
+                                                <Field label="Presentación">
+                                                    <Select value={l.id_prod_pres || ''} onChange={(e) => cambiarPresentacion(l.uid, e.target.value)}>
+                                                        {l.presentaciones.map((p) => <option key={p.id_prod_pres} value={p.id_prod_pres}>{etiquetaPresentacion(p, l)}</option>)}
+                                                    </Select>
+                                                </Field>
+                                                <Field label="Cantidad">
+                                                    <Input inputMode="numeric" className="text-center font-mono" value={l.cantidad} placeholder="1"
+                                                        onChange={(e) => { const limpio = e.target.value.replace(/\D/g, ''); cambiar(l.uid, { cantidad: limpio === '' ? '' : parseInt(limpio, 10) }); }}
+                                                        onBlur={() => cambiar(l.uid, { cantidad: Math.max(1, Number(l.cantidad) || 1) })} />
+                                                </Field>
+                                            </div>
+                                            <Field label="Lote (opcional)">
+                                                <Input className="font-mono uppercase" value={l.lote} placeholder="Se usa el más antiguo" onChange={(e) => cambiar(l.uid, { lote: e.target.value.toUpperCase() })} />
+                                            </Field>
+                                        </li>
+                                    );
+                                })}
+                            </ul>
+                        )}
+                    </div>
+
+                    <div className="space-y-2.5 border-t border-slate-200 bg-slate-50/80 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+                        {faltante && lineas.length > 0 && <p className="text-xs text-amber-700" role="status">{faltante}</p>}
+                        <Button type="submit" variant="danger" size="lg" block icon={PackageMinus} disabled={processing || lineas.length === 0}>
+                            Dar de baja {lineas.length ? `${lineas.length} ${lineas.length === 1 ? 'producto' : 'productos'}` : ''}
+                        </Button>
+                    </div>
+                </Card>
+            </div>
+
+            {vista === 'catalogo' && lineas.length > 0 && (
+                <button type="button" onClick={() => setVista('salida')} className="fixed inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-20 flex h-14 items-center justify-between rounded-2xl bg-rose-600 px-5 font-semibold text-white shadow-[var(--shadow-flotante)] lg:hidden">
+                    <span>{lineas.length} para dar de baja</span>
+                    <ChevronRight className="h-5 w-5" aria-hidden="true" />
+                </button>
+            )}
+
+            <ConfirmDialog
+                open={confirmando}
+                onClose={() => setConfirmando(false)}
+                onConfirm={confirmar}
+                loading={processing}
+                title="¿Dar de baja del inventario?"
+                confirmLabel="Confirmar baja"
+                cancelLabel="Revisar"
+            >
+                <dl className="mt-1 space-y-1">
+                    <div className="flex justify-between gap-6"><dt>Motivo</dt><dd className="font-medium text-slate-900">{data.motivo}</dd></div>
+                    <div className="flex justify-between gap-6"><dt>Productos</dt><dd className="font-medium text-slate-900 tabular-nums">{lineas.length}</dd></div>
+                </dl>
+                <p className="mt-2 flex gap-1.5 text-xs text-amber-800"><AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />El stock se descuenta de inmediato.</p>
+            </ConfirmDialog>
+
+            <Dialog open={Boolean(registrada)} onClose={() => router.visit('/salidas')} size="sm" footer={<Button onClick={() => router.visit('/salidas')} autoFocus>Ver salidas</Button>}>
+                {registrada && (
+                    <div className="flex flex-col items-center gap-2 px-5 pt-6 pb-5 text-center">
+                        <span className="grid h-12 w-12 place-items-center rounded-full bg-emerald-50 text-emerald-600"><CheckCircle2 className="h-6 w-6" aria-hidden="true" /></span>
+                        <h2 className="mt-1 text-base font-semibold text-slate-900">Salida registrada</h2>
+                        <p className="text-sm text-slate-600">{registrada.motivo} · {registrada.lineas} {registrada.lineas === 1 ? 'producto' : 'productos'}</p>
+                        <p className="text-xs text-slate-500 italic">“{registrada.observacion}”</p>
+                    </div>
                 )}
             </Dialog>
         </AuthenticatedLayout>

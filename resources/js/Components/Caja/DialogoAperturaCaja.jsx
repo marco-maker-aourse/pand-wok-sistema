@@ -30,7 +30,7 @@ export default function DialogoAperturaCaja({ isOpen, onClose, redirectTo = '/ve
     return (
         <Dialog open={isOpen} onClose={processing ? () => {} : onClose} size="sm">
             <div className="p-6">
-                <div className="w-12 h-12 rounded-lg bg-teal-50 text-teal-700 flex items-center justify-center mb-4">
+                <div className="w-12 h-12 rounded-lg bg-brand-soft text-brand-ink flex items-center justify-center mb-4">
                     <Coins className="w-6 h-6" />
                 </div>
 

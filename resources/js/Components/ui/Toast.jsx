@@ -74,7 +74,7 @@ export function Toaster() {
     const lista = useSyncExternalStore(suscribir, leer, leer);
 
     return (
-        <div aria-live="polite" className="pointer-events-none fixed right-4 bottom-4 z-[70] flex w-[min(24rem,calc(100vw-2rem))] flex-col gap-2">
+        <div aria-live="polite" className="pointer-events-none fixed top-[max(1rem,env(safe-area-inset-top))] right-4 lg:top-auto lg:bottom-4 z-[70] flex w-[min(24rem,calc(100vw-2rem))] flex-col gap-2">
             {lista.map((aviso) => <Aviso key={aviso.id} aviso={aviso} />)}
         </div>
     );

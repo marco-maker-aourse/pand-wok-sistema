@@ -9,6 +9,7 @@ import MenuUsuario from './navegacion/MenuUsuario';
 import PaletaComandos from './navegacion/PaletaComandos';
 import SelectorSucursal from './navegacion/SelectorSucursal';
 import BarraLateral from './navegacion/BarraLateral';
+import BarraInferior, { accesosBarraInferior } from './navegacion/BarraInferior';
 import { filtrarNavegacionPorRol } from './navegacion/filtrarNavegacionPorRol';
 
 const CLAVE_MENU_COMPACTO = 'svamm_menu_compacto';
@@ -35,8 +36,9 @@ function iniciales(nombre) {
  * Estructura de las pantallas autenticadas: menú lateral filtrado por rol,
  * barra superior con el título de la sección y área de contenido.
  * `fullWidth` quita el ancho máximo (POS y pantallas operativas densas).
+ * `sinBarraInferior` oculta los accesos rápidos del celular (el POS usa ese espacio para el pedido).
  */
-export default function AuthenticatedLayout({ header, children, fullWidth = false }) {
+export default function AuthenticatedLayout({ header, children, fullWidth = false, sinBarraInferior = false }) {
     const { props, url = '/' } = usePage();
     const organizacion = props.organization ?? props.empresa ?? {};
     const user = props.auth?.user ?? {};
@@ -67,6 +69,9 @@ export default function AuthenticatedLayout({ header, children, fullWidth = fals
     const rolId = Number(user.id_rol || 0);
     const permisos = user.permissions;
     const modulos = useMemo(() => filtrarNavegacionPorRol(navigationModules, rolNombre, rolId, permisos), [rolNombre, rolId, permisos]);
+
+    const accesos = useMemo(() => accesosBarraInferior(modulos), [modulos]);
+    const conBarraInferior = !sinBarraInferior && accesos.length >= 2;
 
     const nombreUsuario = user.nombres || user.name || 'Usuario';
     const usuario = { nombre: nombreUsuario, email: user.email || '', rol: rolNombre, iniciales: iniciales(nombreUsuario) };
@@ -100,7 +105,12 @@ export default function AuthenticatedLayout({ header, children, fullWidth = fals
                     >
                         <Menu className="h-4 w-4" aria-hidden="true" />
                     </button>
-                    <p className="min-w-0 flex-1 truncate text-lg font-semibold tracking-[-0.015em] text-slate-900 sm:text-xl">{header ?? 'Panel de control'}</p>
+                    <div className="min-w-0 flex-1">
+                        <p className="truncate text-lg leading-tight font-semibold tracking-[-0.015em] text-slate-900 sm:text-xl">{header ?? 'Panel de control'}</p>
+                        {props.sucursal?.activa && (
+                            <p className="truncate text-xs text-slate-500 sm:hidden">{props.sucursal.activa.nombre}</p>
+                        )}
+                    </div>
                     <button
                         type="button"
                         onClick={() => setPaletaAbierta(true)}
@@ -121,10 +131,11 @@ export default function AuthenticatedLayout({ header, children, fullWidth = fals
                     </div>
                 )}
 
-                <main id="contenido" className={`animate-entrada ${fullWidth ? 'w-full p-4 sm:p-6' : 'mx-auto w-full max-w-[1440px] p-4 sm:p-6'}`}>
+                <main id="contenido" className={`animate-entrada ${fullWidth ? 'w-full p-4 sm:p-6' : 'mx-auto w-full max-w-[1440px] p-4 sm:p-6'} ${conBarraInferior ? 'pb-24 lg:pb-6' : ''}`}>
                     {children}
                 </main>
             </div>
+            {conBarraInferior && <BarraInferior accesos={accesos} url={url} onAbrirMenu={() => setAbiertoMovil(true)} />}
             <Toaster />
             <Confirmador />
             <PaletaComandos modulos={modulos} abierta={paletaAbierta} onCerrar={() => setPaletaAbierta(false)} />

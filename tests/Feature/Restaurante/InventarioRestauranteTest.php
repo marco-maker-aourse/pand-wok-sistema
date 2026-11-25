@@ -149,6 +149,41 @@ class InventarioRestauranteTest extends TestCase
         $this->assertSame(23.5, $this->saldo(50), 'Cantidades fraccionarias y una sola salida por merma.');
     }
 
+    public function test_la_entrada_de_insumos_conoce_el_tipo_de_cada_producto(): void
+    {
+        DB::statement('CREATE TABLE catalogos.proveedores (id_proveedor INTEGER PRIMARY KEY, num_documento TEXT, razon_social TEXT, direccion_fiscal TEXT, estado BOOLEAN DEFAULT 1)');
+        DB::statement('ALTER TABLE catalogos.tipos_comprobante ADD COLUMN descripcion TEXT');
+
+        $this->actingAs(\App\Models\User::query()->findOrFail(10))->get('/ingresos/create')->assertOk()
+            ->assertInertia(fn (\Inertia\Testing\AssertableInertia $page) => $page
+                ->component('Ingresos/Create')
+                ->where('productos', fn ($productos) => collect($productos)->firstWhere('id_producto', 50)['tipo_producto'] === 'INSUMO'
+                    && collect($productos)->firstWhere('id_producto', 52)['tipo_producto'] === 'PREPARADO'));
+    }
+
+    public function test_la_salida_de_inventario_recibe_el_saldo_real_de_la_sucursal(): void
+    {
+        // Otra sucursal y un saldo anterior de la misma: solo cuenta el último de la sucursal activa.
+        DB::table('inventario.kardex')->insert([
+            ['id_sucursal' => 2, 'id_producto' => 41, 'stock_actual' => 999, 'precio_costo' => 1.5],
+            ['id_sucursal' => 1, 'id_producto' => 41, 'stock_actual' => 20, 'precio_costo' => 1.5],
+        ]);
+
+        $this->actingAs(\App\Models\User::query()->findOrFail(10))->get('/salidas/create')->assertOk()
+            ->assertInertia(fn (\Inertia\Testing\AssertableInertia $page) => $page
+                ->component('Salidas/Create')
+                ->where('productos', function ($productos) {
+                    $porId = collect($productos)->keyBy('id_producto');
+
+                    return (float) $porId[41]['stock_actual'] === 20.0
+                        && (float) $porId[43]['stock_actual'] === 12.0
+                        && (float) $porId[50]['stock_actual'] === 0.0
+                        && $porId[41]['tipo_producto'] === 'INSUMO'
+                        && $porId[40]['controla_stock'] === false
+                        && ! $porId->has(52); // Un plato preparado no tiene stock que dar de baja.
+                }));
+    }
+
     public function test_el_stock_y_el_consumo_son_por_sucursal(): void
     {
         $this->comprarFiltros(1);

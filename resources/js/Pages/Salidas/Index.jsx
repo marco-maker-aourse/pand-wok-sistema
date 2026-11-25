@@ -1,329 +1,137 @@
-import React, { useState, useMemo } from 'react';
+import { useMemo, useState } from 'react';
+import { Head } from '@inertiajs/react';
+import { ChevronRight, PackageMinus } from 'lucide-react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { PageHeader, Dialog, PaginacionServidor, Stat } from '@/Components/ui';
-import { Head, Link } from '@inertiajs/react';
-import {
-    Search,
-    Eye,
-    X,
-    Calendar,
-    AlertTriangle,
-    Layers,
-    Plus,
-    FileText,
-    Boxes
-} from 'lucide-react';
+import { Badge, Button, Card, Dialog, EmptyState, PageHeader, PaginacionServidor, SearchInput, Table, TBody, Td, Th, THead, Tr, cx } from '@/Components/ui';
 
-export default function Index({ auth, salidas = [] }) {
+const FILTROS = [
+    { id: 'todos', label: 'Todos' },
+    { id: 'merma', label: 'Merma', coincide: ['merma'] },
+    { id: 'vencimiento', label: 'Vencimiento', coincide: ['vencimiento'] },
+    { id: 'rotura', label: 'Deterioro', coincide: ['rotura', 'deterioro'] },
+    { id: 'ajuste', label: 'Ajuste', coincide: ['ajuste'] },
+];
+
+const fechaHora = (iso) => (iso ? new Date(iso).toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' }) : '—');
+const usuarioDe = (s) => s.usuario?.nombres || s.usuario?.name || '';
+const motivoLegible = (m = '') => m.charAt(0) + m.slice(1).toLowerCase();
+
+function tonoMotivo(motivo = '') {
+    const m = motivo.toUpperCase();
+    if (m.includes('VENCIMIENTO')) return 'danger';
+    if (m.includes('MERMA') || m.includes('ROTURA') || m.includes('DETERIORO')) return 'warning';
+    if (m.includes('AJUSTE')) return 'brand';
+    return 'neutral';
+}
+
+function DetalleSalida({ salida, onCerrar }) {
+    const detalles = salida.detalles || [];
+    return (
+        <Dialog open onClose={onCerrar} size="xl" title={`Salida #${salida.id_salida}`}
+            description={[motivoLegible(salida.motivo), fechaHora(salida.fecha_salida), usuarioDe(salida)].filter(Boolean).join(' · ')}
+            footer={<Button onClick={onCerrar}>Cerrar</Button>}>
+            {salida.observacion && <p className="mx-5 mt-4 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-700 italic ring-1 ring-slate-200">“{salida.observacion}”</p>}
+            {detalles.length === 0 ? (
+                <p className="px-5 py-8 text-center text-sm text-slate-500">Esta salida no tiene detalle cargado.</p>
+            ) : (
+                <Table className="mt-2" caption="Productos dados de baja">
+                    <THead><Th>Producto</Th><Th>Presentación</Th><Th>Lote</Th><Th align="right">Cantidad</Th></THead>
+                    <TBody>
+                        {detalles.map((d, i) => (
+                            <Tr key={d.id_detalle_salida ?? i}>
+                                <Td className="font-medium text-slate-900">{d.producto?.nombre || d.presentacion?.producto?.nombre || 'Producto'}</Td>
+                                <Td className="text-slate-600">{d.presentacion?.presentacion?.nombre || d.presentacion?.nombre || 'Unidad base'}</Td>
+                                <Td className="font-mono text-xs">{d.lote || '—'}</Td>
+                                <Td align="right" className="font-mono font-semibold text-rose-700 tabular-nums">−{Number(d.cantidad || 0)}</Td>
+                            </Tr>
+                        ))}
+                    </TBody>
+                </Table>
+            )}
+        </Dialog>
+    );
+}
+
+/** Historial de bajas de inventario: mermas, vencimientos, deterioros y ajustes. */
+export default function Index({ salidas = [] }) {
     const [busqueda, setBusqueda] = useState('');
-    const [filtroMotivo, setFiltroMotivo] = useState('todos');
-    const [selectedSalida, setSelectedSalida] = useState(null);
+    const [filtro, setFiltro] = useState('todos');
+    const [seleccionada, setSeleccionada] = useState(null);
+    const lista = useMemo(() => (Array.isArray(salidas) ? salidas : salidas?.data ?? []), [salidas]);
 
-    const listaSalidas = useMemo(() => {
-        if (Array.isArray(salidas)) return salidas;
-        if (salidas?.data) return salidas.data;
-        return [];
-    }, [salidas]);
-
-    const metricas = useMemo(() => {
-        let mermas = 0;
-        let vencimientos = 0;
-        let otros = 0;
-
-        listaSalidas.forEach((s) => {
-            const mot = (s.motivo || '').toUpperCase();
-            if (mot.includes('MERMA') || mot.includes('ROTURA')) mermas++;
-            else if (mot.includes('VENCIMIENTO')) vencimientos++;
-            else otros++;
-        });
-
-        return {
-            total: listaSalidas.length,
-            mermas,
-            vencimientos,
-            otros
-        };
-    }, [listaSalidas]);
-
-    const salidasFiltradas = useMemo(() => {
-        return listaSalidas.filter((s) => {
+    const filtradas = useMemo(() => {
+        const q = busqueda.toLowerCase().trim();
+        const criterio = FILTROS.find((f) => f.id === filtro)?.coincide;
+        return lista.filter((s) => {
             const motivo = (s.motivo || '').toLowerCase();
-            const obs = (s.observacion || '').toLowerCase();
-            const num = `salida #${s.id_salida}`.toLowerCase();
-            const q = busqueda.toLowerCase().trim();
-
-            const matchTexto = !q || motivo.includes(q) || obs.includes(q) || num.includes(q);
-
-            let matchMotivo = true;
-            if (filtroMotivo === 'MERMA') matchMotivo = motivo.includes('merma');
-            else if (filtroMotivo === 'VENCIMIENTO') matchMotivo = motivo.includes('vencimiento');
-            else if (filtroMotivo === 'ROTURA') matchMotivo = motivo.includes('rotura') || motivo.includes('deterioro');
-            else if (filtroMotivo === 'AJUSTE') matchMotivo = motivo.includes('ajuste');
-
-            return matchTexto && matchMotivo;
+            if (q && !motivo.includes(q) && !(s.observacion || '').toLowerCase().includes(q) && !`#${s.id_salida}`.includes(q)) return false;
+            return !criterio || criterio.some((palabra) => motivo.includes(palabra));
         });
-    }, [listaSalidas, busqueda, filtroMotivo]);
-
-    const openDetails = (salida) => setSelectedSalida(salida);
-    const closeDetails = () => setSelectedSalida(null);
-
-    const getBadgeStyle = (motivo = '') => {
-        const m = motivo.toUpperCase();
-        if (m.includes('VENCIMIENTO')) return 'bg-rose-50 text-rose-700 border-rose-200';
-        if (m.includes('MERMA') || m.includes('ROTURA')) return 'bg-amber-50 text-amber-700 border-amber-200';
-        if (m.includes('AJUSTE')) return 'bg-brand-soft text-brand-ink border-brand-border';
-        return 'bg-slate-100 text-slate-700 border-slate-200';
-    };
+    }, [lista, busqueda, filtro]);
 
     return (
-        <AuthenticatedLayout header="Ajustes de inventario">
-            <Head title="Ajustes de inventario" />
-
+        <AuthenticatedLayout header="Salidas y ajustes">
+            <Head title="Salidas y ajustes" />
             <div className="space-y-4">
                 <PageHeader
-                    breadcrumbs={[{ label: 'Inventario' }, { label: 'Salidas y ajustes' }]}
-                    title="Ajustes de inventario"
-                    description="Registro de bajas por roturas, vencimiento y ajustes con trazabilidad en Kardex."
-                    actions={
-                        <>
-                        <Link
-                            href="/salidas/create"
-                            className="bg-brand text-on-brand hover:bg-brand-hover h-11 px-5 rounded-lg font-semibold text-xs transition flex items-center gap-2 cursor-pointer"
-                        >
-                            <Plus className="w-4 h-4 stroke-[3]" />
-                            <span>Registrar Nueva Salida</span>
-                        </Link>
-                        </>
-                    }
+                    title="Salidas y ajustes"
+                    description="Bajas de inventario con su motivo y justificación. Las mermas de cocina se registran desde Mermas."
+                    icon={PackageMinus}
+                    actions={<Button icon={PackageMinus} href="/salidas/create">Registrar salida</Button>}
                 />
 
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                    <Stat destacado label="Ajustes registrados" value={Number(salidas?.total ?? listaSalidas.length).toLocaleString('es-PE')} hint="Total en el sistema" icon={FileText} />
-                    <Stat label="Mermas y roturas" value={metricas.mermas} hint="En esta página" icon={Boxes} iconTone="warning" />
-                    <Stat label="Por vencimiento" value={metricas.vencimientos} hint="En esta página" icon={Calendar} iconTone="danger" />
-                </div>
-
-                {/* 3. BARRA DE HERRAMIENTAS Y FILTROS */}
-                <div className="bg-white rounded-2xl p-4 flex flex-col md:flex-row gap-3 items-center justify-between shadow-[var(--shadow-tarjeta)] ring-1 ring-slate-900/[0.05]">
-                    <div className="relative w-full md:w-80">
-                        <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3 pointer-events-none" />
-                        <input
-                            type="text"
-                            placeholder="Buscar por motivo, observación o #Salida..."
-                            className="w-full pl-10 pr-3.5 py-2 text-sm bg-white border border-slate-200 rounded-lg transition"
-                            value={busqueda}
-                            onChange={(e) => setBusqueda(e.target.value)}
-                        />
-                    </div>
-
-                    <div className="flex items-center gap-1.5 w-full md:w-auto bg-slate-100/80 p-1 rounded-lg">
-                        {[
-                            { id: 'todos', label: `Todos (${listaSalidas.length})` },
-                            { id: 'MERMA', label: 'Mermas' },
-                            { id: 'VENCIMIENTO', label: 'Vencidos' },
-                            { id: 'ROTURA', label: 'Roturas' },
-                            { id: 'AJUSTE', label: 'Ajustes' }
-                        ].map((filtro) => {
-                            const activo = filtroMotivo === filtro.id;
-                            return (
-                                <button
-                                    key={filtro.id}
-                                    type="button"
-                                    onClick={() => setFiltroMotivo(filtro.id)}
-                                    style={
-                                        activo
-                                            ? { backgroundColor: 'var(--brand-primary, #0e7490)', color: '#ffffff' }
-                                            : undefined
-                                    }
-                                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
-                                        activo
-                                            ? 'shadow-xs'
-                                            : 'text-slate-500 hover:text-slate-800'
-                                    }`}
-                                >
-                                    {filtro.label}
+                <Card className="overflow-hidden">
+                    <div className="flex flex-col gap-3 border-b border-slate-100 p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4">
+                        <SearchInput value={busqueda} onChange={setBusqueda} placeholder="Motivo, justificación o número…" label="Buscar en esta página" className="sm:w-80" />
+                        <div className="flex gap-1 overflow-x-auto rounded-lg bg-slate-100 p-1" role="radiogroup" aria-label="Motivo">
+                            {FILTROS.map(({ id, label }) => (
+                                <button key={id} type="button" role="radio" aria-checked={filtro === id} onClick={() => setFiltro(id)}
+                                    className={cx('h-8 shrink-0 rounded-md px-3 text-xs font-medium', filtro === id ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900')}>
+                                    {label}
                                 </button>
-                            );
-                        })}
+                            ))}
+                        </div>
                     </div>
-                </div>
 
-                {/* 4. TABLA PRINCIPAL DE SALIDAS */}
-                <div className="bg-white rounded-2xl overflow-hidden shadow-[var(--shadow-tarjeta)] ring-1 ring-slate-900/[0.05]">
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left whitespace-nowrap text-xs">
-                            <thead className="bg-slate-50/70 border-b border-slate-100 text-xs font-semibold text-slate-400">
-                                <tr>
-                                    <th className="px-4 py-2.5 font-medium">Fecha y Hora</th>
-                                    <th className="px-4 py-2.5 font-medium">Código Salida</th>
-                                    <th className="px-4 py-2.5 font-medium">Motivo de Baja</th>
-                                    <th className="px-4 py-2.5 font-medium">Observación / Justificación</th>
-                                    <th className="px-4 py-2.5 text-center font-medium">Estado</th>
-                                    <th className="px-4 py-2.5 text-right font-medium">Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
-                                {salidasFiltradas.length > 0 ? (
-                                    salidasFiltradas.map((s) => {
-                                        const fecha = s.fecha_salida ? new Date(s.fecha_salida) : new Date();
-
-                                        return (
-                                            <tr key={s.id_salida} className="hover:bg-brand-soft/40 transition-colors">
-                                                <td className="px-4 py-2.5">
-                                                    <span className="font-bold text-slate-800">
-                                                        {fecha.toLocaleDateString('es-PE')}
-                                                    </span>
-                                                    <span className="text-xs text-slate-400 block font-mono">
-                                                        {fecha.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}
-                                                    </span>
-                                                </td>
-
-                                                <td className="px-4 py-2.5 font-mono font-semibold text-slate-900 text-xs">
-                                                    Salida #{s.id_salida}
-                                                </td>
-
-                                                <td className="px-4 py-2.5">
-                                                    <span className={`inline-block px-2.5 py-0.5 rounded-md text-xs font-semibold border ${getBadgeStyle(s.motivo)}`}>
-                                                        {s.motivo || 'MERMA'}
-                                                    </span>
-                                                </td>
-
-                                                <td className="px-4 py-2.5">
-                                                    <p className="font-medium text-slate-700 text-xs truncate max-w-sm" title={s.observacion}>
-                                                        {s.observacion || 'Sin observaciones registradas'}
-                                                    </p>
-                                                    <span className="text-xs text-slate-400 block font-mono">
-                                                        Por: {s.usuario?.nombres || s.usuario?.name || 'Administrador'}
-                                                    </span>
-                                                </td>
-
-                                                <td className="px-4 py-2.5 text-center">
-                                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                                                        {s.estado ? 'Procesado' : 'Aprobado'}
-                                                    </span>
-                                                </td>
-
-                                                <td className="px-4 py-2.5 text-right">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => openDetails(s)}
-                                                        className="h-8 px-2.5 rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-600 font-bold text-xs inline-flex items-center gap-1.5 transition cursor-pointer"
-                                                        title="Ver productos dados de baja"
-                                                    >
-                                                        <Eye className="w-3.5 h-3.5" />
-                                                        <span>Detalles</span>
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        );
-                                    })
-                                ) : (
-                                    <tr>
-                                        <td colSpan="6" className="py-16 text-center text-slate-400">
-                                            <p className="font-bold text-xs text-slate-500">
-                                                No se encontraron salidas registradas
-                                            </p>
-                                            <p className="text-xs text-slate-400 mt-0.5">
-                                                Haz clic en "Registrar Nueva Salida" para dar de baja mercadería.
-                                            </p>
-                                        </td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                    <PaginacionServidor paginador={salidas} entidad="ajustes" />
-                </div>
+                    {filtradas.length === 0 ? (
+                        <EmptyState icon={PackageMinus} title={lista.length ? 'Ninguna salida coincide' : 'Aún no hay salidas'} description={lista.length ? 'Prueba con otra búsqueda o motivo.' : 'Las bajas de inventario aparecerán aquí.'} />
+                    ) : (
+                        <>
+                            <ul className="divide-y divide-slate-100 md:hidden">
+                                {filtradas.map((s) => (
+                                    <li key={s.id_salida}>
+                                        <button type="button" onClick={() => setSeleccionada(s)} className="flex w-full items-center gap-3 px-4 py-3 text-left active:bg-slate-50">
+                                            <div className="min-w-0 flex-1 space-y-1">
+                                                <div className="flex items-center gap-2"><Badge tone={tonoMotivo(s.motivo)}>{motivoLegible(s.motivo)}</Badge><span className="text-xs text-slate-500">#{s.id_salida}</span></div>
+                                                <p className="truncate text-sm text-slate-700">{s.observacion || 'Sin justificación'}</p>
+                                                <p className="text-xs text-slate-500">{fechaHora(s.fecha_salida)}</p>
+                                            </div>
+                                            <ChevronRight className="h-4 w-4 text-slate-400" aria-hidden="true" />
+                                        </button>
+                                    </li>
+                                ))}
+                            </ul>
+                            <Table className="hidden md:block" caption="Salidas de inventario">
+                                <THead><Th>Fecha</Th><Th>N.º</Th><Th>Motivo</Th><Th>Justificación</Th><Th>Registró</Th><Th align="right"><span className="sr-only">Acciones</span></Th></THead>
+                                <TBody>
+                                    {filtradas.map((s) => (
+                                        <Tr key={s.id_salida} className="cursor-pointer" onClick={() => setSeleccionada(s)}>
+                                            <Td className="whitespace-nowrap tabular-nums">{fechaHora(s.fecha_salida)}</Td>
+                                            <Td className="font-mono text-xs">#{s.id_salida}</Td>
+                                            <Td><Badge tone={tonoMotivo(s.motivo)}>{motivoLegible(s.motivo)}</Badge></Td>
+                                            <Td><p className="max-w-sm truncate text-slate-700">{s.observacion || '—'}</p></Td>
+                                            <Td className="text-slate-600">{usuarioDe(s) || '—'}</Td>
+                                            <Td align="right"><Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); setSeleccionada(s); }}>Ver</Button></Td>
+                                        </Tr>
+                                    ))}
+                                </TBody>
+                            </Table>
+                        </>
+                    )}
+                    <PaginacionServidor paginador={salidas} entidad="salidas" />
+                </Card>
             </div>
-
-            {/* MODAL PROPIO: DETALLES DE SALIDA (ESTILO ERP LIMPIO) */}
-            <Dialog open={Boolean(selectedSalida)} onClose={closeDetails} size="xl">
-                {(selectedSalida) && (
-                <div className="p-6 sm:p-7 flex flex-col">
-                        <div className="flex items-start justify-between pb-4 border-b border-slate-100 mb-4 shrink-0">
-                            <div>
-                                <div className="flex items-center gap-2 mb-1.5">
-                                    <span className={`px-2.5 py-0.5 rounded-md text-xs font-semibold border ${getBadgeStyle(selectedSalida.motivo)}`}>
-                                        {selectedSalida.motivo}
-                                    </span>
-                                    <span className="text-xs font-mono text-slate-400">
-                                        Fecha: {new Date(selectedSalida.fecha_salida || Date.now()).toLocaleDateString('es-PE')}
-                                    </span>
-                                </div>
-                                <h3 className="text-xl font-semibold font-mono text-slate-900 tracking-tight">
-                                    Salida #{selectedSalida.id_salida}
-                                </h3>
-                                <p className="text-xs text-slate-500 font-medium mt-0.5 italic">
-                                    "{selectedSalida.observacion || 'Sin detalles'}"
-                                </p>
-                            </div>
-                            <button
-                                type="button"
-                                onClick={closeDetails}
-                                className="w-8 h-8 rounded-xl text-slate-400 hover:bg-slate-100 flex items-center justify-center cursor-pointer"
-                            >
-                                <X className="w-4 h-4" />
-                            </button>
-                        </div>
-
-                        {/* Tabla de Artículos Afectados */}
-                        <div className="flex-1 overflow-y-auto mb-4 border border-slate-100 rounded-lg [scrollbar-width:thin]">
-                            <table className="w-full text-left text-xs">
-                                <thead className="bg-slate-50 text-slate-400 uppercase text-xs font-semibold border-b border-slate-100">
-                                    <tr>
-                                        <th className="py-2.5 px-3 font-medium">Artículo / Producto</th>
-                                        <th className="py-2.5 px-2 text-center font-medium">Empaque</th>
-                                        <th className="py-2.5 px-2 text-center font-medium">Lote</th>
-                                        <th className="py-2.5 px-3 text-right font-medium">Cant. Baja</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
-                                    {selectedSalida.detalles && selectedSalida.detalles.length > 0 ? (
-                                        selectedSalida.detalles.map((d, index) => (
-                                            <tr key={index}>
-                                                <td className="py-2.5 px-3 font-bold text-slate-800">
-                                                    {d.presentacion?.producto?.nombre || d.producto?.nombre || 'Producto Registrado'}
-                                                </td>
-                                                <td className="py-2.5 px-2 text-center">
-                                                    <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-xs font-bold">
-                                                        {d.presentacion?.presentacion?.nombre || d.presentacion?.nombre || 'Unidad Base'}
-                                                    </span>
-                                                </td>
-                                                <td className="py-2.5 px-2 text-center font-mono font-bold text-slate-600 text-xs">
-                                                    {d.lote || '—'}
-                                                </td>
-                                                <td className="py-2.5 px-3 text-right font-mono font-semibold text-rose-600 text-sm">
-                                                    -{Number(d.cantidad || 0)}
-                                                </td>
-                                            </tr>
-                                        ))
-                                    ) : (
-                                        <tr>
-                                            <td colSpan="4" className="py-8 text-center text-slate-400 text-xs">
-                                                No se cargaron los detalles de los productos para esta salida.
-                                            </td>
-                                        </tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-
-                        <div className="flex justify-between items-center pt-2 border-t border-slate-100 shrink-0 text-xs">
-                            <span className="font-bold text-slate-500">
-                                Líneas de producto afectadas: {selectedSalida.detalles?.length || 0}
-                            </span>
-                            <button
-                                type="button"
-                                onClick={closeDetails}
-                                className="volumen-marca h-10 px-5 rounded-xl text-on-brand font-bold text-xs transition cursor-pointer hover:brightness-105"
-                            >
-                                Cerrar Ventana
-                            </button>
-                        </div>
-                </div>
-                )}
-            </Dialog>
+            {seleccionada && <DetalleSalida salida={seleccionada} onCerrar={() => setSeleccionada(null)} />}
         </AuthenticatedLayout>
     );
 }

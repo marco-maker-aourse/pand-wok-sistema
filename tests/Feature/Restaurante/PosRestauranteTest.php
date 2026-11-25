@@ -9,6 +9,7 @@ use App\Models\Restaurante\Pedido;
 use App\Models\User;
 use App\Models\Venta;
 use App\Services\Caja\GestionarTurnoCajaService;
+use App\Services\Restaurante\RecetasService;
 use App\Services\Restaurante\VentaPosService;
 use DomainException;
 use Illuminate\Support\Facades\Bus;
@@ -65,10 +66,11 @@ class PosRestauranteTest extends TestCase
         $this->assertDatabaseCount('catalogos.clientes', 3);
     }
 
-    public function test_venta_de_mostrador_en_un_paso_envia_a_cocina_descuenta_bebidas_y_cierra(): void
+    public function test_venta_de_mostrador_envia_a_cocina_si_se_solicita(): void
     {
         $resultado = $this->pos->cobrar(null, [
             'clave' => 'mostrador0000000001', 'tipo' => Pedido::PARA_LLEVAR, 'nombre_contacto' => 'Ana',
+            'enviar_a_cocina' => true,
             'items' => $this->lineas(), ...$this->pago(40),
         ], 10, 1, false);
 
@@ -82,7 +84,7 @@ class PosRestauranteTest extends TestCase
 
     public function test_reintentar_el_mismo_cobro_no_duplica_nada(): void
     {
-        $datos = ['clave' => 'reintento000000001', 'tipo' => Pedido::PARA_LLEVAR, 'items' => $this->lineas(), ...$this->pago(40)];
+        $datos = ['clave' => 'reintento000000001', 'tipo' => Pedido::PARA_LLEVAR, 'items' => $this->lineas(), 'enviar_a_cocina' => true, ...$this->pago(40)];
 
         $primero = $this->pos->cobrar(null, $datos, 10, 1, false);
         $segundo = $this->pos->cobrar(null, $datos, 10, 1, false);
@@ -97,6 +99,8 @@ class PosRestauranteTest extends TestCase
 
     public function test_un_cobro_que_no_cuadra_no_deja_nada_a_medias(): void
     {
+        app(RecetasService::class)->guardar(1, 1, [['id_precio_insumo' => 3, 'cantidad' => 1]]);
+
         try {
             $this->pos->cobrar(null, ['clave' => 'nocuadra00000000001', 'tipo' => Pedido::PARA_LLEVAR, 'items' => $this->lineas(), ...$this->pago(39)], 10, 1, false);
             $this->fail('Se aceptó un pago que no coincide con el total.');
@@ -107,6 +111,8 @@ class PosRestauranteTest extends TestCase
         $this->assertSame(0, Comanda::query()->count());
         $this->assertSame(0, Venta::query()->count());
         $this->assertSame(20.0, $this->stock(2));
+        $this->assertSame(10.0, $this->stock(3));
+        $this->assertDatabaseCount('restaurante.consumos_insumos', 0);
     }
 
     public function test_mesa_se_envia_ahora_y_se_cobra_despues_liberando_la_mesa(): void
@@ -164,10 +170,81 @@ class PosRestauranteTest extends TestCase
 
         Bus::assertDispatched(EmitirComprobanteSunatJob::class);
 
-        // Una mesa ocupada abre su cuenta desde el salón.
-        $this->actingAs($admin)->post('/pos/enviar', ['clave' => 'http00000000000002', 'tipo' => 'MESA', 'id_mesa' => 1, 'items' => [$this->lomo('lomohttpaaaaaaaaa1')]]);
-        $cuenta = Pedido::query()->where('id_mesa', 1)->where('estado', 'ABIERTO')->value('id_pedido');
-        $this->actingAs($admin)->get('/pos?mesa=1')->assertRedirect(route('restaurante.pos', ['cuenta' => $cuenta]));
+        // Una cuenta guardada está disponible desde el salón y puede enviarse después.
+        $datos = ['clave' => 'http00000000000002', 'tipo' => 'MESA', 'id_mesa' => 1, 'items' => [$this->gaseosa('gasehttpaaaaaaaaa1')]];
+        $this->post('/pos/guardar', $datos)->assertSessionHasNoErrors();
+        $cuenta = Pedido::query()->where('id_mesa', 1)->where('estado', 'ABIERTO')->sole();
+        $ruta = route('restaurante.pos', ['cuenta' => $cuenta->getKey()]);
+        $this->post('/pos/guardar', $datos)->assertRedirect($ruta)->assertSessionHasNoErrors();
+        $this->get('/pos?mesa=1')->assertRedirect($ruta);
+        $this->get($ruta)->assertInertia(fn (Assert $page) => $page->component('Restaurante/Pos')
+            ->has('cuenta.detalles', 1)->where('cuenta.detalles.0.estado', 'PENDIENTE'));
+        $this->assertDatabaseCount('restaurante.comandas', 0);
+
+        $this->post('/pos/enviar', ['clave' => 'http00000000000003', 'id_pedido' => $cuenta->getKey()])
+            ->assertRedirect($ruta)->assertSessionHasNoErrors();
+        $this->assertSame('ENTREGADO', $cuenta->detalles()->sole()->estado);
+    }
+
+    public function test_comprobantes_se_filtran_por_tipo_en_todo_el_historial(): void
+    {
+        Bus::fake();
+        $admin = User::query()->findOrFail(10);
+        $this->actingAs($admin)->post('/pos/cobrar', ['clave' => 'tipo00000000000001', 'tipo' => 'PARA_LLEVAR', 'items' => $this->lineas('b'), ...$this->pago(40)])->assertSessionHasNoErrors();
+        $this->post('/pos/cobrar', ['clave' => 'tipo00000000000002', 'tipo' => 'PARA_LLEVAR', 'items' => $this->lineas('n'), ...$this->pago(40, 'NOTA_VENTA')])->assertSessionHasNoErrors();
+
+        $this->get('/ventas?tipo=NOTA_VENTA')->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->component('Ventas/Index')
+            ->where('tipoComprobante', 'NOTA_VENTA')
+            ->has('ventas.data', 1)
+            ->where('ventas.data.0.tipo_comprobante', 'NOTA_VENTA')
+            ->where('ventas.data.0.estado_sunat', Venta::SIN_ENVIO_SUNAT));
+
+        $this->get('/ventas?tipo=BOLETA')->assertInertia(fn (Assert $page) => $page->has('ventas.data', 1)->where('ventas.data.0.tipo_comprobante', 'BOLETA'));
+        // Un tipo desconocido no filtra.
+        $this->get('/ventas?tipo=OTRO')->assertInertia(fn (Assert $page) => $page->has('ventas.data', 2)->where('tipoComprobante', 'TODOS'));
+    }
+
+    public function test_el_resumen_de_caja_separa_notas_de_venta_de_comprobantes_electronicos(): void
+    {
+        Bus::fake();
+        $this->actingAs(User::query()->findOrFail(10));
+        $this->post('/pos/cobrar', ['clave' => 'caja00000000000001', 'tipo' => 'PARA_LLEVAR', 'items' => $this->lineas('b'), ...$this->pago(40)])->assertSessionHasNoErrors();
+        $this->post('/pos/cobrar', ['clave' => 'caja00000000000002', 'tipo' => 'PARA_LLEVAR', 'items' => $this->lineas('n'), ...$this->pago(40, 'NOTA_VENTA')])->assertSessionHasNoErrors();
+        $this->post('/pos/cobrar', ['clave' => 'caja00000000000003', 'tipo' => 'PARA_LLEVAR', 'items' => $this->lineas('m'), ...$this->pago(40, 'NOTA_VENTA')])->assertSessionHasNoErrors();
+
+        $turno = \App\Models\TurnoCaja::query()->where('estado', 'ABIERTO')->sole();
+        $resumen = app(GestionarTurnoCajaService::class)->resumen($turno);
+
+        $this->assertSame(['cantidad' => 1, 'total' => 40.0], $resumen['ventas_por_comprobante']['BOLETA']);
+        $this->assertSame(['cantidad' => 2, 'total' => 80.0], $resumen['ventas_por_comprobante']['NOTA_VENTA']);
+        $this->assertArrayNotHasKey('FACTURA', $resumen['ventas_por_comprobante']);
+        // Las notas de venta son dinero real: entran a la gaveta igual que las boletas.
+        $this->assertSame(120.0, $resumen['ventas_efectivo']);
+    }
+
+    public function test_un_cajero_puede_emitir_factura_sin_enviar_comandas(): void
+    {
+        Bus::fake();
+        DB::table('seguridad.permisos')->insert(['id_permiso' => 50, 'codigo' => 'pedidos.registrar']);
+        DB::table('seguridad.rol_permisos')->insert(['id_rol' => 2, 'id_permiso' => 50]);
+        app(GestionarTurnoCajaService::class)->abrir(20, 1, 0);
+        app(RecetasService::class)->guardar(1, 1, [['id_precio_insumo' => 3, 'cantidad' => 1]]);
+        $datos = ['clave' => 'facturamanual00001', 'tipo' => Pedido::PARA_LLEVAR, 'items' => $this->lineas(),
+            'id_cliente' => 2, ...$this->pago(40, 'FACTURA')];
+
+        $this->actingAs(User::findOrFail(20))->post('/pos/cobrar', [...$datos, 'enviar_a_cocina' => true])->assertForbidden();
+        $this->post('/pos/cobrar', $datos)->assertRedirect(route('restaurante.pos'))->assertSessionHasNoErrors();
+        $this->post('/pos/cobrar', $datos)->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('operaciones.ventas', ['id_tipo_comprobante' => 2, 'id_cliente' => 2, 'total_venta' => 40]);
+        $this->assertDatabaseCount('operaciones.ventas', 1);
+        $this->assertDatabaseCount('restaurante.comandas', 0);
+        $this->assertDatabaseCount('operaciones.trabajos_impresion', 0);
+        $this->assertDatabaseCount('restaurante.consumos_insumos', 1);
+        $this->assertSame(9.0, $this->stock(3));
+        $this->assertSame(18.0, $this->stock(2));
+        Bus::assertDispatchedAfterResponse(EmitirComprobanteSunatJob::class);
     }
 
     public function test_el_mozo_no_puede_cobrar(): void

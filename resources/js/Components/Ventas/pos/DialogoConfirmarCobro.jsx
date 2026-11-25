@@ -53,6 +53,12 @@ function DetallePago({ pago, metodo, onActualizar }) {
 }
 
 /** Revisión final del cobro: comprobante, cliente, medios de pago y vuelto. */
+const NOMBRE_COMPROBANTE = {
+    BOLETA: 'Boleta electrónica',
+    FACTURA: 'Factura electrónica',
+    NOTA_VENTA: 'Nota de venta (sin valor tributario, no va a SUNAT)',
+};
+
 export default function DialogoConfirmarCobro({ open, onClose, onConfirmar, tipoComprobante, cliente, mediosPago, total, pagos, metodoDePago, onActualizarPago, procesando = false }) {
     return (
         <Dialog
@@ -69,7 +75,7 @@ export default function DialogoConfirmarCobro({ open, onClose, onConfirmar, tipo
         >
             <div className="space-y-4 p-5">
                 <dl className="space-y-1.5 text-sm">
-                    <div className="flex justify-between gap-4"><dt className="text-slate-500">Comprobante</dt><dd className="font-medium text-slate-900">{tipoComprobante} electrónica</dd></div>
+                    <div className="flex justify-between gap-4"><dt className="text-slate-500">Comprobante</dt><dd className="text-right font-medium text-slate-900">{NOMBRE_COMPROBANTE[tipoComprobante] ?? tipoComprobante}</dd></div>
                     <div className="flex justify-between gap-4"><dt className="text-slate-500">Cliente</dt><dd className="max-w-[60%] truncate font-medium text-slate-900">{cliente?.nombre_razon_social}</dd></div>
                     <div className="flex justify-between gap-4"><dt className="text-slate-500">Medios de pago</dt><dd className="text-right font-medium text-slate-900">{mediosPago}</dd></div>
                 </dl>

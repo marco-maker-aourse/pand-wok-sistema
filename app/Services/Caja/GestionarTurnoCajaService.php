@@ -5,6 +5,7 @@ namespace App\Services\Caja;
 use App\Models\MovimientoCaja;
 use App\Models\TerminalPos;
 use App\Models\TurnoCaja;
+use App\Models\Venta;
 use DomainException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -150,7 +151,33 @@ class GestionarTurnoCajaService
             'ingresos_caja' => $movimientos['ingresos'],
             'egresos_caja' => $movimientos['egresos'],
             'esperado_gaveta' => $esperado,
+            'ventas_por_comprobante' => $this->ventasPorComprobante($turno->id_turno),
         ];
+    }
+
+    /**
+     * Ventas del turno por tipo de comprobante (BOLETA, FACTURA, NOTA_VENTA): cuántas y por
+     * cuánto. Distingue lo emitido sin valor tributario (nota de venta) de lo que va a SUNAT.
+     *
+     * @return array<string, array{cantidad: int, total: float}>
+     */
+    private function ventasPorComprobante(int $idTurno): array
+    {
+        return DB::table('operaciones.ventas as venta')
+            ->join('catalogos.tipos_comprobante as tipo', 'venta.id_tipo_comprobante', '=', 'tipo.id_tipo_comprobante')
+            ->where('venta.id_turno', $idTurno)
+            ->groupBy('tipo.codigo_sunat')
+            ->select('tipo.codigo_sunat')
+            ->selectRaw('COUNT(*) as cantidad')
+            ->selectRaw('SUM(venta.total_venta) as total')
+            ->get()
+            ->mapWithKeys(fn ($fila): array => [
+                match ($fila->codigo_sunat) { '01' => 'FACTURA', Venta::NOTA_VENTA => 'NOTA_VENTA', default => 'BOLETA' } => [
+                    'cantidad' => (int) $fila->cantidad,
+                    'total' => round((float) $fila->total, 2),
+                ],
+            ])
+            ->all();
     }
 
     /**

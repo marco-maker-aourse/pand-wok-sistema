@@ -6,6 +6,7 @@ import { Button, Card, Field, Input, toast } from '@/Components/ui';
 import PanelPagos from '@/Components/Ventas/PanelPagos';
 import DialogoConfirmarCobro from '@/Components/Ventas/pos/DialogoConfirmarCobro';
 import ClienteCobro from '@/Components/Restaurante/ClienteCobro';
+import SelectorComprobante, { explicarComprobante } from '@/Components/Restaurante/SelectorComprobante';
 import { nuevaClave, primerError, soles, tituloCuenta } from '@/Components/Restaurante/formato';
 import { montoDePago, motivoPagos, pagosParaEnviar, saldoPagos } from '@/Components/Restaurante/pagos';
 
@@ -25,8 +26,7 @@ export default function CobrarPedido({ pedido, items, cobros, clienteInicial, me
     const intento = useRef(null);
     usePoll(8000, { only: ['cobros'] });
 
-    const pendientes = items.filter((item) => disponible(item) > 0);
-    const cobrables = pendientes.filter((item) => !item.por_enviar);
+    const cobrables = items.filter((item) => disponible(item) > 0);
     const cantidades = seleccion ?? Object.fromEntries(cobrables.map((item) => [item.id_detalle_pedido, disponible(item)]));
     const lineas = cobrables.map((item) => ({
         id_detalle_pedido: item.id_detalle_pedido,
@@ -105,23 +105,23 @@ export default function CobrarPedido({ pedido, items, cobros, clienteInicial, me
                             <Button variant="secondary" onClick={() => setSeleccion(null)}>Cobrar todo</Button>
                         </div>
                         <ul className="divide-y">
-                            {pendientes.map((item) => <li key={item.id_detalle_pedido} className="flex min-h-14 items-center gap-3 py-2">
+                            {cobrables.map((item) => <li key={item.id_detalle_pedido} className="flex min-h-14 items-center gap-3 py-2">
                                 <div className="min-w-0 flex-1">
                                     <p className="text-sm font-medium">{item.nombre_producto}</p>
-                                    <p className="text-xs text-slate-600">{disponible(item)} por cobrar · {soles(item.precio_unitario)} c/u{item.por_enviar ? ' · Por enviar a cocina' : ''}</p>
+                                    <p className="text-xs text-slate-600">{disponible(item)} por cobrar · {soles(item.precio_unitario)} c/u</p>
                                 </div>
                                 <Input aria-label={`Cantidad por cobrar de ${item.nombre_producto}`} className="w-24" type="number" inputMode="decimal" min={0} max={disponible(item)} step={0.001}
-                                    value={item.por_enviar ? 0 : cantidades[item.id_detalle_pedido] ?? ''}
-                                    disabled={item.por_enviar}
+                                    value={cantidades[item.id_detalle_pedido] ?? ''}
                                     onChange={(e) => setSeleccion({ ...cantidades, [item.id_detalle_pedido]: e.target.value })} />
                             </li>)}
                         </ul>
-                        {!pendientes.length && <p className="text-sm text-slate-500">Agrega ítems al pedido para habilitar el cobro.</p>}
+                        {!cobrables.length && <p className="text-sm text-slate-500">Agrega ítems al pedido para habilitar el cobro.</p>}
                     </Card>
                     <Card className="space-y-4 p-4">
                         <h2 className="font-semibold">Comprobante y pago</h2>
                         {!turno && <div className="flex flex-wrap items-center gap-2"><p className="text-sm text-amber-800">Abre un turno para cobrar.</p><Button href="/caja" variant="secondary">Ir a caja</Button></div>}
-                        <Field label="Tipo de comprobante"><select className="w-full rounded-lg border-slate-300" value={tipo} onChange={(e) => setTipo(e.target.value)}><option value="BOLETA">Boleta</option><option value="FACTURA">Factura</option></select></Field>
+                        <SelectorComprobante valor={tipo} onCambiar={setTipo} />
+                        <p className="text-xs text-slate-500">{explicarComprobante(tipo, !cliente || /^0+$/.test(cliente.num_documento ?? ''))}</p>
                         <ClienteCobro cliente={cliente} cambiar={setCliente} />
                         {puedeDescontar && <Field label="Descuento (S/)"><Input type="number" min={0} step={0.01} value={descuento} onChange={(e) => setDescuento(e.target.value)} /></Field>}
                         <PanelPagos pagos={pagos} metodosPago={metodosPago} totalVenta={total} saldoPendiente={saldo} metodoDePago={metodoDePago}

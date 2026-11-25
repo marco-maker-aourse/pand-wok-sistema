@@ -1,7 +1,6 @@
 import AuthenticatedLayout from './AuthenticatedLayout';
 
-export default function AppLayout({ title, children }) {
-    // Adaptador temporal: todos los módulos antiguos usan la misma navegación
-    // lateral de Álvaro mientras se modernizan sus contenidos internamente.
-    return <AuthenticatedLayout header={title}>{children}</AuthenticatedLayout>;
+/** Alias de AuthenticatedLayout para las pantallas que reciben el título como `title`. */
+export default function AppLayout({ title, children, ...opciones }) {
+    return <AuthenticatedLayout header={title} {...opciones}>{children}</AuthenticatedLayout>;
 }

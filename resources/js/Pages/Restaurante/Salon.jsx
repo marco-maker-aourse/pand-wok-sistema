@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { Bike, ChevronRight, LayoutGrid, Settings2, ShoppingBag, Utensils } from 'lucide-react';
 import AppLayout from '@/Layouts/AppLayout';
-import { Badge, Button, Card, CardHeader, EmptyState, PageHeader, Stat, cx, toast } from '@/Components/ui';
+import { Badge, Button, Card, CardHeader, EmptyState, PageHeader, cx, toast } from '@/Components/ui';
 import DialogoAbrirCuenta from '@/Components/Restaurante/DialogoAbrirCuenta';
 import TarjetaMesa from '@/Components/Restaurante/TarjetaMesa';
 import { ESTADO_MESA } from '@/Components/Restaurante/estados';
@@ -59,7 +59,7 @@ export default function Salon({ areas = [], cuentasSinMesa = [], resumen, puede 
     return (
         <AppLayout title="Salón">
             <Head title="Salón" />
-            <div className="space-y-6">
+            <div className="space-y-4 sm:space-y-6">
                 <PageHeader
                     title="Salón"
                     description="Toca una mesa libre para abrir su cuenta o una ocupada para continuar el pedido."
@@ -73,12 +73,23 @@ export default function Salon({ areas = [], cuentasSinMesa = [], resumen, puede 
                     )}
                 />
 
-                <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-                    <Stat label="Mesas libres" value={resumen.libres} tone="success" icon={LayoutGrid} />
-                    <Stat label="Ocupadas" value={resumen.ocupadas} icon={Utensils} destacado />
-                    <Stat label="Reservadas" value={resumen.reservadas} tone="warning" icon={LayoutGrid} />
-                    <Stat label="Consumo en curso" value={soles(resumen.consumo)} hint={`${resumen.cuentas} cuentas abiertas`} icon={ShoppingBag} />
-                </div>
+                <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl bg-slate-200/70 ring-1 ring-slate-200/70 sm:grid-cols-4" aria-label="Resumen del salón">
+                    {[
+                        { etiqueta: 'Libres', valor: resumen.libres, punto: 'bg-emerald-500' },
+                        { etiqueta: 'Ocupadas', valor: resumen.ocupadas, punto: 'bg-brand' },
+                        { etiqueta: 'Reservadas', valor: resumen.reservadas, punto: 'bg-amber-500' },
+                        { etiqueta: `Consumo · ${resumen.cuentas} cuentas`, valor: soles(resumen.consumo), icono: Utensils },
+                    ].map(({ etiqueta, valor, punto, icono: Icono }) => (
+                        <div key={etiqueta} className="bg-white px-4 py-3">
+                            <dt className="flex items-center gap-1.5 truncate text-xs font-medium text-slate-500">
+                                {punto && <span className={cx('h-2 w-2 shrink-0 rounded-full', punto)} aria-hidden="true" />}
+                                {Icono && <Icono className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />}
+                                {etiqueta}
+                            </dt>
+                            <dd className="mt-0.5 text-xl font-semibold tracking-tight text-slate-900 tabular-nums">{valor}</dd>
+                        </div>
+                    ))}
+                </dl>
 
                 <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
                     <Card>

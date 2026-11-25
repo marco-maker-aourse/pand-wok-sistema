@@ -6,14 +6,14 @@ import { CheckboxField, Field, Input, StatusBadge, Td, Textarea, Tr } from '@/Co
 const CAMPOS_BUSQUEDA = ['nombre', 'descripcion'];
 const COLUMNAS = [{ label: 'Categoría', campo: 'nombre' }, { label: 'Descripción', className: 'hidden md:table-cell' }, { label: 'Estado', campo: 'estado' }];
 const SUGERENCIAS = [
-    { etiqueta: 'ABARROTES Y GRANOS', detalle: 'Arroz, azúcar, fideos, aceites y conservas' },
-    { etiqueta: 'BEBIDAS Y LICORES', detalle: 'Aguas, gaseosas, jugos, cervezas y vinos' },
-    { etiqueta: 'LÁCTEOS Y DERIVADOS', detalle: 'Leche, quesos, mantequillas y yogures' },
-    { etiqueta: 'LIMPIEZA DEL HOGAR', detalle: 'Detergentes, desinfectantes y papel' },
-    { etiqueta: 'GOLOSINAS Y CONFITERÍA', detalle: 'Galletas, chocolates, caramelos y piqueos' },
-    { etiqueta: 'CUIDADO PERSONAL', detalle: 'Jabones, champús, cremas y cuidado oral' },
-    { etiqueta: 'EMBUTIDOS Y FIAMBRES', detalle: 'Jamones, salchichas y carnes frías' },
-    { etiqueta: 'PANADERÍA Y PASTELERÍA', detalle: 'Panes, tostadas, queques y dulces' },
+    { etiqueta: 'MENÚS DEL DÍA', detalle: 'Platos que incluyen sopa o entrada' },
+    { etiqueta: 'PLATOS A LA CARTA', detalle: 'Fondos y especialidades de la casa' },
+    { etiqueta: 'COMBINADOS', detalle: 'Platos con acompañamientos a elegir' },
+    { etiqueta: 'SOPAS Y ENTRADAS', detalle: 'Sopas, piqueos y entradas frías' },
+    { etiqueta: 'BEBIDAS', detalle: 'Gaseosas, aguas, jugos y refrescos' },
+    { etiqueta: 'POSTRES', detalle: 'Dulces y postres de la casa' },
+    { etiqueta: 'INSUMOS DE COCINA', detalle: 'Carnes, verduras, abarrotes y salsas' },
+    { etiqueta: 'DESCARTABLES', detalle: 'Envases, cubiertos y bolsas para llevar' },
 ];
 
 export default function Index({ categorias = [] }) {

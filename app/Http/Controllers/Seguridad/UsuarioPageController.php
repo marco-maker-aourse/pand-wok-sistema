@@ -17,10 +17,18 @@ class UsuarioPageController extends Controller
 {
     public function __invoke(Request $request): Response
     {
+        $buscar = $request->string('buscar')->trim()->value();
+        // LOWER + LIKE funciona igual en PostgreSQL y en la base de pruebas.
+        $patron = '%'.mb_strtolower(addcslashes($buscar, '%_\\')).'%';
+
         $users = User::query()
             ->select(['id_usuario', 'id_rol', 'id_sucursal', 'id_tipo_documento', 'nombres', 'email', 'num_documento', 'pin_cajero', 'estado'])
             ->with(['rol:id_rol,nombre', 'sucursal:id_sucursal,nombre', 'sucursales:id_sucursal,nombre'])
             ->when(! $request->user()->isAdministrator(), fn ($query) => $query->where('id_sucursal', $request->user()->idSucursalActiva()))
+            ->when($buscar !== '', fn ($query) => $query->where(fn ($q) => $q
+                ->whereRaw('LOWER(nombres) LIKE ?', [$patron])
+                ->orWhereRaw('LOWER(email) LIKE ?', [$patron])
+                ->orWhereRaw('LOWER(num_documento) LIKE ?', [$patron])))
             ->orderBy('nombres')
             ->paginate(20)
             ->withQueryString()
@@ -47,6 +55,7 @@ class UsuarioPageController extends Controller
 
         return Inertia::render('Usuarios/Index', [
             'usuarios' => $users,
+            'filters' => ['buscar' => $buscar],
             'roles' => Rol::query()
                 ->where('estado', true)
                 ->with(['permisos:id_permiso,codigo'])

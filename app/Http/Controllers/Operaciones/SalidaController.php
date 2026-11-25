@@ -5,8 +5,10 @@ namespace App\Http\Controllers\Operaciones;
 use App\Http\Controllers\Controller;
 
 use App\Http\Requests\Operaciones\StoreSalidaRequest;
+use App\Models\Kardex;
 use App\Models\Producto;
 use App\Models\Salida;
+use App\Services\Inventario\TipoExistencia;
 use App\Services\Salidas\RegistrarSalidaService;
 use DomainException;
 use Illuminate\Http\RedirectResponse;
@@ -40,16 +42,30 @@ class SalidaController extends Controller
 
     public function create(Request $request): Response
     {
-        // Se extraen solo las columnas que sí existen en catalogos.productos
+        $idSucursal = $request->user()->idSucursalActiva();
+
+        // Saldo vigente de la sucursal = último movimiento de kardex de cada producto.
+        $saldos = Kardex::query()
+            ->whereIn('id_kardex', Kardex::query()->selectRaw('MAX(id_kardex)')->where('id_sucursal', $idSucursal)->groupBy('id_producto'))
+            ->pluck('stock_actual', 'id_producto');
+
+        // Los platos preparados no tienen stock propio (consumen insumos por receta).
         $productos = Producto::query()
             ->where('estado', true)
+            ->where('tipo_producto', '!=', Producto::PREPARADO)
             ->with([
+                'unidadBase:id_unidad,nombre',
                 'presentaciones' => fn ($query) => $query->where('estado', true)
-                    ->with('presentacion:id_presentacion,nombre')
+                    ->with(['presentacion:id_presentacion,nombre', 'productoStock:id_producto,nombre'])
                     ->orderBy('factor_conversion'),
             ])
             ->orderBy('nombre')
-            ->get(['id_producto', 'nombre', 'codigo_barras']);
+            ->get(['id_producto', 'nombre', 'codigo_barras', 'id_unidad_base', 'tipo_producto'])
+            ->map(fn (Producto $producto): array => [
+                ...$producto->toArray(),
+                'stock_actual' => (float) ($saldos[$producto->id_producto] ?? 0),
+                ...TipoExistencia::de($producto),
+            ]);
 
         return Inertia::render('Salidas/Create', [
             'productos' => $productos,

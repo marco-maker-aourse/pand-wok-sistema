@@ -22,17 +22,22 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use App\Services\Ventas\DiagnosticoSunatService;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class VentaController extends Controller
 {
-    public function index(Request $request, CatalogoPosService $catalogo, PresentarVentaService $presentar): Response
+    public function index(Request $request, CatalogoPosService $catalogo, PresentarVentaService $presentar, DiagnosticoSunatService $diagnostico): Response
     {
         $user = $request->user();
         $estadoSunat = strtoupper((string) $request->query('estado_sunat', ''));
-        $estadosPermitidos = ['PENDIENTE', 'ACEPTADO', 'RECHAZADO', 'ERROR', 'REGISTRADO'];
+        $estadosPermitidos = ['PENDIENTE', 'ACEPTADO', 'RECHAZADO', 'ERROR', 'REGISTRADO', 'NO_APLICA'];
         $filtraEstado = in_array($estadoSunat, $estadosPermitidos, true);
+        // Tipo de comprobante → código SUNAT (NV = nota de venta, documento interno).
+        $codigosTipo = ['BOLETA' => '03', 'FACTURA' => '01', 'NOTA_VENTA' => Venta::NOTA_VENTA];
+        $tipo = strtoupper((string) $request->query('tipo', ''));
+        $codigoTipo = $codigosTipo[$tipo] ?? null;
 
         $ventas = Venta::query()
             ->with([
@@ -41,12 +46,14 @@ class VentaController extends Controller
             ])
             ->where('id_sucursal', $user->idSucursalActiva())
             ->when($filtraEstado, fn ($query) => $query->where('estado_sunat', $estadoSunat))
+            ->when($codigoTipo, fn ($query) => $query->whereHas('comprobante', fn ($q) => $q->where('codigo_sunat', $codigoTipo)))
             ->latest('id_venta')
             ->select([
                 'id_venta', 'id_sucursal', 'id_cliente', 'id_turno', 'id_tipo_comprobante',
                 'serie', 'correlativo', 'fecha_emision', 'op_gravadas', 'op_exoneradas',
                 'igv', 'descuento_global', 'total_venta', 'estado_sunat', 'hash_cpe',
                 'enlace_xml', 'enlace_cdr', 'enlace_pdf',
+                'mensaje_sunat', 'codigo_respuesta_sunat', 'intentos_sunat', 'ultimo_intento_sunat',
             ])
             ->paginate(15)
             ->withQueryString()
@@ -55,31 +62,13 @@ class VentaController extends Controller
         return Inertia::render('Ventas/Index', [
             'ventas' => $ventas,
             'estadoSunat' => $filtraEstado ? $estadoSunat : 'TODOS',
+            'tipoComprobante' => $codigoTipo ? $tipo : 'TODOS',
             'datosEmisor' => $catalogo->datosEmisor($user->idSucursalActiva()),
             'turnoAbierto' => $catalogo->turnoAbierto($user->id_usuario, $user->idSucursalActiva()),
             'terminales' => $catalogo->terminalesActivas($user->idSucursalActiva()),
-        ]);
-    }
-
-    /** El POS inicia liviano; el catálogo se consulta por demanda y con límite estricto. */
-    public function create(Request $request, CatalogoPosService $catalogo): Response
-    {
-        $branchId = $request->user()->idSucursalActiva();
-
-        return Inertia::render('Ventas/Create', [
-            // Prop diferida: no bloquea la primera pintura del punto de venta.
-            'productosIniciales' => Inertia::defer(fn () => $catalogo->productos($branchId, null, 12)),
-            // El cliente genérico siempre debe estar disponible para una venta rápida.
-            'clientes' => Cliente::query()->where('estado', true)
-                ->orderByRaw("CASE WHEN num_documento = '00000000' THEN 0 ELSE 1 END")
-                ->latest('id_cliente')->limit(30)
-                ->get(['id_cliente', 'id_tipo_documento', 'num_documento', 'nombre_razon_social', 'direccion_fiscal', 'email', 'telefono']),
-            'tiposDocumento' => TipoDocumento::query()->where('estado', true)->orderBy('nombre')
-                ->get(['id_tipo_documento', 'codigo_sunat', 'nombre', 'longitud_exacta']),
-            'metodosPago' => $catalogo->metodosPago(),
-            'turnoAbierto' => $catalogo->turnoAbierto($request->user()->id_usuario, $branchId),
-            'terminales' => $catalogo->terminalesActivas($branchId),
-            'datosEmisor' => $catalogo->datosEmisor($branchId),
+            // Qué falta para que SUNAT acepte (sin exponer claves); se calcula al abrir la pantalla.
+            'diagnosticoSunat' => fn () => $diagnostico->revisar($user->idSucursalActiva()),
+            'pendientesSunat' => fn () => Venta::query()->where('id_sucursal', $user->idSucursalActiva())->where('estado_sunat', 'PENDIENTE')->count(),
         ]);
     }
 

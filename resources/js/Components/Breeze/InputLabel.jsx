@@ -1,19 +1,7 @@
-export default function InputLabel({
-    value,
-    className = '',
-    children,
-    required = false,
-    ...props
-}) {
+export default function InputLabel({ value, className = '', children, required = false, ...props }) {
     return (
-        <label
-            {...props}
-            className={
-                `mb-2 block text-xs font-bold uppercase tracking-wider text-slate-600 ` +
-                className
-            }
-        >
-            {value ? value : children} {required && <span className="text-brand-ink" aria-hidden="true">*</span>}
+        <label {...props} className={`mb-1.5 block text-sm font-medium text-slate-700 ${className}`}>
+            {value || children} {required && <span className="text-rose-600" aria-hidden="true">*</span>}
         </label>
     );
 }
