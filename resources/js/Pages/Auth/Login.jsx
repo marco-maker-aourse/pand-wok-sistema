@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Head, useForm, usePage } from '@inertiajs/react';
-import { AlertCircle, ArrowRight, Clock, Eye, EyeOff, Loader2, Store } from 'lucide-react';
+import { AlertCircle, ArrowRight, ChefHat, Clock, Eye, EyeOff, Loader2 } from 'lucide-react';
 import FormasFlotantes, { FONDO_ACCESO, RejillaPuntos } from '@/Components/Acceso/FormasFlotantes';
 import { NOMBRE_PRODUCTO } from '@/Utils/producto';
 
@@ -82,7 +82,7 @@ export default function Login({ status }) {
                             <img src={logoUrl} alt={`Logo de ${nombreEmpresa}`} className="h-14 w-14 rounded-2xl bg-white object-contain p-2 shadow-[0_8px_20px_-10px_rgb(15_23_42/0.35)] ring-1 ring-slate-900/[0.06]" />
                         ) : (
                             <span className="volumen-marca grid h-14 w-14 place-items-center rounded-2xl text-on-brand">
-                                <Store className="h-7 w-7" aria-hidden="true" />
+                                <ChefHat className="h-7 w-7" aria-hidden="true" />
                             </span>
                         )}
                         <p className="mt-3 text-base font-semibold tracking-[-0.01em]">{nombreEmpresa}</p>

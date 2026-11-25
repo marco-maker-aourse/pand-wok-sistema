@@ -54,6 +54,20 @@ class DatosGeneralesTest extends TestCase
         $this->assertSame(1, Empresa::query()->count());
     }
 
+    public function test_la_pestana_del_navegador_usa_el_logo_y_el_nombre_de_la_empresa(): void
+    {
+        $this->get('/login')->assertOk()
+            ->assertSee('<link rel="icon" href="/favicon.ico" data-marca>', false)
+            ->assertSee('<meta name="theme-color" content="#222222">', false);
+
+        DB::table('configuracion.empresa')->update(['logo_path' => 'logos/pand-wok.png', 'nombre_comercial' => 'Pand Wok']);
+        app(DatosGeneralesService::class)->olvidarIdentidad();
+
+        $this->get('/login')->assertOk()
+            ->assertSee('<link rel="icon" href="/storage/logos/pand-wok.png" data-marca>', false)
+            ->assertSee('<title inertia>Pand Wok</title>', false);
+    }
+
     public function test_emisor_combina_datos_de_empresa_con_el_establecimiento_de_la_sucursal(): void
     {
         $emisor = app(DatosGeneralesService::class)->emisor(3);

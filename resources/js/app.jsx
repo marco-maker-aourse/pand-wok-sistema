@@ -6,9 +6,7 @@ import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createRoot } from 'react-dom/client';
 import { aplicarColorMarca, colorMarcaDesdeProps } from '@/Utils/theme';
 
-import { NOMBRE_PRODUCTO } from '@/Utils/producto';
-
-const appName = NOMBRE_PRODUCTO;
+import { aplicarMarcaPestana, tituloPestana } from '@/Utils/marcaPestana';
 
 const routes = {
     dashboard: '/',
@@ -110,7 +108,7 @@ window.route = (name, parameter) => {
 };
 
 createInertiaApp({
-    title: (title) => (title ? `${title} — ${appName}` : appName),
+    title: tituloPestana,
     resolve: (name) =>
         resolvePageComponent(
             `./Pages/${name}.jsx`,
@@ -120,7 +118,11 @@ createInertiaApp({
         // El color de Datos Generales llega en cada respuesta; se aplica antes del
         // primer render y en cada navegación para que un cambio se vea sin recargar.
         aplicarColorMarca(colorMarcaDesdeProps(props.initialPage?.props));
-        router.on('navigate', (event) => aplicarColorMarca(colorMarcaDesdeProps(event.detail.page.props)));
+        aplicarMarcaPestana(props.initialPage?.props);
+        router.on('navigate', (event) => {
+            aplicarColorMarca(colorMarcaDesdeProps(event.detail.page.props));
+            aplicarMarcaPestana(event.detail.page.props);
+        });
 
         const root = createRoot(el);
         root.render(<App {...props} />);
