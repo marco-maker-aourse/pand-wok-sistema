@@ -14,6 +14,11 @@ use Illuminate\Validation\Rule;
 
 class AgenteImpresionController extends Controller
 {
+    /** Resultado que informa el agente cuando no pudo conectar con la impresora (no salió papel). */
+    private const SIN_CONEXION = 'SIN_CONEXION';
+    /** Pausa antes de volver a ofrecer un trabajo cuya impresora no respondió. */
+    private const ESPERA_REINTENTO_S = 20;
+
     public function vincular(Request $request, GestionarVinculacionAgenteService $vinculacion): JsonResponse
     {
         $data = $request->validate([
@@ -50,6 +55,8 @@ class AgenteImpresionController extends Controller
                 ->where('estado', 'ENTREGADO_AGENTE')
                 ->where('reclamado_en', '<', now()->subMinutes(2))
                 ->update(['estado' => 'REQUIERE_REVISION', 'detalle_error' => 'El agente no confirmó la recepción dentro del tiempo previsto. No se reintentó para evitar un duplicado físico.', 'procesado_en' => now()]);
+
+            TrabajoImpresion::vencerPendientes(TrabajoImpresion::withoutGlobalScopes()->where('id_terminal', $terminal->id_terminal));
 
             $job = TrabajoImpresion::withoutGlobalScopes()
                 ->where('id_terminal', $terminal->id_terminal)
@@ -105,6 +112,24 @@ class AgenteImpresionController extends Controller
             }
 
             abort_unless($job->estado === 'ENTREGADO_AGENTE', 409, 'El trabajo no está disponible para confirmación.');
+
+            // El agente no logró conectar con la impresora (apagada, lejos, sin Bluetooth): no
+            // salió papel, así que el trabajo vuelve a la cola y sale solo al reconectarla. Si
+            // pasa la vigencia sin imprimirse, se cancela al consultar la cola.
+            if ($data['estado'] === 'FALLIDO' && ($data['resultado_dispositivo'] ?? null) === self::SIN_CONEXION) {
+                $job->update([
+                    'estado' => 'PENDIENTE',
+                    'disponible_desde' => now()->addSeconds(self::ESPERA_REINTENTO_S),
+                    'reclamado_en' => null,
+                    'detalle_error' => 'Esperando a la impresora: '.($data['detalle_error'] ?? 'no se pudo conectar.'),
+                    'resultado_dispositivo' => self::SIN_CONEXION,
+                ]);
+                Impresora::withoutGlobalScopes()->where('id_sucursal', $job->id_sucursal)
+                    ->whereKey(data_get($job->contenido, 'impresora.id'))
+                    ->update(['estado_conexion' => 'desconectada', 'ultima_verificacion' => now(), 'ultimo_error_conexion' => $data['detalle_error'] ?? null]);
+
+                return response()->json(['data' => ['id_trabajo_impresion' => $job->id_trabajo_impresion, 'estado' => 'PENDIENTE', 'reintento' => true]]);
+            }
 
             // CONFIRMADO se reserva a hardware capaz de reportarlo. ESC/POS común solo llega a ENVIADO_SO.
             $job->update([

@@ -52,6 +52,77 @@ class VinculacionAgenteTest extends TestCase
         $this->assertNull($this->vincular(3)['impresora']);
     }
 
+    private function terminalConCola(array $minutosEnCola): void
+    {
+        DB::table('catalogos.terminales_pos')->insert(['id_terminal' => 1, 'id_sucursal' => 1, 'id_impresora' => 1, 'nombre' => 'Caja']);
+        DB::table('operaciones.trabajos_impresion')->insert(array_map(fn (int $id, int $minutos) => [
+            'id_trabajo_impresion' => $id, 'id_sucursal' => 1, 'id_terminal' => 1, 'tipo' => 'PRUEBA', 'estado' => 'PENDIENTE',
+            'clave_idempotencia' => "prueba-{$id}", 'contenido' => '{}',
+            'disponible_desde' => now()->subMinutes($minutos), 'created_at' => now()->subMinutes($minutos),
+        ], array_keys($minutosEnCola), $minutosEnCola));
+    }
+
+    private function siguiente(): ?array
+    {
+        $request = Request::create('/api/agente-impresion/v1/trabajos/siguiente', 'GET');
+        $request->attributes->set('terminal_pos', TerminalPos::withoutGlobalScopes()->findOrFail(1));
+
+        return app(AgenteImpresionController::class)->siguiente($request)->getData(true)['data'];
+    }
+
+    private function informar(int $id, array $resultado): void
+    {
+        $request = Request::create("/api/agente-impresion/v1/trabajos/{$id}/resultado", 'POST', $resultado);
+        $request->attributes->set('terminal_pos', TerminalPos::withoutGlobalScopes()->findOrFail(1));
+        app(AgenteImpresionController::class)->resultado($request, $id);
+    }
+
+    private function estado(int $id): object
+    {
+        return DB::table('operaciones.trabajos_impresion')->where('id_trabajo_impresion', $id)->first();
+    }
+
+    public function test_al_reconectar_no_imprime_los_trabajos_que_esperaron_demasiado(): void
+    {
+        // El celular estuvo apagado: dos trabajos viejos y uno reciente esperan en la cola.
+        $this->terminalConCola([1 => 40, 2 => 16, 3 => 2]);
+
+        $this->assertSame(3, $this->siguiente()['id']);
+        foreach ([1, 2] as $id) {
+            $this->assertSame('CANCELADO', $this->estado($id)->estado);
+            $this->assertStringContainsString('No se imprimió a tiempo', $this->estado($id)->detalle_error);
+        }
+    }
+
+    public function test_sin_conexion_con_la_impresora_el_trabajo_espera_y_sale_al_reconectar(): void
+    {
+        $this->terminalConCola([1 => 0]);
+        $this->assertSame(1, $this->siguiente()['id']);
+
+        // La impresora estaba apagada: no salió papel, el trabajo vuelve a la cola un momento.
+        $this->informar(1, ['estado' => 'FALLIDO', 'detalle_error' => 'No se pudo conectar', 'resultado_dispositivo' => 'SIN_CONEXION']);
+        $this->assertSame('PENDIENTE', $this->estado(1)->estado);
+        $this->assertNull($this->siguiente(), 'no se reintenta en el mismo instante');
+
+        $this->travel(30)->seconds();
+        $this->assertSame(1, $this->siguiente()['id'], 'al reconectar la impresora, sale solo');
+
+        // Con la impresora apagada más que la vigencia, ya no se imprime tarde.
+        $this->informar(1, ['estado' => 'FALLIDO', 'resultado_dispositivo' => 'SIN_CONEXION']);
+        $this->travel(16)->minutes();
+        $this->assertNull($this->siguiente());
+        $this->assertSame('CANCELADO', $this->estado(1)->estado);
+    }
+
+    public function test_un_fallo_al_imprimir_no_se_reintenta_solo(): void
+    {
+        $this->terminalConCola([1 => 0]);
+        $this->siguiente();
+        // Pudo salir parte del ticket: reintentar en automático podría duplicarlo.
+        $this->informar(1, ['estado' => 'FALLIDO', 'detalle_error' => 'Se interrumpió', 'resultado_dispositivo' => 'ANDROID']);
+        $this->assertSame('FALLIDO', $this->estado(1)->estado);
+    }
+
     public function test_cada_sondeo_informa_el_ancho_vigente_para_que_el_celular_lo_adopte(): void
     {
         DB::table('catalogos.terminales_pos')->insert(['id_terminal' => 1, 'id_sucursal' => 1, 'id_impresora' => 1, 'nombre' => 'Caja']);
