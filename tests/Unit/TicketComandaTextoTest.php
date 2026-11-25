@@ -37,8 +37,27 @@ class TicketComandaTextoTest extends TestCase
         $this->assertMatchesRegularExpression('/^MESA M2 +14:32$/', $lineas[0]);
         $this->assertSame('#41 - Caliente - Ana - 3 pers.', $lineas[1]);
         $this->assertLessThan(strpos($texto, 'CHAUFA DE POLLO'), strpos($texto, '[NOTA] Cliente con prisa'));
-        $this->assertMatchesRegularExpression('/^MESA M2 +3 platos$/', end($lineas));
+        $this->assertMatchesRegularExpression('/^MESA M2 -+ 3 platos$/', end($lineas), 'cierre, destino y total en un renglón');
+        $this->assertSame(32, strlen(end($lineas)));
         $this->assertStringNotContainsString('S/', $texto);
+    }
+
+    public function test_ahorro_de_papel_sin_renglones_vacios_ni_avance_final(): void
+    {
+        $texto = TicketComandaTexto::render($this->comanda(), 58);
+
+        $this->assertStringNotContainsString("\n\n", $texto, 'ni renglones en blanco entre platos ni avance al final');
+        $this->assertStringEndsWith("platos\n", $texto, 'la impresora avanza hasta su cuchilla al cortar');
+        $this->assertSame(1, substr_count($texto, str_repeat('-', 32)), 'un solo separador, bajo el encabezado');
+    }
+
+    public function test_una_anulacion_solo_imprime_lo_necesario_para_no_preparar(): void
+    {
+        $texto = TicketComandaTexto::render($this->comanda(['tipo' => 'ANULACION']), 58);
+
+        $this->assertStringNotContainsString('Cliente con prisa', $texto);
+        $this->assertStringNotContainsString('SIN CEBOLLA', $texto);
+        $this->assertStringContainsString('+ Sopa wantan', $texto);
     }
 
     public function test_cantidad_en_columna_con_sangria_francesa_y_etiqueta_aparte(): void
