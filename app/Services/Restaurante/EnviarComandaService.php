@@ -32,7 +32,10 @@ class EnviarComandaService
     ) {}
 
     /**
-     * @return array{comandas: Collection<int, Comanda>, directos: int}
+     * `sin_imprimir` nombra las estaciones cuyas comandas no se pudieron imprimir (sin impresora
+     * o sin equipo activo): la cocina igual las ve en pantalla, pero el POS debe avisarlo.
+     *
+     * @return array{comandas: Collection<int, Comanda>, directos: int, sin_imprimir: list<string>}
      */
     public function enviar(int $pedidoId, string $claveEnvio, int $usuarioId, int $sucursalId): array
     {
@@ -51,14 +54,14 @@ class EnviarComandaService
             $previas = Comanda::query()->where('id_sucursal', $sucursalId)->where('clave_envio', $claveEnvio)->get();
             if ($envio) {
                 $confirmadas = $previas->whereIn('numero', $envio->datos['comandas'])->values();
-                return ['comandas' => $confirmadas, 'directos' => count($envio->datos['directos'])];
+                return ['comandas' => $confirmadas, 'directos' => count($envio->datos['directos']), 'sin_imprimir' => []];
             }
             if ($previas->isNotEmpty()) {
                 if ($previas->contains(fn (Comanda $comanda) => (int) $comanda->id_pedido !== $pedidoId)) {
                     throw new DomainException('La clave de envío ya pertenece a otra cuenta.');
                 }
 
-                return ['comandas' => $previas, 'directos' => 0];
+                return ['comandas' => $previas, 'directos' => 0, 'sin_imprimir' => []];
             }
 
             $pendientes = $pedido->detalles()
@@ -83,6 +86,7 @@ class EnviarComandaService
             }
 
             $comandas = collect();
+            $sinImprimir = [];
             foreach ($grupos as $claveEstacion => $detalles) {
                 $comanda = Comanda::query()->create([
                     'id_sucursal' => $sucursalId,
@@ -99,7 +103,11 @@ class EnviarComandaService
                     'id_comanda' => $comanda->id_comanda,
                     'enviado_en' => $ahora,
                 ]);
-                $this->impresion->comanda($comanda);
+                if ($this->impresion->comanda($comanda) === null) {
+                    $sinImprimir[] = $comanda->id_estacion
+                        ? (string) Estacion::withoutGlobalScopes()->whereKey($comanda->id_estacion)->value('nombre')
+                        : 'Cocina general';
+                }
                 $comandas->push($comanda);
             }
 
@@ -111,8 +119,21 @@ class EnviarComandaService
                 'directos' => $directos->pluck('nombre_producto')->all(),
             ]);
 
-            return ['comandas' => $comandas, 'directos' => $directos->count()];
+            return ['comandas' => $comandas, 'directos' => $directos->count(), 'sin_imprimir' => array_values(array_unique($sinImprimir))];
         }, 3);
+    }
+
+    /** Aviso para el operador cuando alguna comanda salió a pantalla pero no a la impresora. */
+    public static function avisoSinImprimir(array $estaciones): ?string
+    {
+        if ($estaciones === []) {
+            return null;
+        }
+        $nombres = implode(', ', $estaciones);
+
+        return count($estaciones) === 1
+            ? "La comanda de {$nombres} no se imprimió: esa estación no tiene impresora lista. Configúrala en Estaciones de cocina."
+            : "Las comandas de {$nombres} no se imprimieron: esas estaciones no tienen impresora lista. Configúralas en Estaciones de cocina.";
     }
 
     /** @return array{categorias: array<int, int>, por_defecto: ?int} */

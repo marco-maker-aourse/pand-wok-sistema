@@ -68,6 +68,7 @@ class HandleInertiaRequests extends Middleware
             'sucursal' => fn () => $user && ! app()->environment('testing') ? $this->contextoSucursal($user) : null,
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),
+                'warning' => fn () => $request->session()->get('warning'),
                 // Se muestra una sola respuesta después de generar el código temporal.
                 'codigo_vinculacion_agente' => fn () => $request->session()->get('codigo_vinculacion_agente'),
             ],
