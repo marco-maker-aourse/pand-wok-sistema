@@ -1,31 +1,30 @@
 import { FormaTubo } from '@/Components/ui';
 
 /*
- * Íconos del negocio (carrito, tienda, caja, etiqueta, ticket, código de barras, bolsa,
- * moneda y camión de reparto) dibujados como tubos con volumen: degradado, brillo y sombra en el color de marca
- * de Datos Generales sobre un fondo claro. Solo geometría decorativa, sin imágenes.
- * Cada trazo usa un viewBox de 100 × 100.
+ * Íconos de cocina y restaurante (wok al fuego, bowl con palitos, gorro de chef, olla
+ * humeante, cubiertos, campana de servicio, taza de té, llama y comanda) dibujados como
+ * tubos con volumen: degradado, brillo y sombra en el color de marca de Datos Generales
+ * sobre un fondo claro. Solo geometría decorativa, sin imágenes. viewBox de 100 × 100.
  */
-
 const ICONOS = {
-    // Carrito: manija, canasta con su división y dos ruedas.
-    carrito: 'M8 20 H21 L31 64 H77 L87 32 H26 M29 48 H82 M38 82 a6 6 0 1 0 12 0 a6 6 0 1 0 -12 0 M64 82 a6 6 0 1 0 12 0 a6 6 0 1 0 -12 0',
-    // Tienda: techo con toldo festoneado, local y puerta.
-    tienda: 'M14 38 L22 16 H78 L86 38 M14 38 a9 9 0 0 0 18 0 a9 9 0 0 0 18 0 a9 9 0 0 0 18 0 a9 9 0 0 0 18 0 M20 50 V86 H80 V50 M42 86 V64 H58 V86',
-    // Caja de mercadería en perspectiva.
-    caja: 'M50 12 L86 30 V70 L50 88 L14 70 V30 Z M14 30 L50 48 L86 30 M50 48 V88 M32 21 L68 39',
-    // Etiqueta de precio con su ojal.
-    etiqueta: 'M16 16 H52 L86 50 L50 86 L16 52 Z M30 34 a5 5 0 1 0 10 0 a5 5 0 1 0 -10 0',
-    // Ticket con borde dentado y líneas de detalle.
-    ticket: 'M26 10 V88 L34 82 L42 88 L50 82 L58 88 L66 82 L74 88 V10 Z M37 28 H63 M37 42 H63 M37 56 H54',
-    // Código de barras con barras de distinta altura.
-    barras: 'M18 20 V80 M28 20 V72 M38 20 V80 M50 20 V72 M60 20 V80 M70 20 V72 M82 20 V80',
-    // Bolsa de compras.
-    bolsa: 'M20 36 H80 L74 88 H26 Z M38 36 V28 a12 12 0 0 1 24 0 V36',
-    // Moneda con el símbolo de soles.
-    moneda: 'M14 50 a36 36 0 1 0 72 0 a36 36 0 1 0 -72 0 M60 36 C56 30 40 30 40 40 C40 50 60 48 60 58 C60 68 44 70 40 64',
-    // Camión de reparto.
-    camion: 'M8 28 H58 V68 H8 Z M58 42 H74 L88 56 V68 H58 M17 76 a7 7 0 1 0 14 0 a7 7 0 1 0 -14 0 M63 76 a7 7 0 1 0 14 0 a7 7 0 1 0 -14 0',
+    // Wok con su mango largo y dos hilos de vapor.
+    wok: 'M8 46 H68 C68 66 54 78 38 78 C22 78 8 66 8 46 Z M68 52 L94 46 M26 34 C22 28 30 24 26 16 M44 34 C40 28 48 24 44 16',
+    // Bowl con base y palitos chinos cruzando por encima.
+    bowl: 'M10 50 H90 C90 72 72 86 50 86 C28 86 10 72 10 50 Z M40 86 V92 H60 V86 M54 42 L82 10 M64 44 L92 16',
+    // Gorro de chef: copa abombada y banda con costura.
+    chef: 'M28 60 C12 58 10 36 26 32 C26 16 44 10 50 22 C56 10 74 16 74 32 C90 36 88 58 72 60 Z M28 60 V84 H72 V60 M28 72 H72',
+    // Olla con asas, tapa y vapor.
+    olla: 'M18 46 H82 V76 C82 82 78 86 72 86 H28 C22 86 18 82 18 76 Z M8 50 H18 M82 50 H92 M14 46 H86 M32 34 C28 28 36 24 32 16 M50 34 C46 28 54 24 50 16 M68 34 C64 28 72 24 68 16',
+    // Tenedor de tres dientes y cuchillo.
+    cubiertos: 'M22 10 V32 C22 42 42 42 42 32 V10 M32 10 V34 M32 42 V90 M70 90 V10 C84 22 84 46 70 52',
+    // Campana de servicio sobre su bandeja.
+    campana: 'M16 72 C16 50 32 36 50 36 C66 36 84 50 84 72 Z M8 80 H92 M50 36 V28 M42 26 H58',
+    // Taza de té con asa y vapor.
+    taza: 'M16 42 H68 V62 C68 76 58 84 42 84 C26 84 16 76 16 62 Z M68 48 H76 a10 10 0 0 1 0 20 H68 M32 32 C28 26 36 22 32 14 M50 32 C46 26 54 22 50 14',
+    // Llama del fuego de wok.
+    llama: 'M50 90 C30 90 20 74 26 58 C30 48 40 42 38 26 C54 34 60 48 58 60 C62 56 64 50 64 44 C74 54 80 66 76 76 C72 86 62 90 50 90 Z',
+    // Comanda con borde dentado y renglones de platos.
+    comanda: 'M26 10 V88 L34 82 L42 88 L50 82 L58 88 L66 82 L74 88 V10 Z M37 28 H63 M37 42 H63 M37 56 H54',
 };
 
 /*
@@ -35,20 +34,32 @@ const ICONOS = {
  */
 const ORBITA = [
     // Izquierda
-    { icono: 'carrito', x: 140, y: 40, tam: 108, ancho: 8.5, rotacion: -8, animacion: 'animate-[flotar_11s_ease-in-out_infinite]' },
-    { icono: 'etiqueta', x: 50, y: 240, tam: 84, ancho: 9, rotacion: 14, animacion: 'animate-[flotar_9s_ease-in-out_infinite_reverse]' },
-    { icono: 'barras', x: 170, y: 400, tam: 68, ancho: 7, rotacion: -6, animacion: 'animate-[flotar_10s_ease-in-out_infinite]' },
-    { icono: 'ticket', x: 60, y: 540, tam: 84, ancho: 8, rotacion: -10, animacion: 'animate-[flotar_12s_ease-in-out_infinite]' },
+    { icono: 'wok', x: 130, y: 40, tam: 112, ancho: 8, rotacion: -8, animacion: 'animate-[flotar_11s_ease-in-out_infinite]' },
+    { icono: 'chef', x: 40, y: 230, tam: 92, ancho: 8, rotacion: 10, animacion: 'animate-[flotar_9s_ease-in-out_infinite_reverse]' },
+    { icono: 'cubiertos', x: 170, y: 400, tam: 72, ancho: 8, rotacion: -12, animacion: 'animate-[flotar_10s_ease-in-out_infinite]' },
+    { icono: 'comanda', x: 60, y: 540, tam: 84, ancho: 8, rotacion: -10, animacion: 'animate-[flotar_12s_ease-in-out_infinite]' },
     // Derecha
-    { icono: 'caja', x: 710, y: 50, tam: 100, ancho: 8, rotacion: 8, animacion: 'animate-[flotar_13s_ease-in-out_infinite_reverse]' },
-    { icono: 'moneda', x: 800, y: 280, tam: 70, ancho: 9, rotacion: 0, animacion: 'animate-[flotar_8s_ease-in-out_infinite]' },
-    { icono: 'tienda', x: 720, y: 480, tam: 104, ancho: 8, rotacion: 4, animacion: 'animate-[flotar_9s_ease-in-out_infinite_reverse]' },
+    { icono: 'bowl', x: 710, y: 50, tam: 104, ancho: 8, rotacion: 6, animacion: 'animate-[flotar_13s_ease-in-out_infinite_reverse]' },
+    { icono: 'llama', x: 810, y: 270, tam: 68, ancho: 8, rotacion: 0, animacion: 'animate-[flotar_8s_ease-in-out_infinite]' },
+    { icono: 'campana', x: 720, y: 470, tam: 108, ancho: 8, rotacion: 4, animacion: 'animate-[flotar_9s_ease-in-out_infinite_reverse]' },
 ];
 
 /** Grandes y desenfocados en las esquinas de la pantalla (profundidad de campo). */
 const ESQUINAS = [
-    { icono: 'bolsa', clase: '-right-10 bottom-[2%] w-72 opacity-25', ancho: 10, desenfoque: 4, rotacion: -12 },
-    { icono: 'carrito', clase: '-left-12 bottom-[0%] w-72 opacity-20', ancho: 10, desenfoque: 5, rotacion: 10 },
+    { icono: 'olla', clase: '-right-10 bottom-[2%] w-72 opacity-25', ancho: 9, desenfoque: 4, rotacion: -10 },
+    { icono: 'taza', clase: '-left-12 bottom-[0%] w-72 opacity-20', ancho: 9, desenfoque: 5, rotacion: 10 },
+];
+
+/*
+ * Móvil: la tarjeta ocupa casi todo el ancho, así que los íconos van pequeños en la franja
+ * de arriba y de abajo, asomando por los bordes, sin competir con el formulario.
+ */
+const MOVIL = [
+    { icono: 'wok', clase: '-left-3 top-[3%] w-20', rotacion: -12, animacion: 'animate-[flotar_11s_ease-in-out_infinite]' },
+    { icono: 'chef', clase: 'left-1/2 top-[1.5%] w-14 -translate-x-1/2 opacity-60', rotacion: 0, animacion: '' },
+    { icono: 'bowl', clase: '-right-3 top-[4%] w-20', rotacion: 10, animacion: 'animate-[flotar_13s_ease-in-out_infinite_reverse]' },
+    { icono: 'cubiertos', clase: 'left-2 bottom-[3%] w-14', rotacion: -14, animacion: 'animate-[flotar_10s_ease-in-out_infinite]' },
+    { icono: 'llama', clase: 'right-3 bottom-[3%] w-14', rotacion: 6, animacion: 'animate-[flotar_9s_ease-in-out_infinite_reverse]' },
 ];
 
 /** Fondo claro del acceso: base neutra con un halo muy tenue del color de marca. */
@@ -76,8 +87,8 @@ export function RejillaPuntos() {
 }
 
 /**
- * Capa decorativa. En pantallas medianas la órbita se reduce al 80 %; en móviles solo quedan
- * las formas desenfocadas de las esquinas para no competir con el formulario.
+ * Capa decorativa. En pantallas medianas la órbita se reduce al 80 %; en móviles quedan
+ * íconos pequeños arriba y abajo de la tarjeta, además de las formas desenfocadas.
  */
 export default function FormasFlotantes() {
     return (
@@ -92,6 +103,18 @@ export default function FormasFlotantes() {
                     desenfoque={forma.desenfoque}
                     rotacion={forma.rotacion}
                     className={`absolute ${forma.clase}`}
+                />
+            ))}
+
+            {MOVIL.map((forma, indice) => (
+                <FormaTubo
+                    key={`movil-${indice}`}
+                    tono="marca"
+                    d={ICONOS[forma.icono]}
+                    viewBox="0 0 100 100"
+                    ancho={8}
+                    rotacion={forma.rotacion}
+                    className={`absolute md:hidden ${forma.clase} ${forma.animacion}`}
                 />
             ))}
 
