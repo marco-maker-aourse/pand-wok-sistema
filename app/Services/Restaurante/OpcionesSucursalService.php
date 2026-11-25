@@ -70,7 +70,7 @@ class OpcionesSucursalService
             ->leftJoin('restaurante.opciones_sucursal as os', function ($join) use ($sucursalId): void {
                 $join->on('os.id_opcion', '=', 'o.id_opcion')->where('os.id_sucursal', '=', $sucursalId);
             })
-            ->leftJoin('inventario.precio_producto as p', 'p.id_precio', '=', 'o.id_precio')
+            ->leftJoin('catalogos.producto_presentaciones as p', 'p.id_precio', '=', 'o.id_precio')
             ->leftJoin('catalogos.productos as prod', 'prod.id_producto', '=', 'p.id_producto')
             ->leftJoin('catalogos.presentaciones as pres', 'pres.id_presentacion', '=', 'p.id_presentacion')
             ->leftJoin('restaurante.productos_agotados as ag', function ($join) use ($sucursalId): void {
@@ -151,7 +151,7 @@ class OpcionesSucursalService
             return [];
         }
 
-        return DB::table('inventario.precio_producto')->whereIn('id_producto', $productoIds)->where('estado', true)
+        return DB::table('catalogos.producto_presentaciones')->whereIn('id_producto', $productoIds)->where('estado', true)
             ->groupBy('id_producto')->selectRaw('id_producto, COUNT(*) as total')
             ->pluck('total', 'id_producto')->map(fn ($total) => (int) $total)->all();
     }

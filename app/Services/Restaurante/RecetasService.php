@@ -14,12 +14,15 @@ use Illuminate\Support\Facades\DB;
 
 class RecetasService
 {
+    /** Tipos de producto con stock propio que pueden darse de baja como merma. */
+    private const TIPOS_CON_MERMA = [Producto::INSUMO, Producto::DIRECTO];
+
     public function __construct(private readonly GestionarExistenciaService $inventario) {}
 
     public function guardar(int $plato, int $sucursal, array $ingredientes): void
     {
         DB::transaction(function () use ($plato, $sucursal, $ingredientes): void {
-            DB::table('inventario.sucursales')->where('id_sucursal', $sucursal)->lockForUpdate()->first();
+            DB::table('configuracion.sucursales')->where('id_sucursal', $sucursal)->lockForUpdate()->first();
             $this->presentaciones(Producto::PREPARADO)->findOrFail($plato);
             $ids = array_column($ingredientes, 'id_precio_insumo');
             $precios = $this->presentaciones(Producto::INSUMO)->whereKey($ids)->get()->keyBy('id_precio');
@@ -42,7 +45,7 @@ class RecetasService
     public function registrarMerma(int $sucursal, int $usuario, array $datos): int
     {
         return DB::transaction(function () use ($sucursal, $usuario, $datos): int {
-            DB::table('inventario.sucursales')->where('id_sucursal', $sucursal)->lockForUpdate()->first();
+            DB::table('configuracion.sucursales')->where('id_sucursal', $sucursal)->lockForUpdate()->first();
             $huella = hash('sha256', json_encode([$usuario, $datos], JSON_THROW_ON_ERROR));
             $previa = DB::table('restaurante.mermas')->where('id_sucursal', $sucursal)->where('clave', $datos['clave'])->first();
             if ($previa) {
@@ -53,7 +56,8 @@ class RecetasService
                 return $previa->id_merma;
             }
 
-            $insumo = $this->presentaciones(Producto::INSUMO)->findOrFail($datos['id_precio']);
+            // Se da de baja todo lo que tiene stock: insumos y productos de venta directa (una gaseosa rota).
+            $insumo = $this->presentaciones(...self::TIPOS_CON_MERMA)->findOrFail($datos['id_precio']);
             $base = $this->inventario->toBaseQuantity($insumo, (float) $datos['cantidad']);
             if ($base <= 0) {
                 throw new DomainException('La cantidad es demasiado pequeña para su conversión.');
@@ -63,9 +67,9 @@ class RecetasService
                 'cantidad_base' => $base, 'motivo' => $datos['motivo'], 'clave' => $datos['clave'],
                 'huella' => $huella, 'registrada_en' => now(),
             ], 'id_merma');
-            $movimiento = $this->inventario->disminuirBase($insumo->producto, $sucursal, $base,
+            $costo = $this->inventario->disminuirBase($insumo->productoInventario(), $sucursal, $base,
                 new OrigenMovimiento(OrigenMovimiento::MERMA, $id, "MERMA-{$id}", $usuario));
-            DB::table('restaurante.mermas')->where('id_merma', $id)->update(['costo_unitario' => $movimiento['costo']]);
+            DB::table('restaurante.mermas')->where('id_merma', $id)->update(['costo_unitario' => $costo]);
 
             return $id;
         }, 3);
@@ -73,31 +77,38 @@ class RecetasService
 
     public function catalogo(int $sucursal, bool $verRecetas): array
     {
-        $insumos = $this->presentaciones(Producto::INSUMO)->with(['producto.unidadBase', 'presentacion'])->get();
-        $ultimos = Kardex::query()->where('id_sucursal', $sucursal)->whereIn('id_producto', $insumos->pluck('id_producto')->unique())
+        // Las recetas solo usan insumos; las mermas aceptan también productos de venta directa.
+        $tipos = $verRecetas ? [Producto::INSUMO] : self::TIPOS_CON_MERMA;
+        $insumos = $this->presentaciones(...$tipos)->with(['producto.unidadBase', 'presentacion', 'productoStock'])->get();
+        $ultimos = Kardex::query()->where('id_sucursal', $sucursal)
+            ->whereIn('id_producto', $insumos->map(fn (ProductoPresentacion $p) => $p->productoInventario()->id_producto)->unique())
             ->groupBy('id_producto')->selectRaw('MAX(id_kardex)');
         $saldos = Kardex::query()->whereIn('id_kardex', $ultimos)->get()->keyBy('id_producto');
 
         return [
-            'insumos' => $this->nombres($insumos)->map(fn (array $item): array => [
-                ...$item,
-                'stock' => (float) ($saldos[$item['id_producto']]->stock_actual ?? 0),
-                'costo' => $verRecetas && isset($saldos[$item['id_producto']]) ? (float) $saldos[$item['id_producto']]->precio_costo : null,
-            ]),
+            'insumos' => $this->nombres($insumos)->map(function (array $item) use ($insumos, $saldos, $verRecetas): array {
+                $inventario = $insumos->firstWhere('id_precio', $item['id_precio'])->productoInventario()->id_producto;
+
+                return [
+                    ...$item,
+                    'stock' => (float) ($saldos[$inventario]->stock_actual ?? 0),
+                    'costo' => $verRecetas && isset($saldos[$inventario]) ? (float) $saldos[$inventario]->precio_costo : null,
+                ];
+            }),
             'platos' => $verRecetas ? $this->nombres($this->presentaciones(Producto::PREPARADO)->with(['producto.unidadBase', 'presentacion'])->get()) : [],
             'recetas' => $verRecetas ? DB::table('restaurante.receta_insumos')->where('id_sucursal', $sucursal)
                 ->orderBy('id_precio_insumo')->get()->groupBy('id_precio_plato') : (object) [],
             'mermas' => $verRecetas ? [] : DB::table('restaurante.mermas as m')->where('m.id_sucursal', $sucursal)
-                ->join('inventario.precio_producto as p', 'p.id_precio', '=', 'm.id_precio')
+                ->join('catalogos.producto_presentaciones as p', 'p.id_precio', '=', 'm.id_precio')
                 ->join('catalogos.productos as prod', 'prod.id_producto', '=', 'p.id_producto')
                 ->latest('m.id_merma')->limit(20)->get(['m.id_merma', 'm.cantidad_base', 'm.motivo', 'm.registrada_en', 'prod.nombre']),
         ];
     }
 
-    private function presentaciones(string $tipo): Builder
+    private function presentaciones(string ...$tipos): Builder
     {
         return ProductoPresentacion::query()->where('estado', true)
-            ->whereIn('id_producto', Producto::query()->where('tipo_producto', $tipo)->where('estado', true)
+            ->whereIn('id_producto', Producto::query()->whereIn('tipo_producto', $tipos)->where('estado', true)
                 ->where('es_servicio', false)->select('id_producto'))
             ->with('producto')->orderBy('id_precio');
     }

@@ -33,10 +33,9 @@ export default function TablaProductos({ productos, total, onEmpaques, onEditar,
                             <Td className="font-mono text-xs text-slate-600">{producto.codigo_barras || producto.codigo_sunat || <span className="text-slate-400">Sin código</span>}</Td>
                             <Td>
                                 <p className="font-medium text-slate-900">{producto.nombre}</p>
-                                {(producto.usa_vencimiento || producto.es_servicio) && (
+                                {producto.es_servicio && (
                                     <p className="mt-0.5 flex gap-1">
-                                        {producto.usa_vencimiento && <Badge tone="warning">Vencimiento</Badge>}
-                                        {producto.es_servicio && <Badge tone="info">Servicio</Badge>}
+                                        <Badge tone="info">Servicio</Badge>
                                     </p>
                                 )}
                             </Td>

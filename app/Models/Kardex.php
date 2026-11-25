@@ -26,7 +26,6 @@ class Kardex extends Model
         'cantidad_salida',
         'stock_actual',
         'precio_costo',
-        'porcentaje_utilidad',
         'ultima_actualizacion',
         'tipo_operacion',
         'id_referencia',
@@ -39,7 +38,6 @@ class Kardex extends Model
         'cantidad_salida'      => 'decimal:4',
         'stock_actual'         => 'decimal:4',
         'precio_costo'         => 'decimal:4',
-        'porcentaje_utilidad'  => 'decimal:2',
         'ultima_actualizacion' => 'datetime',
     ];
 

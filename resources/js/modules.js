@@ -1,6 +1,6 @@
 import {
     Boxes, BookOpen, Building2, ChartColumn, ChefHat, CreditCard, FileText, House, IdCard, Layers, LayoutGrid, MapPin,
-    MonitorSmartphone, NotebookText, Package, PackageMinus, PackagePlus, Printer, ReceiptText, Ruler, ShieldCheck, SlidersHorizontal,
+    MonitorSmartphone, NotebookText, Package, PackagePlus, Printer, ReceiptText, Ruler, ShieldCheck, SlidersHorizontal,
     Tag, Trash2, Truck, UserCog, Users, Wallet,
 } from 'lucide-react';
 
@@ -26,7 +26,6 @@ export const navigationModules = [
     { label: 'Inventario', items: [
         { label: 'Recetas e insumos', href: '/recetas', icon: NotebookText, permiso: 'recetas.gestionar' },
         { label: 'Entradas de insumos', href: '/ingresos', icon: PackagePlus },
-        { label: 'Salidas y ajustes', href: '/salidas', icon: PackageMinus },
         { label: 'Mermas', href: '/mermas', icon: Trash2, permiso: 'mermas.registrar' },
         { label: 'Existencias', href: '/kardex', icon: Boxes },
         { label: 'Proveedores', href: '/proveedores', icon: Truck },

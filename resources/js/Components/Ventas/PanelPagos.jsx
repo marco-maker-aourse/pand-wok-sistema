@@ -41,11 +41,11 @@ export default function PanelPagos({ pagos, metodosPago, totalVenta, saldoPendie
                     const metodo = metodoDePago(pago);
                     return (
                         <div key={`${pago.id_metodo}-${indice}`} className="rounded-lg border border-slate-200 bg-white p-2">
-                            <div className="mb-1.5 grid grid-cols-3 gap-1">
+                            <div className="mb-1.5 grid grid-cols-2 gap-1 sm:grid-cols-3">
                                 {metodosPago.map((opcion) => {
                                     const activo = Number(pago.id_metodo) === Number(opcion.id_metodo);
                                     const usadoEnOtraFila = pagos.some((otro, actual) => actual !== indice && Number(otro.id_metodo) === Number(opcion.id_metodo));
-                                    return <button key={opcion.id_metodo} type="button" disabled={usadoEnOtraFila} onClick={() => onSeleccionarMetodo(indice, opcion)} className={`h-8 rounded-lg border px-1.5 text-xs font-semibold transition ${activo ? 'border-transparent bg-brand text-on-brand' : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-brand-border'} disabled:cursor-not-allowed disabled:opacity-35`}><span className="inline-flex max-w-full items-center gap-1 truncate">{iconoMetodo(opcion.nombre)}<span className="truncate">{opcion.nombre}</span></span></button>;
+                                    return <button key={opcion.id_metodo} type="button" disabled={usadoEnOtraFila} onClick={() => onSeleccionarMetodo(indice, opcion)} className={`h-10 rounded-lg border px-1.5 text-sm font-semibold transition sm:h-8 sm:text-xs ${activo ? 'border-transparent bg-brand text-on-brand' : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-brand-border'} disabled:cursor-not-allowed disabled:opacity-35`}><span className="inline-flex max-w-full items-center gap-1 truncate">{iconoMetodo(opcion.nombre)}<span className="truncate">{opcion.nombre}</span></span></button>;
                                 })}
                             </div>
                             <div className="grid grid-cols-[minmax(0,1fr)_98px_auto] items-center gap-1.5">

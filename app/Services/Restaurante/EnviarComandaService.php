@@ -44,7 +44,7 @@ class EnviarComandaService
         return DB::transaction(function () use ($pedidoId, $claveEnvio, $usuarioId, $sucursalId): array {
             $pedido = $this->bloqueo->pedidoAbierto($pedidoId, $sucursalId);
             // Serializa el correlativo y las claves de envío dentro de la sucursal.
-            DB::table('inventario.sucursales')->where('id_sucursal', $sucursalId)->lockForUpdate()->first(['id_sucursal']);
+            DB::table('configuracion.sucursales')->where('id_sucursal', $sucursalId)->lockForUpdate()->first(['id_sucursal']);
 
             $envio = PedidoEvento::query()->where('id_pedido', $pedido->id_pedido)
                 ->where('tipo', RegistrarEventoPedido::COMANDA_ENVIADA)->where('datos->clave_envio', $claveEnvio)->first();

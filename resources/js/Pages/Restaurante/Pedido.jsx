@@ -11,6 +11,7 @@ import DialogoTransferir from '@/Components/Restaurante/DialogoTransferir';
 import LineaCuenta from '@/Components/Restaurante/LineaCuenta';
 import { ESTADO_PEDIDO, describirEvento } from '@/Components/Restaurante/estados';
 import { cambiarCantidadLinea, hora, nuevaClave, primerError, soles, tiempoDesde, tituloCuenta } from '@/Components/Restaurante/formato';
+import Distintivo from '@/Components/Restaurante/Distintivo';
 import useAvisoBorrador from '@/hooks/useAvisoBorrador';
 
 /**
@@ -50,7 +51,7 @@ export default function Pedido({ pedido, carta, destinos, puede }) {
         }
         // Plato simple: se suma directo al borrador (o aumenta la línea igual).
         const presentacion = producto.presentaciones[0];
-        agregarAlBorrador({ id_precio: presentacion.id_precio, cantidad: 1, selecciones: [], observacion: null, nombre: producto.nombre, detalle: [], precio_estimado: presentacion.precio_venta });
+        agregarAlBorrador({ id_precio: presentacion.id_precio, cantidad: 1, selecciones: [], observacion: null, nombre: producto.nombre, distintivo: producto.distintivo ?? null, detalle: [], precio_estimado: presentacion.precio_venta });
     };
 
     const agregarAlBorrador = (linea) => {
@@ -201,7 +202,7 @@ export default function Pedido({ pedido, carta, destinos, puede }) {
                                     {borrador.map((linea) => (
                                         <li key={linea.clave} className="flex items-center gap-3 px-4 py-2.5">
                                             <div className="min-w-0 flex-1">
-                                                <p className="text-sm font-medium text-slate-900">{linea.nombre}</p>
+                                                <p className="flex flex-wrap items-center gap-x-1.5 text-sm font-medium text-slate-900">{linea.nombre}<Distintivo texto={linea.distintivo} /></p>
                                                 {linea.detalle.length > 0 && <p className="text-xs text-slate-600">{linea.detalle.join(' · ')}</p>}
                                                 {linea.observacion && <p className="text-xs text-amber-700 italic">“{linea.observacion}”</p>}
                                             </div>

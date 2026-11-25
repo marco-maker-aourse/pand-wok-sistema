@@ -26,7 +26,6 @@ class Producto extends Model
         'nombre',
         'afecta_igv',
         'es_servicio',
-        'usa_vencimiento',
         'estado',
         // Restaurante: PREPARADO (pasa por cocina), DIRECTO (venta tal cual) o INSUMO (solo inventario).
         'tipo_producto',
@@ -45,7 +44,6 @@ class Producto extends Model
         return [
             'afecta_igv'      => 'boolean',
             'es_servicio'     => 'boolean',
-            'usa_vencimiento' => 'boolean',
             'estado'          => 'boolean',
         ];
     }
@@ -68,11 +66,6 @@ class Producto extends Model
     public function presentaciones(): HasMany
     {
         return $this->hasMany(ProductoPresentacion::class, 'id_producto', 'id_producto');
-    }
-
-    public function lotes(): HasMany
-    {
-        return $this->hasMany(Lote::class, 'id_producto', 'id_producto');
     }
 
     public function kardex(): HasMany

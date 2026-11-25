@@ -8,6 +8,8 @@ name: Desplegar restaurante
 # - Las migraciones NUNCA corren solas: si el push trae migraciones nuevas, el despliegue
 #   se detiene antes de tocar el servidor. Se aplican con "Run workflow" marcando
 #   "aplicar_migraciones" y confirmando un respaldo de la base.
+# - "reinstalar_base" (solo en desarrollo) borra la base y la instala desde cero con la
+#   carta: exige respaldo, escribir BORRAR TODO y los secretos SEED_ADMIN_EMAIL/PASSWORD.
 # - Mientras la variable DEPLOY_HABILITADO no sea "true", solo se verifica. La ejecución
 #   manual con "solo_probar_conexion" funciona siempre y nunca publica.
 
@@ -32,6 +34,14 @@ on:
         description: 'Solo probar SSH y la estructura del servidor, sin publicar'
         type: boolean
         default: false
+      reinstalar_base:
+        description: 'BORRA TODA la base y la instala desde cero con la carta (solo mientras el sistema esté en desarrollo)'
+        type: boolean
+        default: false
+      confirmar_reinstalacion:
+        description: 'Para reinstalar, escribe exactamente: BORRAR TODO'
+        type: string
+        default: ''
 
 permissions:
   contents: read
@@ -142,6 +152,11 @@ jobs:
       APLICAR_MIGRACIONES: ${{ inputs.aplicar_migraciones || false }}
       RESPALDO_CONFIRMADO: ${{ inputs.respaldo_bd_confirmado || false }}
       SOLO_CONEXION: ${{ inputs.solo_probar_conexion || false }}
+      REINSTALAR: ${{ inputs.reinstalar_base || false }}
+      CONFIRMACION: ${{ inputs.confirmar_reinstalacion || '' }}
+      # Administrador inicial que crea el seeder al reinstalar (secretos del repositorio).
+      SEED_ADMIN_EMAIL: ${{ secrets.SEED_ADMIN_EMAIL }}
+      SEED_ADMIN_PASSWORD: ${{ secrets.SEED_ADMIN_PASSWORD }}
       # Marca que identifica la carpeta del restaurante en el servidor. Sin ella no se publica.
       MARCA: .despliegue-restaurante
       MARCA_VALOR: pand-wok-sistema
@@ -175,6 +190,15 @@ jobs:
           if [ "$APLICAR_MIGRACIONES" = true ] && [ "$RESPALDO_CONFIRMADO" != true ]; then
             echo 'Para aplicar migraciones confirma primero un respaldo real de la base.' >&2
             exit 1
+          fi
+          if [ "$REINSTALAR" = true ]; then
+            # El teclado del celular suele agregar un espacio final: se ignoran espacios al inicio y al final.
+            CONFIRMACION=$(printf '%s' "$CONFIRMACION" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+            [ "$SOLO_CONEXION" != true ] || { echo '::error::reinstalar_base no se combina con solo_probar_conexion.'; exit 1; }
+            [ "$RESPALDO_CONFIRMADO" = true ] || { echo '::error::Reinstalar borra toda la base: marca respaldo_bd_confirmado.'; exit 1; }
+            [ "$CONFIRMACION" = 'BORRAR TODO' ] || { echo '::error::Para reinstalar escribe exactamente BORRAR TODO en confirmar_reinstalacion.'; exit 1; }
+            [ -n "$SEED_ADMIN_EMAIL" ] || { echo '::error::Falta el secreto SEED_ADMIN_EMAIL (correo del administrador inicial).'; exit 1; }
+            [ "${#SEED_ADMIN_PASSWORD}" -ge 16 ] || { echo '::error::El secreto SEED_ADMIN_PASSWORD falta o tiene menos de 16 caracteres.'; exit 1; }
           fi
 
       - name: Preparar SSH con huella fijada
@@ -216,7 +240,7 @@ jobs:
           REMOTO
 
       - name: Detener si hay migraciones sin autorizar
-        if: env.SOLO_CONEXION != 'true' && env.APLICAR_MIGRACIONES != 'true'
+        if: env.SOLO_CONEXION != 'true' && env.APLICAR_MIGRACIONES != 'true' && env.REINSTALAR != 'true'
         run: |
           set -euo pipefail
           cambios=$(rsync -rcni --out-format='%i %n' -e "$SSH_CMD" \
@@ -270,14 +294,23 @@ jobs:
         if: env.SOLO_CONEXION != 'true'
         run: |
           set -euo pipefail
+          # Las credenciales del administrador viajan en base64 para no romper las comillas del comando.
+          admin_b64=$(printf '%s' "$SEED_ADMIN_EMAIL" | base64 -w0)
+          clave_b64=$(printf '%s' "$SEED_ADMIN_PASSWORD" | base64 -w0)
           $SSH_CMD "$SSH_USER@$SSH_HOST" \
-            "APP_DIR='$APP_DIR' PUBLIC_DIR='$PUBLIC_DIR' PHP_BIN='$PHP_BIN' COMPOSER_BIN='$COMPOSER_BIN' MIGRAR='$APLICAR_MIGRACIONES' bash -s" <<'REMOTO'
+            "APP_DIR='$APP_DIR' PUBLIC_DIR='$PUBLIC_DIR' PHP_BIN='$PHP_BIN' COMPOSER_BIN='$COMPOSER_BIN' MIGRAR='$APLICAR_MIGRACIONES' REINSTALAR='$REINSTALAR' ADMIN_B64='$admin_b64' CLAVE_B64='$clave_b64' bash -s" <<'REMOTO'
           set -eu
           cd "$HOME/$APP_DIR"
           if $COMPOSER_BIN --version >/dev/null 2>&1; then COMPOSER="$COMPOSER_BIN"; else COMPOSER="$PHP_BIN $COMPOSER_BIN"; fi
           $COMPOSER install --no-dev --prefer-dist --no-interaction --no-progress --optimize-autoloader
           $PHP_BIN artisan optimize:clear
-          if [ "$MIGRAR" = true ]; then
+          if [ "$REINSTALAR" = true ]; then
+            # Base desde cero: esquema, datos iniciales, sucursales, carta, sopas y series.
+            SEED_ADMIN_EMAIL=$(printf '%s' "$ADMIN_B64" | base64 -d) \
+            SEED_ADMIN_PASSWORD=$(printf '%s' "$CLAVE_B64" | base64 -d) \
+              $PHP_BIN artisan migrate:fresh --seed --force --no-interaction
+            $PHP_BIN artisan restaurante:preparar --no-interaction
+          elif [ "$MIGRAR" = true ]; then
             $PHP_BIN artisan migrate --force --no-interaction
           fi
           $PHP_BIN artisan config:cache
@@ -294,7 +327,8 @@ jobs:
           REMOTO
 
       - name: Salir de mantenimiento si algo falló
-        if: failure() && env.SOLO_CONEXION != 'true'
+        # Solo si la conexión SSH llegó a prepararse; si falló antes, el sitio no entró en mantenimiento.
+        if: failure() && env.SOLO_CONEXION != 'true' && env.SSH_CMD != ''
         run: $SSH_CMD "$SSH_USER@$SSH_HOST" "cd \"\$HOME/$APP_DIR\" && $PHP_BIN artisan up || true"
 
       - name: Verificar el sitio publicado

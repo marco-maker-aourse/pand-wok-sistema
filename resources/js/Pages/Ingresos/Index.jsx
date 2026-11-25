@@ -83,7 +83,7 @@ export default function Index({ ingresos = [] }) {
             <div className="space-y-4">
                 <PageHeader
                     title="Entradas de insumos"
-                    description={`Compras a proveedores que suman stock con su costo y lote. ${total.toLocaleString('es-PE')} registradas.`}
+                    description={`Compras a proveedores que suman stock con su costo. ${total.toLocaleString('es-PE')} registradas.`}
                     icon={PackagePlus}
                     actions={<Button icon={PackagePlus} href="/ingresos/create">Registrar entrada</Button>}
                 />

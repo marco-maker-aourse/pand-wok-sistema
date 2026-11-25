@@ -35,14 +35,14 @@ class ReportesRestauranteService
             ->selectRaw('COALESCE(SUM(k.cantidad_salida * k.precio_costo), 0) as costo')->value('costo');
         $costo = round((float) $recetas->costo + (float) $directos, 2);
 
-        $porSucursal = (clone $ventas)->join('inventario.sucursales as s', 's.id_sucursal', '=', 'v.id_sucursal')
+        $porSucursal = (clone $ventas)->join('configuracion.sucursales as s', 's.id_sucursal', '=', 'v.id_sucursal')
             ->groupBy('s.id_sucursal', 's.nombre')->orderBy('s.nombre')
             ->selectRaw('s.nombre, COUNT(*) as cobros, SUM(v.total_venta) as total')->get();
 
         $caja = (clone $ventas)->join('operaciones.turnos_caja as t', 't.id_turno', '=', 'v.id_turno')
             ->whereColumn('v.id_sucursal', 't.id_sucursal')
             ->join('seguridad.usuarios as u', 'u.id_usuario', '=', 't.id_usuario')
-            ->join('inventario.sucursales as s', 's.id_sucursal', '=', 't.id_sucursal')
+            ->join('configuracion.sucursales as s', 's.id_sucursal', '=', 't.id_sucursal')
             ->groupBy('t.id_turno', 'u.nombres', 's.nombre', 't.estado', 't.monto_cierre_declarado')
             ->orderByDesc('t.id_turno')->limit(30)
             ->selectRaw('t.id_turno, u.nombres, s.nombre as sucursal, t.estado, t.monto_cierre_declarado, COUNT(*) as cobros, SUM(v.total_venta) as total')->get();
@@ -60,10 +60,10 @@ class ReportesRestauranteService
             ->groupBy('p.id_producto', 'p.nombre', 'u.nombre')->orderBy('p.nombre')
             ->selectRaw('p.nombre, u.nombre as unidad, SUM(i.cantidad_base) as cantidad, SUM(i.cantidad_base * i.costo_unitario) as costo')->get();
         $anulados = $this->rango(DB::table('restaurante.pedidos as p')->where('p.estado', 'ANULADO'), 'p', 'cerrado_en', $sucursales, $inicio, $fin)
-            ->join('inventario.sucursales as s', 's.id_sucursal', '=', 'p.id_sucursal');
+            ->join('configuracion.sucursales as s', 's.id_sucursal', '=', 'p.id_sucursal');
         $preparacion = $this->rango(DB::table('restaurante.comandas as c')->whereNotNull('c.lista_en'), 'c', 'enviada_en', $sucursales, $inicio, $fin)
             ->leftJoin('restaurante.estaciones as e', 'e.id_estacion', '=', 'c.id_estacion')
-            ->join('inventario.sucursales as s', 's.id_sucursal', '=', 'c.id_sucursal');
+            ->join('configuracion.sucursales as s', 's.id_sucursal', '=', 'c.id_sucursal');
         $segundos = $postgres ? 'EXTRACT(EPOCH FROM (c.lista_en - COALESCE(c.iniciada_en, c.enviada_en)))'
             : "(strftime('%s', c.lista_en) - strftime('%s', COALESCE(c.iniciada_en, c.enviada_en)))";
 

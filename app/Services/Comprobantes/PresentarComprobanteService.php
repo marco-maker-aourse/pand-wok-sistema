@@ -2,6 +2,7 @@
 
 namespace App\Services\Comprobantes;
 
+use App\Models\TipoComprobante;
 use App\Models\Restaurante\Pedido;
 use App\Models\User;
 use App\Models\Venta;
@@ -32,9 +33,9 @@ class PresentarComprobanteService
         ]);
 
         $emisor = $this->datosGenerales->emisor((int) $venta->id_sucursal);
-        $esFactura = $venta->comprobante?->codigo_sunat === '01';
+        $esFactura = $venta->comprobante?->codigo_sunat === TipoComprobante::FACTURA;
         // Nota de venta: documento interno, sin valor tributario, sin QR ni consulta SUNAT.
-        $esNota = $venta->comprobante?->codigo_sunat === \App\Models\Venta::NOTA_VENTA;
+        $esNota = $venta->comprobante?->codigo_sunat === Venta::NOTA_VENTA;
         $emision = $venta->fecha_emision?->copy()->setTimezone('America/Lima');
 
         $documento = [

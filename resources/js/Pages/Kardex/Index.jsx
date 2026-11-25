@@ -74,7 +74,6 @@ function Saldo({ producto }) {
 }
 
 function DetalleExistencia({ producto, onCerrar, onEditarPrecios }) {
-    const lotes = producto.lotes || [];
     const movimientos = producto.movimientos || [];
     const estado = situacion(producto);
     return (
@@ -101,21 +100,6 @@ function DetalleExistencia({ producto, onCerrar, onEditarPrecios }) {
                             ? 'Este plato no lleva stock propio: al venderse descuenta los insumos de su receta.'
                             : `Cada presentación descuenta de su variante física: ${producto.stock_en.join(', ')}. Revisa ahí el saldo.`}</span>
                     </p>
-                )}
-
-                {lotes.length > 0 && (
-                    <section>
-                        <h3 className="mb-2 text-xs font-medium text-slate-500">Lotes con saldo (se consumen primero los que vencen antes)</h3>
-                        <ul className="divide-y divide-slate-100 rounded-xl ring-1 ring-slate-200">
-                            {lotes.map((lote) => (
-                                <li key={lote.id_lote ?? lote.codigo_lote} className="flex items-center justify-between gap-3 px-3.5 py-2 text-sm">
-                                    <span className="font-mono text-xs font-semibold text-slate-800">{lote.codigo_lote || 'Sin código'}</span>
-                                    <span className="text-xs text-slate-500">{lote.fecha_vencimiento ? `Vence ${new Date(lote.fecha_vencimiento).toLocaleDateString('es-PE')}` : 'No perecible'}</span>
-                                    <span className="font-mono font-semibold text-slate-900 tabular-nums">{cantidad(lote.stock ?? lote.stock_actual)} {unidad(producto)}</span>
-                                </li>
-                            ))}
-                        </ul>
-                    </section>
                 )}
 
                 {controla(producto) && (
@@ -249,11 +233,11 @@ export default function Index({ productos = [] }) {
             <div className="space-y-4">
                 <PageHeader
                     title="Existencias"
-                    description="Saldo de insumos y bebidas en esta sucursal, en su unidad de inventario, con lotes y últimos movimientos."
+                    description="Saldo de insumos y bebidas en esta sucursal, en su unidad de inventario, con sus últimos movimientos."
                     icon={Boxes}
                     actions={(
                         <>
-                            <Button variant="secondary" href="/salidas">Salidas y ajustes</Button>
+                            <Button variant="secondary" href="/mermas">Registrar merma</Button>
                             <Button href="/ingresos">Registrar entrada</Button>
                         </>
                     )}
@@ -330,13 +314,11 @@ export default function Index({ productos = [] }) {
                                     <Th>Producto</Th>
                                     <Th>Saldo</Th>
                                     <Th>Situación</Th>
-                                    <Th>Lotes</Th>
                                     <Th align="right"><span className="sr-only">Acciones</span></Th>
                                 </THead>
                                 <TBody>
                                     {filtrados.map((p) => {
                                         const estado = situacion(p);
-                                        const lotes = p.lotes || [];
                                         return (
                                             <Tr key={p.id_producto}>
                                                 <Td>
@@ -345,11 +327,6 @@ export default function Index({ productos = [] }) {
                                                 </Td>
                                                 <Td><Saldo producto={p} /></Td>
                                                 <Td><Badge tone={estado.tone}>{estado.etiqueta}</Badge></Td>
-                                                <Td className="text-xs text-slate-600">
-                                                    {lotes.length === 0 ? <span className="text-slate-400">—</span> : (
-                                                        <span>{lotes.length} {lotes.length === 1 ? 'lote' : 'lotes'}{lotes[0]?.fecha_vencimiento && <span className="block text-slate-500">próximo vence {new Date(lotes[0].fecha_vencimiento).toLocaleDateString('es-PE')}</span>}</span>
-                                                    )}
-                                                </Td>
                                                 <Td align="right">
                                                     <div className="flex justify-end gap-1">
                                                         <Button variant="ghost" size="sm" icon={Tag} onClick={() => abrirPrecios(p)}>Precios</Button>

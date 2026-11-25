@@ -90,3 +90,17 @@ Extensiones de backend (de solo lectura y aditivas, con pruebas): el filtro `tip
 - **Cuenta de mesa** (`Pedido.jsx`): aplicar la misma separación que en el POS.
 - **Salón**: estados "pendiente de atención" y "cuenta pendiente": el backend no los expone hoy. Si se quieren, hace falta una extensión mínima del `resumen` y de las mesas en el servidor.
 - **Navegación**: `filtrarNavegacionPorRol` usa nombres de rol fijos para los ítems sin `permiso`. Lo ideal es asignar un `permiso` a cada ítem de `modules.js`.
+
+## Integración con main (modelo 3FN)
+
+Al fusionar `main` (10 PRs, incluido el modelo de datos en 3FN) se resolvieron 28 conflictos así:
+
+- **Salidas:** main eliminó el módulo (las bajas se registran como Mermas). Se aceptó: se retiraron `SalidaController`, las páginas de Salidas y su prueba, y Existencias enlaza a "Registrar merma".
+- **Lotes y vencimientos:** main los eliminó. Se quitaron de Existencias y de la entrada de insumos.
+- **Cocina:** se conservó el rediseño de main (urgencia compartida, aviso sonoro por pedido, pasos claros) y se retiró `TarjetaComanda`.
+- **POS:** se conservó la división en componentes y los botones Guardar / Enviar de esta rama, con las mejoras móviles de main: sin pestañas Carta/Pedido, "Seguir agregando" en el ticket, solo íconos en la barra en celular y etiquetas Menú/Combinación.
+- **Carta:** las secciones y `TarjetaPlato` de main, más "Quedan N" y la etiqueta "Opciones".
+- **Comprobantes, Caja e inventario:** versiones de esta rama (ya tenían las tarjetas móviles que main agregó).
+- **Nota de venta:** la migración pasa a `2026_12_02_000100_seguimiento_sunat_y_nota_venta.php`. Antes tenía fecha anterior a las migraciones base y en una instalación limpia habría corrido antes de crear los esquemas. Las series NV van en `configuracion.series_sucursal` (ya no existe `datos_gen`). `DiagnosticoSunatService` usa `emisor()` y `configuracion.sucursales`.
+
+**Para desplegar:** el push a main se detendrá antes de tocar el servidor porque hay una migración nueva. Hay que aplicarla con "Run workflow" → `aplicar_migraciones` y un respaldo de PostgreSQL confirmado.

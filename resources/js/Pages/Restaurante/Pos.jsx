@@ -69,7 +69,7 @@ export default function Pos({ carta, sugerencias = null, salon, cuenta, inicio, 
             return;
         }
         const p = producto.presentaciones[0];
-        agregar({ id_producto: producto.id_producto, id_precio: p.id_precio, cantidad: 1, selecciones: [], observacion: null, nombre: producto.nombre, detalle: [], precio_estimado: p.precio_venta });
+        agregar({ id_producto: producto.id_producto, id_precio: p.id_precio, cantidad: 1, selecciones: [], observacion: null, nombre: producto.nombre, distintivo: producto.distintivo ?? null, detalle: [], precio_estimado: p.precio_venta });
     };
 
     const agregar = (linea) => {
@@ -145,6 +145,7 @@ export default function Pos({ carta, sugerencias = null, salon, cuenta, inicio, 
                 operacion.current = null;
                 setBorrador([]);
                 setDialogo(null);
+                setVista('carta');
                 setContacto({ nombre_contacto: '', telefono_contacto: '', direccion_entrega: '' });
             },
             onError: (errores) => setErrorCobro(primerError(errores)),
@@ -192,8 +193,7 @@ export default function Pos({ carta, sugerencias = null, salon, cuenta, inicio, 
         ? `${tituloCuenta(cuenta)} · #${cuenta.numero}`
         : tipo === 'MESA' ? (mesa ? `Mesa ${mesa.codigo}` : 'Mesa sin elegir') : tipo === 'DELIVERY' ? 'Delivery' : 'Venta de mostrador';
 
-    const ticket = vigentes.length + borrador.length;
-    const panel = 'flex h-[calc(100dvh-12.5rem)] min-h-[24rem] flex-col overflow-hidden lg:h-[calc(100dvh-13rem)] lg:min-h-[28rem]';
+    const panel = 'flex h-[calc(100dvh-10.5rem)] min-h-[24rem] flex-col overflow-hidden lg:h-[calc(100dvh-13rem)] lg:min-h-[28rem]';
 
     return (
         <AppLayout title="Punto de venta" sinBarraInferior>
@@ -213,15 +213,6 @@ export default function Pos({ carta, sugerencias = null, salon, cuenta, inicio, 
             />
 
             {puede.cobrar && <AvisoRequisitosCobro requisitos={requisitosCobro} />}
-
-            <div className="mb-3 grid grid-cols-2 gap-1 rounded-xl bg-slate-200/60 p-1 lg:hidden" role="tablist" aria-label="Vista del POS">
-                {[['carta', 'Carta'], ['ticket', ticket ? `Pedido (${ticket})` : 'Pedido']].map(([clave, etiqueta]) => (
-                    <button key={clave} type="button" role="tab" aria-selected={vista === clave} onClick={() => setVista(clave)}
-                        className={cx('h-10 rounded-lg text-sm font-medium transition-colors', vista === clave ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600')}>
-                        {etiqueta}
-                    </button>
-                ))}
-            </div>
 
             <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_25rem]">
                 <Card className={cx(panel, vista !== 'carta' && 'hidden lg:flex')}>
@@ -247,14 +238,15 @@ export default function Pos({ carta, sugerencias = null, salon, cuenta, inicio, 
                         onCobrar={abrirCobro}
                         onCantidadCuenta={cambiarCantidad}
                         onQuitarCuenta={quitar}
+                        onVolver={() => setVista('carta')}
                     />
                 </Card>
             </div>
 
             {/* Acceso rápido al pedido en celular */}
-            {vista === 'carta' && unidades > 0 && (
+            {vista === 'carta' && (unidades > 0 || vigentes.length > 0) && (
                 <button type="button" onClick={() => setVista('ticket')} className="volumen-marca fixed inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-20 flex h-16 items-center justify-between rounded-2xl px-5 text-base font-semibold text-on-brand shadow-[var(--shadow-flotante)] active:scale-[0.99] lg:hidden">
-                    <span className="flex items-center gap-2"><span className="grid h-8 min-w-8 place-items-center rounded-full bg-white/20 px-2 font-mono tabular-nums">{unidades}</span>Ver pedido</span>
+                    <span className="flex items-center gap-2"><span className="grid h-8 min-w-8 place-items-center rounded-full bg-white/20 px-2 font-mono tabular-nums">{unidades + vigentes.reduce((n, d) => n + Number(d.cantidad), 0)}</span>Ver pedido</span>
                     <span className="flex items-center gap-1 font-mono tabular-nums">{soles(porCobrar)}<ChevronRight className="h-5 w-5" aria-hidden="true" /></span>
                 </button>
             )}

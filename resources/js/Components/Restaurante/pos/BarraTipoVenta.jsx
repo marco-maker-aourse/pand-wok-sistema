@@ -13,8 +13,8 @@ export default function BarraTipoVenta({ tipo, cuenta, mesa, contacto, cantidadC
     const actual = cuenta?.tipo ?? tipo;
 
     return (
-        <div className="mb-3 flex flex-wrap items-center gap-2">
-            <div className="grid w-full grid-cols-3 gap-1 rounded-xl bg-slate-200/60 p-1 sm:w-auto" role="radiogroup" aria-label="Tipo de venta">
+        <div className="mb-3 flex items-center gap-2">
+            <div className="grid min-w-0 flex-1 grid-cols-3 gap-1 rounded-xl bg-slate-200/60 p-1 sm:flex-none" role="radiogroup" aria-label="Tipo de venta">
                 {TIPOS_VENTA.map(({ clave, etiqueta, icono: Icono }) => (
                     <button
                         key={clave}
@@ -24,32 +24,34 @@ export default function BarraTipoVenta({ tipo, cuenta, mesa, contacto, cantidadC
                         disabled={Boolean(cuenta)}
                         onClick={() => onTipo(clave)}
                         className={cx(
-                            'flex h-11 items-center justify-center gap-1.5 rounded-lg px-2 text-sm font-medium transition-colors disabled:cursor-not-allowed sm:px-3',
+                            'flex h-12 min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg px-1 text-xs font-medium transition-colors disabled:cursor-not-allowed sm:h-11 sm:flex-row sm:gap-1.5 sm:px-3 sm:text-sm',
                             actual === clave ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900',
                             cuenta && actual !== clave && 'opacity-50',
                         )}
                     >
-                        <Icono className={cx('h-4 w-4', actual === clave && 'text-brand-ink')} aria-hidden="true" />{etiqueta}
+                        <Icono className={cx('h-4 w-4 shrink-0', actual === clave && 'text-brand-ink')} aria-hidden="true" /><span className="truncate">{etiqueta}</span>
                     </button>
                 ))}
             </div>
 
+            {/* En el celular solo íconos: la carta necesita el espacio. */}
             {!cuenta && tipo === 'MESA' && (
-                <Button variant={mesa ? 'secondary' : 'primary'} icon={LayoutGrid} onClick={onMesas}>{mesa ? `Mesa ${mesa.codigo}` : 'Elegir mesa'}</Button>
+                <Button variant={mesa ? 'secondary' : 'primary'} icon={LayoutGrid} onClick={onMesas} aria-label="Elegir mesa" className="shrink-0">
+                    <span className={cx(!mesa && 'hidden sm:inline')}>{mesa ? `Mesa ${mesa.codigo}` : 'Elegir mesa'}</span>
+                </Button>
             )}
             {!cuenta && tipo !== 'MESA' && (
-                <Button variant="secondary" icon={UserRound} onClick={onContacto} className="max-w-[14rem]">
-                    <span className="truncate">{contacto.nombre_contacto || (tipo === 'DELIVERY' ? 'Datos de entrega' : 'Cliente (opcional)')}</span>
+                <Button variant="secondary" icon={UserRound} onClick={onContacto} aria-label={tipo === 'DELIVERY' ? 'Datos de entrega' : 'Cliente'} className="shrink-0">
+                    <span className={cx('max-w-32 truncate', !contacto.nombre_contacto && 'hidden sm:inline')}>
+                        {contacto.nombre_contacto || (tipo === 'DELIVERY' ? 'Datos de entrega' : 'Cliente (opcional)')}
+                    </span>
                 </Button>
             )}
-
-            <div className="ml-auto flex gap-2">
-                {cuenta && <Button variant="secondary" icon={Plus} onClick={onNueva}>Nueva venta</Button>}
-                <Button variant="secondary" icon={ListOrdered} onClick={onCuentas} aria-label={`Cuentas abiertas: ${cantidadCuentas}`}>
-                    <span className="hidden sm:inline">Cuentas abiertas</span>
-                    {cantidadCuentas > 0 && <span className="rounded-full bg-brand-soft px-1.5 font-mono text-xs text-brand-ink tabular-nums">{cantidadCuentas}</span>}
-                </Button>
-            </div>
+            {cuenta && <Button variant="secondary" icon={Plus} onClick={onNueva} className="shrink-0"><span className="hidden sm:inline">Nueva venta</span></Button>}
+            <Button variant="secondary" icon={ListOrdered} onClick={onCuentas} aria-label={`Cuentas abiertas: ${cantidadCuentas}`} className="relative shrink-0 sm:ml-auto">
+                <span className="hidden sm:inline">Cuentas abiertas</span>
+                {cantidadCuentas > 0 && <span className="absolute -top-1.5 -right-1.5 grid h-5 min-w-5 place-items-center rounded-full bg-brand px-1 font-mono text-xs text-on-brand tabular-nums sm:static sm:bg-brand-soft sm:text-brand-ink">{cantidadCuentas}</span>}
+            </Button>
         </div>
     );
 }

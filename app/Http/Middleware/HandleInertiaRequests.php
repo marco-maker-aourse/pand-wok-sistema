@@ -32,7 +32,7 @@ class HandleInertiaRequests extends Middleware
                 return null;
             }
 
-            return $organizationData = app(DatosGeneralesService::class)->identidad($request->user()?->idSucursalActiva());
+            return $organizationData = app(DatosGeneralesService::class)->identidad();
         };
 
         // Consulta directa a seguridad.rol_permisos y seguridad.permisos

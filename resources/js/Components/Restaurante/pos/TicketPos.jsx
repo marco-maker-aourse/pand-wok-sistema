@@ -1,6 +1,7 @@
 import { Link } from '@inertiajs/react';
-import { Bike, LayoutGrid, Minus, Plus, ReceiptText, Save, Send, ShoppingBag, Split, Trash2, UtensilsCrossed, X } from 'lucide-react';
+import { Bike, ChevronLeft, LayoutGrid, Minus, Plus, ReceiptText, Save, Send, ShoppingBag, Split, Trash2, UtensilsCrossed, X } from 'lucide-react';
 import { Button, IconButton, cx } from '@/Components/ui';
+import Distintivo from '../Distintivo';
 import LineaCuenta from '../LineaCuenta';
 import { soles } from '../formato';
 
@@ -13,7 +14,7 @@ function LineaBorrador({ linea, onCambiar }) {
     return (
         <li className="flex items-center gap-3 px-4 py-2.5">
             <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-slate-900">{linea.nombre}</p>
+                <p className="flex flex-wrap items-center gap-x-1.5 text-sm font-medium text-slate-900">{linea.nombre}<Distintivo texto={linea.distintivo} /></p>
                 {linea.detalle.length > 0 && <p className="text-xs text-slate-600">{linea.detalle.join(' · ')}</p>}
                 {linea.observacion && <p className="text-xs text-amber-700 italic">“{linea.observacion}”</p>}
                 <p className="font-mono text-xs text-slate-500 tabular-nums">{soles(centimos(linea.cantidad, linea.precio_estimado) / 100)}</p>
@@ -33,7 +34,7 @@ function LineaBorrador({ linea, onCambiar }) {
  */
 export default function TicketPos({
     titulo, tipo, cuenta, vigentes, borrador, porCobrar, ocupado, puede, requisitosCobro,
-    onCambiarBorrador, onDescartar, onGuardar, onEnviar, onCobrar, onCantidadCuenta, onQuitarCuenta, hayPendientes,
+    onCambiarBorrador, onDescartar, onGuardar, onEnviar, onCobrar, onCantidadCuenta, onQuitarCuenta, onVolver, hayPendientes,
 }) {
     const IconoTipo = ICONO_TIPO[cuenta?.tipo ?? tipo] ?? ShoppingBag;
     const vacio = vigentes.length === 0 && borrador.length === 0;
@@ -44,10 +45,15 @@ export default function TicketPos({
     return (
         <>
             <header className="flex items-center gap-3 border-b border-slate-100 px-4 py-3">
-                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-soft text-brand-ink">
+                {onVolver && (
+                    <button type="button" onClick={onVolver} className="-ml-1 flex h-10 shrink-0 items-center gap-1 rounded-lg px-2 text-sm font-medium text-brand-ink hover:bg-brand-soft lg:hidden">
+                        <ChevronLeft className="h-4 w-4" aria-hidden="true" />Seguir agregando
+                    </button>
+                )}
+                <span className="hidden h-10 w-10 shrink-0 lg:grid place-items-center rounded-xl bg-brand-soft text-brand-ink">
                     <IconoTipo className="h-5 w-5" aria-hidden="true" />
                 </span>
-                <div className="min-w-0 flex-1">
+                <div className="min-w-0 flex-1 text-right lg:text-left">
                     <h2 className="truncate text-base font-semibold text-slate-900">{titulo}</h2>
                     <p className="truncate text-xs text-slate-500">
                         {cuenta ? [`Cuenta #${cuenta.numero}`, cuenta.mozo].filter(Boolean).join(' · ') : 'Pedido nuevo'}

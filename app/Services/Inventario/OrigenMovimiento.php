@@ -4,7 +4,6 @@ namespace App\Services\Inventario;
 
 use App\Models\Ingreso;
 use App\Models\Kardex;
-use App\Models\Salida;
 use App\Models\Venta;
 
 /**
@@ -16,8 +15,6 @@ final class OrigenMovimiento
     public const VENTA = 'VENTA';
 
     public const INGRESO = 'INGRESO';
-
-    public const SALIDA = 'SALIDA';
 
     public const AJUSTE = 'AJUSTE';
 
@@ -53,11 +50,6 @@ final class OrigenMovimiento
             : 'ING-'.str_pad((string) $ingreso->id_ingreso, 6, '0', STR_PAD_LEFT);
 
         return new self(self::INGRESO, (int) $ingreso->id_ingreso, $documento, $ingreso->id_usuario ? (int) $ingreso->id_usuario : null);
-    }
-
-    public static function salida(Salida $salida): self
-    {
-        return new self(self::SALIDA, (int) $salida->id_salida, 'SAL-'.str_pad((string) $salida->id_salida, 6, '0', STR_PAD_LEFT), $salida->id_usuario ? (int) $salida->id_usuario : null);
     }
 
     /** El ajuste no tiene documento: se guarda su motivo para la auditoría. */

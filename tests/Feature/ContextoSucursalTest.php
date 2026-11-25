@@ -18,13 +18,13 @@ class ContextoSucursalTest extends TestCase
     {
         parent::setUp();
 
-        foreach (['inventario', 'seguridad'] as $esquema) {
+        foreach (['inventario', 'seguridad', 'configuracion'] as $esquema) {
             DB::statement("ATTACH DATABASE ':memory:' AS {$esquema}");
         }
-        DB::statement('CREATE TABLE inventario.sucursales (id_sucursal INTEGER PRIMARY KEY, nombre TEXT, codigo_establecimiento TEXT NULL, estado INTEGER)');
+        DB::statement('CREATE TABLE configuracion.sucursales (id_sucursal INTEGER PRIMARY KEY, nombre TEXT, codigo_establecimiento TEXT NULL, estado INTEGER)');
         DB::statement('CREATE TABLE seguridad.usuario_sucursales (id_usuario INTEGER, id_sucursal INTEGER)');
 
-        DB::table('inventario.sucursales')->insert([
+        DB::table('configuracion.sucursales')->insert([
             ['id_sucursal' => 1, 'nombre' => 'PRINCIPAL', 'estado' => 1],
             ['id_sucursal' => 2, 'nombre' => 'ANEXO NORTE', 'estado' => 1],
             ['id_sucursal' => 3, 'nombre' => 'ANEXO CERRADO', 'estado' => 0],

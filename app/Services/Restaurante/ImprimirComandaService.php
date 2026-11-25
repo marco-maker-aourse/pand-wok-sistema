@@ -2,6 +2,7 @@
 
 namespace App\Services\Restaurante;
 
+use App\Support\Restaurante\DistintivoCategoria;
 use App\Models\Impresora;
 use App\Models\Restaurante\Comanda;
 use App\Models\Restaurante\Estacion;
@@ -122,7 +123,10 @@ class ImprimirComandaService
     {
         $comanda->loadMissing(['pedido.mesa.area', 'pedido.usuario', 'usuario']);
         $pedido = $comanda->pedido;
-        (new Modelos($items->all()))->loadMissing(['pedido:id_pedido,numero,tipo,id_mesa', 'pedido.mesa:id_mesa,codigo']);
+        (new Modelos($items->all()))->loadMissing([
+            'pedido:id_pedido,numero,tipo,id_mesa', 'pedido.mesa:id_mesa,codigo',
+            'producto:id_producto,id_categoria', 'producto.categoria:id_categoria,nombre',
+        ]);
         $emision = ($comanda->enviada_en ?? now())->copy()->setTimezone(config('app.timezone_negocio', 'America/Lima'));
         $impresora = $estacion->impresora;
 
@@ -146,7 +150,7 @@ class ImprimirComandaService
                 'hora' => $emision->format('H:i'),
                 'items' => $items->map(fn (PedidoDetalle $detalle): array => [
                     'cantidad' => rtrim(rtrim(number_format((float) $detalle->cantidad, 3, '.', ''), '0'), '.'),
-                    'nombre' => $detalle->nombre_producto,
+                    'nombre' => DistintivoCategoria::nombreImpreso($detalle->nombre_producto, DistintivoCategoria::deProducto($detalle->producto)),
                     'opciones' => $detalle->modificadores->map->etiqueta((float) $detalle->cantidad)->values()->all(),
                     'observacion' => $detalle->observacion,
                     'cuenta' => (int) $detalle->id_pedido === (int) $pedido->id_pedido ? null : [

@@ -2,9 +2,7 @@
 
 namespace App\Http\Requests\Configuracion;
 
-use App\Models\DatosGen;
 use App\Models\Sucursal;
-use App\Services\Configuracion\DatosGeneralesService;
 use App\Rules\Ruc;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -25,12 +23,9 @@ class ActualizarDatosGeneralesRequest extends FormRequest
     /** @return array<string, array<int, mixed>> */
     public function rules(): array
     {
-        // Registro que se guardará: el propio de la sucursal o el de la empresa principal.
-        $registro = app(DatosGeneralesService::class)->empresaDe($this->user()?->idSucursalActiva());
-
         return [
-            // El RUC es único por empresa (restricción de operaciones.datos_gen).
-            'ruc_empresa'      => ['required', new Ruc, Rule::unique(DatosGen::class, 'ruc_empresa')->ignore($registro?->id_datos_gen, 'id_datos_gen')],
+            // Hay una sola empresa: su RUC se edita en la misma fila.
+            'ruc_empresa'      => ['required', new Ruc],
             'codigo_establecimiento' => ['nullable', 'digits:4', Rule::unique(Sucursal::class, 'codigo_establecimiento')->ignore($this->user()?->idSucursalActiva(), 'id_sucursal')],
             'razon_social'     => ['required', 'string', 'max:200'],
             'nombre_comercial' => ['nullable', 'string', 'max:200'],
@@ -65,7 +60,6 @@ class ActualizarDatosGeneralesRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'ruc_empresa.unique' => 'Ese RUC ya pertenece a otra empresa registrada.',
             'serie_boleta.regex' => 'La serie de boleta debe tener 4 caracteres y empezar con B (ej. B001).',
             'serie_factura.regex' => 'La serie de factura debe tener 4 caracteres y empezar con F (ej. F001).',
             'serie_guia.regex' => 'La serie de guía debe tener 4 caracteres y empezar con T (ej. T001).',

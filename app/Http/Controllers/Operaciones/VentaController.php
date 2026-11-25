@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Operaciones;
 
 use App\Http\Controllers\Controller;
 use App\Models\Cliente;
-use App\Models\Lote;
 use App\Models\ProductoPresentacion;
 use App\Models\TipoComprobante;
 use App\Models\TipoDocumento;
@@ -42,7 +41,7 @@ class VentaController extends Controller
         $ventas = Venta::query()
             ->with([
                 ...PresentarVentaService::RELACIONES,
-                'pagos:id_pago,id_venta,id_metodo,monto,monto_recibido,vuelto,monto_neto,comision_pasarela,estado_pago',
+                'pagos:id_pago,id_venta,id_metodo,monto,monto_recibido,vuelto,comision_pasarela,estado_pago',
             ])
             ->where('id_sucursal', $user->idSucursalActiva())
             ->when($filtraEstado, fn ($query) => $query->where('estado_sunat', $estadoSunat))
@@ -144,7 +143,7 @@ class VentaController extends Controller
         }
 
         try {
-            $isRuc = (string) $documentType->codigo_sunat === '6';
+            $isRuc = (string) $documentType->codigo_sunat === TipoDocumento::RUC;
             $result = $documentos->lookup($isRuc ? 'ruc' : 'dni', $documento);
             $cliente = Cliente::query()->create([
                 'id_tipo_documento' => $documentType->id_tipo_documento,
@@ -177,22 +176,13 @@ class VentaController extends Controller
         }
 
         $receipt = TipoComprobante::query()
-            ->where('codigo_sunat', $data['tipo_comprobante'] === 'FACTURA' ? '01' : '03')
+            ->where('codigo_sunat', $data['tipo_comprobante'] === 'FACTURA' ? TipoComprobante::FACTURA : TipoComprobante::BOLETA)
             ->where('estado', true)
             ->firstOrFail();
 
-        $details = collect($data['detalles'])->map(function (array $detail) use ($user): array {
-            $lotId = filled($detail['lote'] ?? null)
-                // El código de lote solo es único por producto y sucursal.
-                ? Lote::query()
-                    ->where('id_sucursal', $user->idSucursalActiva())
-                    ->where('codigo_lote', $detail['lote'])
-                    ->whereIn('id_producto', ProductoPresentacion::query()->select('id_producto')->whereKey($detail['id_prod_pres']))
-                    ->value('id_lote')
-                : null;
-
-            return ['id_precio' => $detail['id_prod_pres'], 'id_lote' => $lotId, 'cantidad' => $detail['cantidad']];
-        })->all();
+        $details = collect($data['detalles'])
+            ->map(fn (array $detail): array => ['id_precio' => $detail['id_prod_pres'], 'cantidad' => $detail['cantidad']])
+            ->all();
 
         try {
             $sale = $service->execute([

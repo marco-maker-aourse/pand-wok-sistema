@@ -15,7 +15,7 @@ const nombreProveedor = (p) => String(p?.razon_social || p?.nombre_razon_social 
 
 /**
  * Estado y reglas de la entrada de mercadería: proveedor (con consulta de RUC), comprobante
- * y líneas con presentación, cantidad, costo, lote y vencimiento. El servidor valida y
+ * y líneas con presentación, cantidad y costo. El servidor valida y
  * registra el ingreso (StoreIngresoRequest / RegistrarIngresoService).
  */
 export default function useIngresoCompra({ productos, proveedores, tiposComprobante, productoInicialId, onRegistrado }) {
@@ -166,8 +166,6 @@ export default function useIngresoCompra({ productos, proveedores, tiposComproba
             // Sin precio de venta el servidor no toca el PVP (RegistrarIngresoService).
             porcentaje_utilidad: insumo ? '' : 18,
             precio_venta: insumo ? '' : Number(pvp.toFixed(2)),
-            lote: `L-${hoy.replace(/-/g, '').slice(0, 6)}-${producto.id_producto}`,
-            fecha_vencimiento: '',
             subtotal: 0,
         }, ...actual]);
     };

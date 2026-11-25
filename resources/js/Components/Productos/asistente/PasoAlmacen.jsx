@@ -8,7 +8,7 @@ const ACCESOS_RAPIDOS = [
     { tipo: 'liquido', icono: Droplet, titulo: 'Litro', detalle: 'Líquidos sueltos' },
 ];
 
-/** Paso 2: unidad base de almacén, vencimiento e IGV. */
+/** Paso 2: unidad base de almacén e IGV. */
 export default function PasoAlmacen({ f }) {
     const { data, setData, errors, localCatalogs, asignarUnidadRapida, setQuickCatalog, setQuickName, setQuickCode } = f;
 
@@ -45,13 +45,6 @@ export default function PasoAlmacen({ f }) {
             </fieldset>
 
             <div className="space-y-3 rounded-2xl bg-white p-3 shadow-[var(--shadow-tarjeta)] ring-1 ring-slate-900/[0.05]">
-                <CheckboxField
-                    label="Controlar vencimiento y lotes"
-                    description="Recomendado para alimentos y bebidas."
-                    checked={data.usa_vencimiento}
-                    disabled={data.es_servicio}
-                    onChange={(valor) => setData('usa_vencimiento', valor)}
-                />
                 <CheckboxField
                     label="Afecto a IGV (18 %)"
                     description="Se incluye en comprobantes tributarios SUNAT."

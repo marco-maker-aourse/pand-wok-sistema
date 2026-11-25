@@ -16,7 +16,6 @@ class DetalleIngreso extends Model
     protected $fillable = [
         'id_ingreso',
         'id_precio',
-        'id_lote',
         'cantidad',
         'factor_conversion',
         'precio_costo',

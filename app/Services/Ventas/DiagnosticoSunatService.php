@@ -21,8 +21,8 @@ class DiagnosticoSunatService
      */
     public function revisar(int $sucursalId): array
     {
-        $empresa = $this->datosGenerales->empresaDe($sucursalId);
-        $codigo = DB::table('inventario.sucursales')->where('id_sucursal', $sucursalId)->value('codigo_establecimiento');
+        $empresa = $this->datosGenerales->emisor($sucursalId);
+        $codigo = DB::table('configuracion.sucursales')->where('id_sucursal', $sucursalId)->value('codigo_establecimiento');
         $endpoint = (string) config('services.sunat.endpoint_cpe', '');
         $beta = $endpoint === '' || str_contains($endpoint, 'beta');
         $certificado = $this->certificado();

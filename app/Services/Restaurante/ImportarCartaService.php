@@ -31,7 +31,6 @@ use Throwable;
 class ImportarCartaService
 {
     private const PRESENTACION = 'Unidad';
-    private const UNIDAD_SUNAT = 'NIU';
 
     public function __construct(private readonly PrecioSucursalService $precios) {}
 
@@ -137,7 +136,7 @@ class ImportarCartaService
 
     private function unidadBase(): UnidadMedida
     {
-        return UnidadMedida::query()->firstOrCreate(['codigo_sunat' => self::UNIDAD_SUNAT], ['nombre' => 'Unidad', 'estado' => true]);
+        return UnidadMedida::query()->firstOrCreate(['codigo_sunat' => UnidadMedida::UNIDAD], ['nombre' => 'Unidad', 'estado' => true]);
     }
 
     private function presentacion(): Presentacion
@@ -194,7 +193,6 @@ class ImportarCartaService
             'tipo_producto' => $esBebida ? Producto::DIRECTO : Producto::PREPARADO,
             'afecta_igv' => true,
             'es_servicio' => false,
-            'usa_vencimiento' => false,
         ]), true];
     }
 

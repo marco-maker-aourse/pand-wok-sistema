@@ -2,6 +2,7 @@
 
 namespace App\Services\Caja;
 
+use App\Models\MetodoPago;
 use App\Models\MovimientoCaja;
 use App\Models\TerminalPos;
 use App\Models\TurnoCaja;
@@ -129,7 +130,8 @@ class GestionarTurnoCajaService
             ->where('pago.estado_pago', 'COMPLETADO')
             ->select('metodo.nombre', 'metodo.tipo')
             ->selectRaw('SUM(pago.monto) as monto_bruto')
-            ->selectRaw('SUM(pago.monto_neto) as monto_neto')
+            // Neto = bruto menos la comisión de la pasarela; no se guarda porque se deriva.
+            ->selectRaw('SUM(pago.monto - pago.comision_pasarela) as monto_neto')
             ->groupBy('metodo.nombre', 'metodo.tipo')
             ->get();
 
@@ -138,8 +140,8 @@ class GestionarTurnoCajaService
             'bruto' => round((float) $pago->monto_bruto, 2),
             'neto' => round((float) $pago->monto_neto, 2),
         ]]);
-        $efectivo = (float) $pagos->where('tipo', 'EFECTIVO')->sum(fn ($pago): float => (float) $pago->monto_bruto);
-        $digital = (float) $pagos->where('tipo', '!=', 'EFECTIVO')->sum(fn ($pago): float => (float) $pago->monto_neto);
+        $efectivo = (float) $pagos->where('tipo', MetodoPago::EFECTIVO)->sum(fn ($pago): float => (float) $pago->monto_bruto);
+        $digital = (float) $pagos->where('tipo', '!=', MetodoPago::EFECTIVO)->sum(fn ($pago): float => (float) $pago->monto_neto);
         $movimientos = $this->movimientosTotales($turno->id_turno);
         $esperado = round((float) $turno->monto_apertura + $efectivo + $movimientos['ingresos'] - $movimientos['egresos'], 2);
 
@@ -199,7 +201,7 @@ class GestionarTurnoCajaService
             ->where('pago.estado_pago', 'COMPLETADO')
             ->groupBy('venta.id_turno')
             ->select('venta.id_turno')
-            ->selectRaw("COALESCE(SUM(CASE WHEN metodo.tipo = 'EFECTIVO' THEN pago.monto ELSE 0 END), 0) as monto_efectivo")
+            ->selectRaw('COALESCE(SUM(CASE WHEN metodo.tipo = ? THEN pago.monto ELSE 0 END), 0) as monto_efectivo', [MetodoPago::EFECTIVO])
             ->pluck('monto_efectivo', 'venta.id_turno');
 
         $movimientosPorTurno = DB::table('operaciones.movimientos_caja')

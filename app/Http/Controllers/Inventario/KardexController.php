@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Inventario;
 use App\Http\Controllers\Controller;
 
 use App\Models\Kardex;
-use App\Models\Lote;
 use App\Models\Producto;
 use App\Models\ProductoPresentacion;
 use App\Services\Inventario\GestionarExistenciaService;
@@ -27,17 +26,11 @@ class KardexController extends Controller
 
         $productos = Producto::query()
             ->where('estado', true)
-            // PostgreSQL calcula el saldo de lotes: evita sumar colecciones hidratadas en PHP.
-            ->withSum(['lotes as stock_lotes' => fn ($q) => $q->where('id_sucursal', $branchId)->where('stock', '>', 0)], 'stock')
             ->with([
                 'unidadBase:id_unidad,nombre',
                 'presentaciones' => fn ($q) => $q->where('estado', true)
                     ->with(['presentacion:id_presentacion,nombre', 'productoStock:id_producto,nombre'])
                     ->orderBy('factor_conversion', 'asc'),
-                'lotes' => fn ($q) => $q->where('id_sucursal', $branchId)
-                    ->where('stock', '>', 0)
-                    ->orderByRaw('fecha_vencimiento ASC NULLS LAST')
-                    ->orderBy('id_lote', 'asc'),
                 'kardex' => fn ($q) => $q->where('id_sucursal', $branchId)
                     ->orderBy('id_kardex', 'desc')
                     ->take(30),
@@ -45,10 +38,9 @@ class KardexController extends Controller
             ->orderBy('nombre')
             ->get()
             ->map(function ($prod) {
-                // Stock total calculado de los lotes vigentes o saldo en Kardex
-                $stockCalculado = (float) ($prod->stock_lotes ?? 0);
+                // El saldo de la sucursal es el del último movimiento de Kardex.
                 $ultimoKardex = $prod->kardex->first();
-                $saldoStock = $ultimoKardex ? (float) $ultimoKardex->stock_actual : $stockCalculado;
+                $saldoStock = (float) ($ultimoKardex?->stock_actual ?? 0);
 
                 // Formateamos las presentaciones con sus nombres y PVP reales
                 $presentacionesFormateadas = $prod->presentaciones->map(function ($p) {
@@ -84,7 +76,6 @@ class KardexController extends Controller
                     'precio_costo' => (float) ($ultimoKardex?->precio_costo ?? 0),
                     'ultima_actualizacion' => $ultimoKardex?->ultima_actualizacion,
                     'presentaciones' => $presentacionesFormateadas,
-                    'lotes'          => $prod->lotes,
                     'movimientos'    => $movimientos,
                     // Tipo y dónde se lleva el stock (variantes físicas), ver TipoExistencia.
                     ...TipoExistencia::de($prod),
@@ -105,8 +96,6 @@ class KardexController extends Controller
             'id_producto'         => ['required', 'integer', Rule::exists(Producto::class, 'id_producto')],
             'nuevo_stock'         => ['required', 'numeric', 'min:0'],
             'motivo'              => ['required', 'string', 'max:255'],
-            'codigo_lote'         => ['nullable', 'string', 'max:50'],
-            'fecha_vencimiento'   => ['nullable', 'date'],
             'precios'             => ['required', 'array', 'min:1'],
             'precios.*.id_prod_pres' => ['required', 'integer', Rule::exists(ProductoPresentacion::class, 'id_precio')],
             'precios.*.precio_venta' => ['required', 'numeric', 'min:0'],
@@ -154,7 +143,7 @@ class KardexController extends Controller
             $cantEntrada = $diferencia > 0 ? $diferencia : 0;
             $cantSalida = $diferencia < 0 ? abs($diferencia) : 0;
 
-            // 3. Registrar el movimiento oficial en Kardex con las columnas reales de Supabase
+            // 3. Registrar el movimiento en Kardex.
             Kardex::create([
                 ...OrigenMovimiento::ajuste($validated['motivo'], $userId)->columnas(),
                 'id_sucursal'          => $branchId,
@@ -163,37 +152,8 @@ class KardexController extends Controller
                 'cantidad_salida'      => $cantSalida,
                 'stock_actual'         => $nuevoStock,
                 'precio_costo'         => $ultimoKardex ? $ultimoKardex->precio_costo : 0,
-                'porcentaje_utilidad'  => 0,
                 'ultima_actualizacion' => now(),
             ]);
-
-            // 4. Actualizar o crear lote FIFO con columnas exactas de inventario.lotes
-            $codLote = filled($validated['codigo_lote'] ?? null)
-                ? $validated['codigo_lote']
-                : 'LOTE-AJUSTE-' . date('Ymd');
-
-            $lote = Lote::query()
-                ->where('id_producto', $validated['id_producto'])
-                ->where('id_sucursal', $branchId)
-                ->where('codigo_lote', $codLote)
-                ->first();
-
-            if ($lote) {
-                $lote->update([
-                    'stock'             => $nuevoStock,
-                    'fecha_vencimiento' => $validated['fecha_vencimiento'] ?? $lote->fecha_vencimiento,
-                    'estado'            => $nuevoStock > 0,
-                ]);
-            } else {
-                Lote::create([
-                    'id_producto'       => $validated['id_producto'],
-                    'id_sucursal'       => $branchId,
-                    'codigo_lote'       => $codLote,
-                    'fecha_vencimiento' => $validated['fecha_vencimiento'] ?? null,
-                    'stock'             => $nuevoStock,
-                    'estado'            => $nuevoStock > 0,
-                ]);
-            }
         });
 
         return to_route('kardex.index')->with('success', 'Stock y precios por presentación actualizados.');

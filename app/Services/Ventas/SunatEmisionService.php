@@ -2,6 +2,8 @@
 
 namespace App\Services\Ventas;
 
+use App\Models\TipoDocumento;
+use App\Models\TipoComprobante;
 use App\Models\Venta;
 use App\Services\Comprobantes\DescripcionItems;
 use App\Services\Impresion\CrearTrabajoImpresionService;
@@ -122,16 +124,15 @@ class SunatEmisionService
             return [...$this->result(false, 'RECHAZADO', 'El comprobante fue rechazado. No se reenviará con el mismo número.'), 'sin_intento' => true];
         }
 
-        // Datos fiscales: los propios de la sucursal o, si los comparte, los de la empresa;
-        // el código de establecimiento siempre es el de la sucursal donde se vendió.
-        $empresa = app(\App\Services\Configuracion\DatosGeneralesService::class)->empresaDe((int) $venta->id_sucursal);
+        // Datos fiscales de la empresa; el código de establecimiento es el de la sucursal donde se vendió.
+        $empresa = app(\App\Services\Configuracion\DatosGeneralesService::class)->empresa();
         $emisor = $empresa ? (object) [
             ...$empresa->getAttributes(),
-            'codigo_establecimiento' => DB::table('inventario.sucursales')->where('id_sucursal', $venta->id_sucursal)->value('codigo_establecimiento'),
+            'codigo_establecimiento' => DB::table('configuracion.sucursales')->where('id_sucursal', $venta->id_sucursal)->value('codigo_establecimiento'),
         ] : null;
 
         if (! $emisor) {
-            throw new \RuntimeException('La sucursal de la venta no tiene datos fiscales configurados.');
+            throw new \RuntimeException('La empresa no tiene datos fiscales configurados.');
         }
 
         if (! preg_match('/^\d{4}$/', (string) $emisor->codigo_establecimiento)) {
@@ -229,7 +230,7 @@ class SunatEmisionService
     private function obtenerDetalles(int $idVenta): \Illuminate\Support\Collection
     {
         $detalles = DB::table('operaciones.detalle_ventas as dv')
-            ->join('inventario.precio_producto as pp', 'dv.id_precio', '=', 'pp.id_precio')
+            ->join('catalogos.producto_presentaciones as pp', 'dv.id_precio', '=', 'pp.id_precio')
             ->join('catalogos.productos as p', 'pp.id_producto', '=', 'p.id_producto')
             ->join('catalogos.unidades_medida as um', 'p.id_unidad_base', '=', 'um.id_unidad')
             ->where('dv.id_venta', $idVenta)
@@ -263,7 +264,7 @@ class SunatEmisionService
 
     private function validarDatos(object $venta, object $emisor, \Illuminate\Support\Collection $detalles): void
     {
-        if (! in_array((string) $venta->cod_comprobante, ['01', '03'], true)) {
+        if (! in_array((string) $venta->cod_comprobante, TipoComprobante::EMITIDOS_EN_VENTA, true)) {
             throw new \RuntimeException('Solo se pueden emitir facturas y boletas electrónicas.');
         }
 
@@ -271,8 +272,8 @@ class SunatEmisionService
             throw new \RuntimeException('El RUC del emisor debe tener 11 dígitos.');
         }
 
-        if ((string) $venta->cod_comprobante === '01'
-            && ((string) $venta->cod_doc_cliente !== '6' || ! preg_match('/^\d{11}$/', (string) $venta->num_documento))) {
+        if ((string) $venta->cod_comprobante === TipoComprobante::FACTURA
+            && ((string) $venta->cod_doc_cliente !== TipoDocumento::RUC || ! preg_match('/^\d{11}$/', (string) $venta->num_documento))) {
             throw new \RuntimeException('La factura requiere un cliente identificado con RUC de 11 dígitos.');
         }
 

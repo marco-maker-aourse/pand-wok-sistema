@@ -106,7 +106,7 @@ class ProveedorController extends Controller
     {
         // El tipo documental es un catálogo administrable; nunca se crea de forma implícita al registrar un proveedor.
         $tipoRuc = TipoDocumento::query()
-            ->where('codigo_sunat', '6')
+            ->where('codigo_sunat', TipoDocumento::RUC)
             ->where('estado', true)
             ->firstOrFail();
 
@@ -125,7 +125,7 @@ class ProveedorController extends Controller
     private function payloadProveedorFromData(array $data, ?Proveedor $proveedor = null): array
     {
         $tipoRuc = TipoDocumento::query()
-            ->where('codigo_sunat', '6')
+            ->where('codigo_sunat', TipoDocumento::RUC)
             ->where('estado', true)
             ->firstOrFail();
 

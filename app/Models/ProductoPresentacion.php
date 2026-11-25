@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class ProductoPresentacion extends Model
 {
     /** Precio por presentación; conserva el nombre PHP para no romper el frontend actual. */
-    protected $table = 'inventario.precio_producto';
+    protected $table = 'catalogos.producto_presentaciones';
     protected $primaryKey = 'id_precio';
     public $timestamps = false;
 
@@ -17,7 +17,6 @@ class ProductoPresentacion extends Model
         'id_presentacion',
         'factor_conversion',
         'precio_venta',
-        'porcentaje_utilidad',
         'estado',
         'id_producto_stock',
     ];
@@ -30,7 +29,6 @@ class ProductoPresentacion extends Model
         return [
             'factor_conversion'   => 'decimal:4',
             'precio_venta'        => 'decimal:2',
-            'porcentaje_utilidad' => 'decimal:2',
             'estado'              => 'boolean',
         ];
     }

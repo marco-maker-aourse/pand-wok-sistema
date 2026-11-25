@@ -2,24 +2,17 @@
 
 namespace App\Services\Configuracion;
 
-use App\Models\DatosGen;
+use App\Models\Empresa;
 use App\Models\Sucursal;
 use Illuminate\Support\Facades\Cache;
 
 /**
- * Punto único de lectura de los Datos Generales (operaciones.datos_gen).
+ * Punto único de lectura de los Datos Generales (configuracion.empresa).
  *
- * El esquema guarda un registro por sucursal y exige un RUC único, de modo que
- * las sucursales de una misma empresa no pueden repetir el registro:
- *
- * - Una sucursal con registro propio es su propia empresa (otro RUC) y usa sus datos.
- * - Una sucursal sin registro usa los datos de la empresa principal: nombre,
- *   razón social, RUC, logo, colores y textos son globales para todas sus
- *   sucursales y para todos los roles. Su dirección y código de establecimiento
- *   son los de la propia sucursal (inventario.sucursales).
- *
- * La empresa principal es la del establecimiento 0000 (domicilio fiscal) o, si
- * no está identificado, el primer registro creado.
+ * El sistema atiende a una sola empresa con varias sucursales. La empresa tiene
+ * una sola fila: RUC, razón social, IGV, logo, colores y textos son comunes a
+ * todas las sucursales y a todos los roles. Lo propio de cada sucursal (nombre,
+ * dirección, código de establecimiento y series) vive en sus propias tablas.
  */
 class DatosGeneralesService
 {
@@ -27,62 +20,39 @@ class DatosGeneralesService
 
     private const CLAVE_VERSION = 'empresa_config_version';
 
-    /** Campos propios de cada registro de empresa que se muestran en pantalla. */
+    /** Campos de la empresa que se muestran y editan en pantalla. */
     public const CAMPOS_EDITABLES = [
-        'id_datos_gen', 'id_sucursal', 'ruc_empresa', 'razon_social', 'nombre_comercial', 'direccion_fiscal',
-        'igv_porcentaje', 'uit_valor', 'serie_boleta', 'serie_factura', 'serie_guia', 'pie_ticket', 'logo_path',
+        'id_empresa', 'ruc_empresa', 'razon_social', 'nombre_comercial', 'direccion_fiscal',
+        'igv_porcentaje', 'uit_valor', 'pie_ticket', 'logo_path',
         'color_primario', 'color_secundario', 'texto_login_titulo', 'texto_login_descripcion',
     ];
-
-    /** Numeración de comprobantes: solo se edita en el registro propio de la sucursal. */
-    public const CAMPOS_NUMERACION = ['serie_boleta', 'serie_factura', 'serie_guia'];
 
     private const VALORES_VISUALES = [
         'color_primario'          => '#0e7490',
         'color_secundario'        => '#0f172a',
-        'texto_login_titulo'      => 'Bienvenido al Sistema',
-        'texto_login_descripcion' => 'Plataforma comercial y punto de venta centralizado.',
+        'texto_login_titulo'      => 'Bienvenido',
+        'texto_login_descripcion' => 'Punto de venta y gestión del restaurante.',
     ];
 
-    /** Registro de la empresa principal (compartido por las sucursales sin registro propio). */
-    public function principal(): ?DatosGen
+    /** La empresa configurada, o null si todavía no se registró. */
+    public function empresa(): ?Empresa
     {
-        return DatosGen::query()
-            ->orderByRaw(
-                'CASE WHEN id_sucursal IN (SELECT id_sucursal FROM inventario.sucursales WHERE codigo_establecimiento = ?) THEN 0 ELSE 1 END',
-                ['0000'],
-            )
-            ->orderBy('id_datos_gen')
-            ->first();
-    }
-
-    /** Registro que define la empresa de la sucursal: el propio o, si no tiene, el principal. */
-    public function empresaDe(?int $branchId): ?DatosGen
-    {
-        $propio = $branchId ? DatosGen::query()->where('id_sucursal', $branchId)->first() : null;
-
-        return $propio ?? $this->principal();
-    }
-
-    public function tieneRegistroPropio(int $branchId): bool
-    {
-        return DatosGen::query()->where('id_sucursal', $branchId)->exists();
+        return Empresa::query()->orderBy('id_empresa')->first();
     }
 
     /**
-     * Registro que se muestra y edita en Datos Generales. Si todavía no existe
-     * ninguno se devuelve uno nuevo sin persistir: una consulta no crea datos fiscales.
+     * Registro que se muestra y edita en Datos Generales. Si todavía no existe se
+     * devuelve uno nuevo sin persistir: una consulta no crea datos fiscales.
      */
-    public function paraEdicion(int $branchId): DatosGen
+    public function paraEdicion(): Empresa
     {
-        return $this->empresaDe($branchId)
-            ?? new DatosGen(['id_sucursal' => $branchId, ...self::VALORES_VISUALES]);
+        return $this->empresa() ?? new Empresa(self::VALORES_VISUALES);
     }
 
     /** Datos del emisor que se imprimen en tickets y comprobantes de la sucursal. */
-    public function emisor(int $branchId): ?DatosGen
+    public function emisor(int $branchId): ?Empresa
     {
-        $empresa = $this->empresaDe($branchId);
+        $empresa = $this->empresa();
 
         if (! $empresa) {
             return null;
@@ -90,7 +60,7 @@ class DatosGeneralesService
 
         $sucursal = Sucursal::query()->whereKey($branchId)->first(['nombre', 'direccion', 'telefono', 'codigo_establecimiento']);
 
-        return (new DatosGen)->forceFill([
+        return (new Empresa)->forceFill([
             'ruc_empresa' => $empresa->ruc_empresa,
             'razon_social' => $empresa->razon_social,
             'nombre_comercial' => $empresa->nombre_comercial,
@@ -105,19 +75,16 @@ class DatosGeneralesService
         ]);
     }
 
-    /**
-     * Identidad visual compartida por Inertia (`organization` / `empresa`) para
-     * todos los roles. Sin sesión (login) se muestra la empresa principal.
-     */
-    public function identidad(?int $branchId): ?array
+    /** Identidad visual compartida por Inertia (`organization` / `empresa`) para todos los roles. */
+    public function identidad(): ?array
     {
-        $clave = 'empresa_config_'.$this->version().'_'.($branchId ?? 'principal');
+        $clave = 'empresa_config_'.$this->version();
 
-        return Cache::remember($clave, now()->addMinutes(self::MINUTOS_CACHE), function () use ($branchId): ?array {
-            $data = $this->empresaDe($branchId);
+        return Cache::remember($clave, now()->addMinutes(self::MINUTOS_CACHE), function (): ?array {
+            $data = $this->empresa();
 
             return $data ? [
-                'id_datos_gen' => $data->id_datos_gen,
+                'id_empresa' => $data->id_empresa,
                 'nombre_comercial' => $data->nombre_comercial,
                 'razon_social' => $data->razon_social,
                 'logo_url' => $this->logoUrl($data->logo_path),
@@ -129,10 +96,7 @@ class DatosGeneralesService
         });
     }
 
-    /**
-     * Tras guardar se invalida la identidad de todas las sucursales a la vez:
-     * los datos de la empresa principal los comparten varias sucursales.
-     */
+    /** Tras guardar se invalida la identidad en caché. */
     public function olvidarIdentidad(): void
     {
         Cache::forever(self::CLAVE_VERSION, $this->version() + 1);

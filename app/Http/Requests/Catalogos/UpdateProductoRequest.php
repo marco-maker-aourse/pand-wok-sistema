@@ -31,7 +31,6 @@ class UpdateProductoRequest extends FormRequest
             'codigo_sunat'    => ['nullable', 'string', 'max:20'],
             'afecta_igv'      => ['boolean'],
             'es_servicio'     => ['boolean'],
-            'usa_vencimiento' => ['boolean'],
         ];
     }
 
@@ -52,7 +51,6 @@ class UpdateProductoRequest extends FormRequest
             'nombre' => strtoupper(trim($this->validated('nombre'))),
             'afecta_igv' => $this->boolean('afecta_igv', true),
             'es_servicio' => $this->boolean('es_servicio', false),
-            'usa_vencimiento' => $this->boolean('usa_vencimiento', false),
         ];
     }
 }

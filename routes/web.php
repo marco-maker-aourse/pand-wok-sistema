@@ -22,7 +22,6 @@ use App\Http\Controllers\Inventario\SucursalController;
 use App\Http\Controllers\ModulePageController;
 use App\Http\Controllers\Operaciones\IngresoController;
 use App\Http\Controllers\Operaciones\ComprobanteArchivoController;
-use App\Http\Controllers\Operaciones\SalidaController;
 use App\Http\Controllers\Operaciones\TurnoCajaController;
 use App\Http\Controllers\Operaciones\TicketTermicoController;
 use App\Http\Controllers\Operaciones\VentaController;
@@ -96,9 +95,6 @@ Route::middleware('auth')->group(function (): void {
 
     // --- 5. ALMACÉN: SALIDAS (MERMAS) ---
     // Consultar el historial también es una capacidad explícita del rol.
-    Route::get('/salidas', [SalidaController::class, 'index'])->middleware('permission:salidas.ver')->name('salidas.index');
-    Route::get('/salidas/create', [SalidaController::class, 'create'])->middleware('permission:salidas.registrar')->name('salidas.create');
-    Route::post('/salidas', [SalidaController::class, 'store'])->middleware('permission:salidas.registrar')->name('salidas.store');
 
     // --- 6. INVENTARIO Y KARDEX VALORIZADO ---
     Route::redirect('/inventario', '/kardex')->middleware('permission:inventario.ver')->name('inventario.index');
@@ -196,7 +192,6 @@ Route::middleware('auth')->group(function (): void {
     Route::put('/roles/{rol}/permisos', [UsuarioController::class, 'updatePermissions'])->middleware('permission:usuarios.gestionar')->name('roles.permissions.update');
 
     // --- 11. MÓDULOS AUXILIARES ---
-    Route::get('/lotes', ModulePageController::class)->defaults('module', 'lotes')->middleware('permission:inventario.ver')->name('modules.lotes');
     Route::redirect('/reportes', '/reportes/restaurante')->middleware('permission:reportes.restaurante')->name('modules.reportes');
 
     // --- 12. INTELIGENCIA ARTIFICIAL & SERVICIOS EXTERNOS ---

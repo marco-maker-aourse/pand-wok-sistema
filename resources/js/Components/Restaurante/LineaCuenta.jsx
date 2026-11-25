@@ -2,6 +2,7 @@ import { Minus, Plus, Trash2 } from 'lucide-react';
 import { Badge, IconButton, cx } from '@/Components/ui';
 import { ESTADO_ITEM } from './estados';
 import { cantidad as fmtCantidad, soles } from './formato';
+import Distintivo from '@/Components/Restaurante/Distintivo';
 
 /**
  * Línea de la cuenta. Los ítems "por enviar" se ajustan con +/−; los que ya salieron a
@@ -16,8 +17,9 @@ export default function LineaCuenta({ item, editable, ocupado, onCantidad, onQui
         <li className={cx('px-4 py-3', anulado && 'opacity-60')}>
             <div className="flex items-start gap-3">
                 <div className="min-w-0 flex-1">
-                    <p className={cx('text-sm font-medium text-slate-900', anulado && 'line-through')}>
-                        <span className="font-mono tabular-nums">{fmtCantidad(item.cantidad)}</span> × {item.nombre_producto}
+                    <p className={cx('flex flex-wrap items-center gap-x-1.5 text-sm font-medium text-slate-900', anulado && 'line-through')}>
+                        <span><span className="font-mono tabular-nums">{fmtCantidad(item.cantidad)}</span> × {item.nombre_producto}</span>
+                        <Distintivo texto={item.distintivo} />
                     </p>
                     {item.modificadores?.length > 0 && (
                         <p className="text-xs text-slate-600">{item.modificadores.map((m) => m.etiqueta ?? m.nombre_opcion).join(' · ')}</p>

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Minus, Plus } from 'lucide-react';
 import { Badge, Button, Dialog, Field, Input, cx } from '@/Components/ui';
 import { soles } from './formato';
+import Distintivo from '@/Components/Restaurante/Distintivo';
 
 /**
  * Elige presentación, opciones (sopa del menú, acompañamientos, término…), cantidad y nota.
@@ -11,6 +12,18 @@ import { soles } from './formato';
  * por plato) y los recargos son los de la sucursal, que envía el servidor; el total que se
  * muestra es orientativo: el servidor vuelve a validar y cotizar al guardar.
  */
+
+/** Pedidos más comunes a cocina: un toque los agrega a la nota. */
+const NOTAS_RAPIDAS = [
+    'Sin cebolla china', 'Sin cebolla', 'Poco sillao', 'Poco sal', 'Sin ajinomoto', 'Sin kion',
+    'Picante', 'Sin ají', 'Bien cocido', 'Bien frito', 'Arroz aparte', 'Para llevar',
+];
+
+const agregarNota = (actual, texto) => {
+    const partes = actual.split(',').map((p) => p.trim()).filter(Boolean);
+    return partes.some((p) => p.toLowerCase() === texto.toLowerCase()) ? actual : [...partes, texto].join(', ').slice(0, 255);
+};
+
 export default function DialogoPlato({ producto, grupos, onCerrar, onAgregar }) {
     const abierto = Boolean(producto);
     const [idPrecio, setIdPrecio] = useState(null);
@@ -95,6 +108,7 @@ export default function DialogoPlato({ producto, grupos, onCerrar, onAgregar }) 
             observacion: nota.trim() || null,
             // Solo para mostrar en el borrador; el servidor no los usa.
             nombre: producto.nombre + (producto.presentaciones.length > 1 ? ` (${presentacion?.nombre})` : ''),
+            distintivo: producto.distintivo ?? null,
             detalle: elegidas.map((o) => (cantidad > 1 && conteos[o.id_opcion] !== cantidad ? `${conteos[o.id_opcion]} × ${o.nombre}` : o.nombre)),
             precio_estimado: total / cantidad,
         });
@@ -104,7 +118,7 @@ export default function DialogoPlato({ producto, grupos, onCerrar, onAgregar }) 
         <Dialog
             open={abierto}
             onClose={onCerrar}
-            title={producto?.nombre}
+            title={producto && <span className="flex flex-wrap items-center gap-2">{producto.nombre}<Distintivo texto={producto.distintivo} grande /></span>}
             size="lg"
             footer={(
                 <>
@@ -195,8 +209,16 @@ export default function DialogoPlato({ producto, grupos, onCerrar, onAgregar }) 
                                 <Button variant="secondary" size="lg" icon={Plus} aria-label="Más" onClick={() => cambiarCantidad(Math.min(99, cantidad + 1))} />
                             </div>
                         </Field>
-                        <Field label="Nota para cocina" hint="Ej.: sin cebolla, poco ají.">
-                            <Input value={nota} onChange={(e) => setNota(e.target.value)} maxLength={255} />
+                        <Field label="Nota para cocina">
+                            <Input value={nota} onChange={(e) => setNota(e.target.value)} maxLength={255} placeholder="Escribe o toca una sugerencia" />
+                            <div className="mt-2 flex flex-wrap gap-1.5">
+                                {NOTAS_RAPIDAS.map((texto) => (
+                                    <button key={texto} type="button" onClick={() => setNota(agregarNota(nota, texto))}
+                                        className="h-9 rounded-full bg-slate-100 px-3 text-sm text-slate-700 ring-1 ring-slate-200 hover:bg-slate-200 active:scale-95">
+                                        {texto}
+                                    </button>
+                                ))}
+                            </div>
                         </Field>
                     </div>
 

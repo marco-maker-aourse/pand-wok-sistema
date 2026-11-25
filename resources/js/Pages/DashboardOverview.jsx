@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import {
     AlertCircle,
-    AlertTriangle,
     Building2,
     Calendar,
     CheckCircle2,
@@ -126,7 +125,7 @@ export default function DashboardOverview({
                 <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 xl:grid-cols-3">
                     <UltimasVentas ventas={metrics.recentSales ?? []} pendientesSunat={Number(metrics.insights?.pendingSunatCount) || 0} />
                     <AlertasInventario alertas={metrics.stockAlerts ?? []} />
-                    <PanelCaja turno={turno} usuario={auth.user} lotes={metrics.proximos_vencer ?? []} onAbrir={() => setMostrarApertura(true)} onCerrar={() => { setErrorCierre(null); setMontoCierre(''); setMostrarCierre(true); }} />
+                    <PanelCaja turno={turno} usuario={auth.user} onAbrir={() => setMostrarApertura(true)} onCerrar={() => { setErrorCierre(null); setMontoCierre(''); setMostrarCierre(true); }} />
                 </div>
             </div>
             <AsistenteOperativo />
@@ -161,7 +160,7 @@ function FiltroFechas({ desde, hasta, setDesde, setHasta, onAplicar, onPeriodo }
     </form>;
 }
 
-function PanelCaja({ turno, usuario, lotes, onAbrir, onCerrar }) {
+function PanelCaja({ turno, usuario, onAbrir, onCerrar }) {
     const montoInicial = Number(turno?.openingAmount ?? turno?.monto_apertura) || 0;
     const fechaApertura = turno?.openedAt ?? turno?.fecha_apertura;
 
@@ -184,22 +183,6 @@ function PanelCaja({ turno, usuario, lotes, onAbrir, onCerrar }) {
                 <div className="mt-auto pt-5">
                     {turno ? <Button variant="secondary" block onClick={onCerrar}>Ver o cerrar turno</Button> : <Button block icon={Plus} onClick={onAbrir}>Abrir turno de caja</Button>}
                 </div>
-                {lotes.length > 0 && (
-                    <div className="mt-5 border-t border-slate-100 pt-4">
-                        <p className="mb-2.5 flex items-center gap-1.5 text-sm font-medium text-slate-900"><AlertTriangle className="h-4 w-4 text-amber-600" aria-hidden="true" />Lotes por vencer</p>
-                        <ul className="space-y-2">
-                            {lotes.slice(0, 3).map((lote) => (
-                                <li key={`${lote.codigo_lote}-${lote.id_producto}`} className="flex items-center justify-between gap-2 text-sm">
-                                    <span className="min-w-0">
-                                        <span className="block truncate text-slate-900">{lote.nombre_producto}</span>
-                                        <span className="block font-mono text-xs text-slate-500">{lote.codigo_lote}</span>
-                                    </span>
-                                    <Badge tone={lote.dias_restantes <= 7 ? 'danger' : 'warning'}>{lote.dias_restantes} días</Badge>
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
-                )}
             </div>
         </Card>
     );

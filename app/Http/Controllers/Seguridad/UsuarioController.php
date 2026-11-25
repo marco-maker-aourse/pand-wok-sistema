@@ -60,7 +60,7 @@ class UsuarioController extends Controller
             // Si quien edita no gestiona sucursales (no es administrador), se
             // conservan las asignaciones existentes; solo se actualiza la sede.
             $adicionales = $request->sucursalesAdicionales()
-                ?? $usuario->sucursales()->pluck('inventario.sucursales.id_sucursal')
+                ?? $usuario->sucursales()->pluck('configuracion.sucursales.id_sucursal')
                     ->map(fn ($id): int => (int) $id)
                     ->reject(fn (int $id): bool => $id === $sedeAnterior)
                     ->all();

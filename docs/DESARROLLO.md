@@ -17,15 +17,15 @@ resources/js/Layouts     Navegación y marco compartido
 resources/css/app.css    Tokens y componentes visuales del sistema
 ```
 
-Los esquemas de PostgreSQL separan responsabilidades: `seguridad`, `catalogos`, `inventario` y `operaciones`. Los nombres de tabla se declaran explícitamente en los modelos para evitar depender de la convención plural de Laravel en un esquema distinto de `public`.
+Los esquemas de PostgreSQL separan responsabilidades: `configuracion`, `seguridad`, `catalogos`, `restaurante`, `inventario` y `operaciones` (ver [`BASE_DE_DATOS.md`](BASE_DE_DATOS.md)). Los nombres de tabla se declaran explícitamente en los modelos para evitar depender de la convención plural de Laravel en un esquema distinto de `public`.
 
-`catalogos.tipos_documento` normaliza DNI, RUC, CE y otros identificadores para Clientes y Usuarios; conserva límites mínimo/máximo para validar cada número y una descripción opcional. `catalogos.tipos_comprobante` normaliza factura, boleta, guía y documentos internos para Ventas, Ingresos y Salidas; conserva el código técnico SUNAT, nombre y descripción opcional. Serie y correlativo pertenecen a cada operación, nunca al catálogo. La instalación inicial queda concentrada en las tres migraciones de esquema, respetando el orden de sus relaciones.
+`catalogos.tipos_documento` normaliza DNI, RUC, CE y otros identificadores para Clientes y Usuarios; conserva límites mínimo/máximo para validar cada número y una descripción opcional. `catalogos.tipos_comprobante` normaliza factura, boleta, guía y documentos internos para Ventas e Ingresos; conserva el código técnico SUNAT, nombre y descripción opcional. Serie y correlativo pertenecen a cada operación, nunca al catálogo. La instalación inicial queda concentrada en seis migraciones, respetando el orden de sus relaciones.
 
 ## Flujos que ya son transaccionales
 
 - Una venta guarda cabecera, detalle, pagos, existencias y Kardex en una única transacción.
 - Un ingreso y una salida registran sus detalles y actualizan inventario en una única transacción.
-- Los saldos de existencias se bloquean durante las salidas para no vender stock simultáneamente dos veces.
+- Los saldos de existencias se bloquean durante cada salida (venta, receta o merma) para no vender stock simultáneamente dos veces.
 - El servidor obtiene el precio de la presentación y calcula comisión/pago; el navegador no es fuente de verdad.
 
 El POS solo conserva el carrito local mientras se prepara el cobro. Al confirmar, envía identificadores, cantidades y el pago; `RegistrarVentaService` valida de nuevo catálogo, cliente activo, stock, totales, referencia requerida y comisión.
@@ -40,7 +40,7 @@ La barra lateral inicia compacta y muestra sólo iconos. Al pasar el cursor se e
 
 El dashboard cachea sus indicadores por sucursal y día durante un minuto; una sede nunca reutiliza métricas de otra. El POS no descarga todo el catálogo y Clientes/Proveedores se consultan con búsqueda y paginación de 15 filas. Esta regla se mantiene para cada módulo nuevo: no cargar tablas completas ni calcular reportes desde React.
 
-Actualmente funcionan las consultas de Productos, Clientes y Proveedores, además del flujo transaccional de Ventas. Inventario, lotes, Kardex, usuarios y reportes conservan sus rutas preparadas mientras se implementan sus casos de uso completos.
+Actualmente funcionan las consultas de Productos, Clientes y Proveedores, además del flujo transaccional de Ventas. Inventario, Kardex, usuarios y reportes conservan sus rutas preparadas mientras se implementan sus casos de uso completos.
 
 ## Ejecución local
 

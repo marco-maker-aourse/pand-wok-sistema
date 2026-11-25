@@ -50,7 +50,7 @@ class GestionarEstacionesService
         ];
 
         return DB::transaction(function () use ($valores, $sucursalId, $estacionId): Estacion {
-            DB::table('inventario.sucursales')->where('id_sucursal', $sucursalId)->lockForUpdate()->first(['id_sucursal']);
+            DB::table('configuracion.sucursales')->where('id_sucursal', $sucursalId)->lockForUpdate()->first(['id_sucursal']);
             $duplicada = Estacion::query()->where('id_sucursal', $sucursalId)
                 ->whereRaw('LOWER(nombre) = ?', [mb_strtolower($valores['nombre'])])
                 ->when($estacionId, fn ($query) => $query->whereKeyNot($estacionId))
@@ -95,7 +95,7 @@ class GestionarEstacionesService
         }
 
         DB::transaction(function () use ($estacion, $categoriaIds, $sucursalId): void {
-            DB::table('inventario.sucursales')->where('id_sucursal', $sucursalId)->lockForUpdate()->first(['id_sucursal']);
+            DB::table('configuracion.sucursales')->where('id_sucursal', $sucursalId)->lockForUpdate()->first(['id_sucursal']);
             DB::table('restaurante.estacion_categorias')
                 ->where('id_sucursal', $sucursalId)
                 ->where(fn ($query) => $query->where('id_estacion', $estacion->id_estacion)->orWhereIn('id_categoria', $categoriaIds))

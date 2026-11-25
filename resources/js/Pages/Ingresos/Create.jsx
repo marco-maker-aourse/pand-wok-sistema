@@ -10,7 +10,7 @@ import useIngresoCompra from '@/Components/Ingresos/useIngresoCompra';
 
 const currency = new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' });
 
-/** Entrada de insumos y mercadería: elegir productos, proveedor, comprobante, costos y lotes. */
+/** Entrada de insumos y mercadería: elegir productos, proveedor, comprobante y costos. */
 export default function Create({ productos = [], proveedores = [], tipos_comprobante: tiposComprobante = [], productoInicialId = 0 }) {
     const [registrado, setRegistrado] = useState(null);
     const [vista, setVista] = useState('catalogo');
@@ -46,7 +46,7 @@ export default function Create({ productos = [], proveedores = [], tipos_comprob
 
                     <div className="flex-1 overflow-y-auto overscroll-contain p-3">
                         {compra.carrito.length === 0 ? (
-                            <EmptyState icon={PackagePlus} title="La compra está vacía" description="Elige los insumos o productos que llegaron para indicar cantidad, costo y lote." />
+                            <EmptyState icon={PackagePlus} title="La compra está vacía" description="Elige los insumos o productos que llegaron para indicar cantidad y costo." />
                         ) : (
                             <ul className="space-y-2.5">
                                 {compra.carrito.map((item) => (

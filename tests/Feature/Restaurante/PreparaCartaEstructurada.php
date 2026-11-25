@@ -35,7 +35,7 @@ trait PreparaCartaEstructurada
             ['id_producto' => 30, 'nombre' => 'Pollo', 'tipo_producto' => 'INSUMO'],
             ['id_producto' => 31, 'nombre' => 'Masa wantán', 'tipo_producto' => 'INSUMO'],
         ]);
-        DB::table('inventario.precio_producto')->insert([
+        DB::table('catalogos.producto_presentaciones')->insert([
             ['id_precio' => 10, 'id_producto' => 10, 'id_presentacion' => 1, 'precio_venta' => 15],
             ['id_precio' => 11, 'id_producto' => 11, 'id_presentacion' => 1, 'precio_venta' => 8],
             ['id_precio' => 12, 'id_producto' => 12, 'id_presentacion' => 1, 'precio_venta' => 8],

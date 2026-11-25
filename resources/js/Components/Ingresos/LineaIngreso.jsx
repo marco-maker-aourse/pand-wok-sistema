@@ -19,7 +19,7 @@ export function cantidadBase(cantidad, unidad) {
 
 export const etiquetaPresentacion = (nombre, factor, unidad) => `${nombre || 'Presentación'} · ${cantidadBase(Number(factor) || 1, unidad)}`;
 
-/** Línea de la compra: lo que entra al inventario, su costo y su lote. */
+/** Línea de la compra: lo que entra al inventario y su costo. */
 export default function LineaIngreso({ item, onPresentacion, onCampo, onCantidadLista, onQuitar }) {
     const insumo = esInsumo(item);
     const [conPrecio, setConPrecio] = useState(!insumo);
@@ -59,15 +59,6 @@ export default function LineaIngreso({ item, onPresentacion, onCampo, onCantidad
                 <Field label="Costo por empaque (S/)">
                     <Input type="number" inputMode="decimal" step="0.01" min="0" className="text-right font-mono" value={item.precio_costo} placeholder="0.00"
                         onWheel={(e) => e.target.blur()} onChange={(e) => onCampo(item.uid, 'precio_costo', e.target.value)} />
-                </Field>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
-                <Field label="Lote">
-                    <Input className="font-mono uppercase" value={item.lote} placeholder="LOTE-001" onChange={(e) => onCampo(item.uid, 'lote', e.target.value.toUpperCase())} />
-                </Field>
-                <Field label="Vence (opcional)">
-                    <Input type="date" value={item.fecha_vencimiento} onChange={(e) => onCampo(item.uid, 'fecha_vencimiento', e.target.value)} />
                 </Field>
             </div>
 

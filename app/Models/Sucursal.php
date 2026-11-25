@@ -7,14 +7,13 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Sucursal extends Model
 {
-    protected $table = 'inventario.sucursales';
+    protected $table = 'configuracion.sucursales';
 
     protected $primaryKey = 'id_sucursal';
 
     public $timestamps = false;
 
     protected $fillable = [
-        'id_ubigeo',
         'nombre',
         'direccion',
         'telefono',

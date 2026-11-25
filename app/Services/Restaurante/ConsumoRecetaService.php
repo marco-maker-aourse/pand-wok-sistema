@@ -41,10 +41,10 @@ class ConsumoRecetaService
         $idsPrecio = $preparados->pluck('id_precio')->merge($modificadores->flatten(1)->pluck('id_precio'))->unique()->values();
         $recetas = DB::table('restaurante.receta_insumos as r')->where('r.id_sucursal', $sucursal)
             ->whereIn('r.id_precio_plato', $idsPrecio)
-            ->join('inventario.precio_producto as p', 'p.id_precio', '=', 'r.id_precio_insumo')
+            ->join('catalogos.producto_presentaciones as p', 'p.id_precio', '=', 'r.id_precio_insumo')
             ->get(['r.id_precio_plato', 'r.cantidad', 'p.id_producto', 'p.factor_conversion', 'p.estado'])
             ->groupBy('id_precio_plato');
-        $directas = DB::table('inventario.precio_producto as p')
+        $directas = DB::table('catalogos.producto_presentaciones as p')
             ->join('catalogos.productos as prod', 'prod.id_producto', '=', 'p.id_producto')
             ->whereIn('p.id_precio', $modificadores->flatten(1)->pluck('id_precio')->unique()->values())
             ->get(['p.id_precio', 'p.id_producto', 'p.id_producto_stock', 'p.factor_conversion', 'p.estado', 'prod.tipo_producto', 'prod.es_servicio'])
@@ -99,13 +99,11 @@ class ConsumoRecetaService
             }
             $consumo = DB::table('restaurante.consumos_insumos')->insertGetId([
                 'id_sucursal' => $sucursal, 'id_detalle_pedido' => $detalle, 'id_producto' => $id,
-                'cantidad_base' => $base, 'lotes' => '{}', 'consumido_en' => now(),
+                'cantidad_base' => $base, 'consumido_en' => now(),
             ], 'id_consumo');
             $origen = new OrigenMovimiento(OrigenMovimiento::CONSUMO_RECETA, $consumo, "ITEM-{$detalle}", $usuario);
-            $movimiento = $this->inventario->disminuirBase($producto, $sucursal, $base, $origen);
-            DB::table('restaurante.consumos_insumos')->where('id_consumo', $consumo)->update([
-                'costo_unitario' => $movimiento['costo'], 'lotes' => json_encode($movimiento['lotes'], JSON_THROW_ON_ERROR),
-            ]);
+            $costo = $this->inventario->disminuirBase($producto, $sucursal, $base, $origen);
+            DB::table('restaurante.consumos_insumos')->where('id_consumo', $consumo)->update(['costo_unitario' => $costo]);
         }
     }
 
@@ -125,7 +123,7 @@ class ConsumoRecetaService
             if ($devuelve) {
                 $origen = new OrigenMovimiento(OrigenMovimiento::REVERSION_RECETA, $movimiento->id_consumo, "ITEM-{$movimiento->id_detalle_pedido}", $usuario);
                 $this->inventario->reponerConsumo($movimiento->id_producto, $sucursal, (float) $movimiento->cantidad_base,
-                    (float) $movimiento->costo_unitario, json_decode($movimiento->lotes, true, flags: JSON_THROW_ON_ERROR), $origen);
+                    (float) $movimiento->costo_unitario, $origen);
             }
             DB::table('restaurante.consumos_insumos')->where('id_consumo', $movimiento->id_consumo)->update([
                 'estado' => $devuelve ? 'REVERTIDO' : 'MERMA', 'resuelto_en' => now(),

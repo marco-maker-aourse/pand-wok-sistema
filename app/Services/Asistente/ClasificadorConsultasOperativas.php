@@ -20,7 +20,6 @@ class ClasificadorConsultasOperativas
             Str::contains($consulta, ['sin stock', 'agotado', 'quedan existencias']) => 'stock_critico',
             preg_match('/(stock|existencias?)\s+(de|del|para)\s+/', $consulta) === 1 => 'stock_producto',
             Str::contains($consulta, ['turno', 'caja abierta', 'estado de caja', 'arqueo']) => 'caja',
-            Str::contains($consulta, ['vencer', 'vencimiento', 'vence']) => 'vencimientos',
             Str::contains($consulta, ['cobro', 'yape', 'plin', 'efectivo']) => 'cobros',
             Str::contains($consulta, ['cliente', 'clientes']) => 'clientes',
             Str::contains($consulta, ['proveedor', 'proveedores']) => 'proveedores',

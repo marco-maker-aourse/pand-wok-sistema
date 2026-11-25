@@ -3,7 +3,6 @@
 namespace App\Services\Ventas;
 
 use App\Models\MetodoPago;
-use App\Models\Lote;
 use App\Models\PagoVenta;
 use App\Models\ProductoPresentacion;
 use App\Models\TipoComprobante;
@@ -85,12 +84,12 @@ class RegistrarVentaService
                 $sale->detalles()->create([
                     ...($esPedido ? ['id_detalle_pedido' => $line['id_detalle_pedido']] : []),
                     'id_precio' => $line['presentation']->id_precio,
-                    'id_lote' => $line['lote_id'], 'cantidad' => $line['quantity'],
+                    'cantidad' => $line['quantity'],
                     'precio_unitario' => $line['price'], 'subtotal' => $line['subtotal'],
                 ]);
                 $producto = $line['presentation']->producto;
                 if (! $producto->es_servicio && $line['descontar_stock']) {
-                    $this->inventory->decrease($line['presentation'], $data['id_sucursal'], $line['quantity'], OrigenMovimiento::venta($sale), $line['lot_code']);
+                    $this->inventory->decrease($line['presentation'], $data['id_sucursal'], $line['quantity'], OrigenMovimiento::venta($sale));
                 }
             }
 
@@ -110,13 +109,6 @@ class RegistrarVentaService
                 ->when(! $esPedido, fn ($query) => $query->where('estado', true))
                 ->lockForUpdate()
                 ->firstOrFail();
-            $lot = filled($detail['id_lote'] ?? null)
-                ? Lote::query()
-                    ->whereKey($detail['id_lote'])
-                    ->where('id_producto', $presentation->id_producto)
-                    ->where('id_sucursal', $data['id_sucursal'])
-                    ->firstOrFail()
-                : null;
             // La UI permite fracciones; se persiste a la precisión acordada con Kardex.
             $quantity = round((float) $detail['cantidad'], 4);
             if ((float) $presentation->factor_conversion <= 0) {
@@ -126,8 +118,6 @@ class RegistrarVentaService
             return ['presentation' => $presentation, 'quantity' => $quantity,
                 'id_detalle_pedido' => $esPedido ? $detail['id_detalle_pedido'] : null,
                 'descontar_stock' => ! $esPedido || $detail['descontar_stock'],
-                'lote_id' => $lot?->id_lote,
-                'lot_code' => $lot?->codigo_lote,
                 'price' => $price,
                 'subtotal' => $esPedido ? $detail['subtotal'] : round($quantity * $price, 2)];
         }, $data['detalles']);
@@ -169,7 +159,7 @@ class RegistrarVentaService
             }
             $cashReceived = null;
             $change = null;
-            if ($method->tipo === 'EFECTIVO') {
+            if ($method->tipo === MetodoPago::EFECTIVO) {
                 if (! isset($payment['monto_recibido']) || ! is_numeric($payment['monto_recibido'])) {
                     throw new DomainException('Indica cuánto efectivo recibiste del cliente.');
                 }
@@ -185,14 +175,13 @@ class RegistrarVentaService
             }
             // Los métodos no efectivos se confirman presencialmente por el cajero.
             // La aplicación no declara verificado un pago de billetera o terminal físico.
-            $commission = $method->tipo === 'PASARELA'
+            $commission = $method->tipo === MetodoPago::PASARELA
                 ? round(((float) $payment['monto'] * (float) $method->comision_porcentaje / 100) + (float) $method->comision_fija, 2)
                 : 0.0;
             if ($commission > (float) $payment['monto']) { throw new DomainException('La comisión no puede superar el monto cobrado.'); }
             PagoVenta::create(['id_venta' => $sale->id_venta, 'id_metodo' => $method->id_metodo,
                 'monto' => $payment['monto'], 'nro_referencia' => $reference,
                 'monto_recibido' => $cashReceived, 'vuelto' => $change,
-                'monto_neto' => (float) $payment['monto'] - $commission,
                 'comision_pasarela' => $commission, 'estado_pago' => 'COMPLETADO']);
         }
     }
