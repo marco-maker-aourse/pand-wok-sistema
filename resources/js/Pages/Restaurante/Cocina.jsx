@@ -135,12 +135,13 @@ export default function Cocina({ comandas, estaciones, estacion, idSucursal, pue
     const [verEntregadas, setVerEntregadas] = useState(false);
     const aviso = useAvisoCocina(comandas, `${idSucursal}:${estacion ?? ''}`);
 
+    // keepAlive: sin esto Inertia consulta 10 veces menos con la pestaña atrás y el aviso llega tarde.
     usePoll(5000, {
         only: ['comandas', 'estaciones'],
         onSuccess: () => { setAhora(Date.now()); setSinConexion(false); },
         onError: () => setSinConexion(true),
         onNetworkError: () => { setSinConexion(true); return false; },
-    });
+    }, { keepAlive: true });
     // Los relojes avanzan aunque no lleguen cambios.
     useEffect(() => {
         const intervalo = setInterval(() => setAhora(Date.now()), 30000);

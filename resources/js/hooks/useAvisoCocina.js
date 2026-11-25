@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { comandasNuevas } from '@/Components/Restaurante/cocina';
+import { comandasNuevas, sonarCampana } from '@/Components/Restaurante/cocina';
 
 const CLAVE_PREFERENCIA = 'cocina.sonido';
 
@@ -19,32 +19,16 @@ function guardarPreferencia(activo) {
     }
 }
 
-/** "Ding-dong" de dos notas; con varias comandas nuevas se repite una vez. */
-function campana(contexto, veces = 1) {
-    const inicio = contexto.currentTime;
-    for (let r = 0; r < Math.min(veces, 2); r++) {
-        [[988, 0], [740, 0.22]].forEach(([frecuencia, desfase]) => {
-            const t = inicio + r * 0.7 + desfase;
-            const tono = contexto.createOscillator();
-            const volumen = contexto.createGain();
-            tono.type = 'triangle';
-            tono.frequency.value = frecuencia;
-            volumen.gain.setValueAtTime(0.0001, t);
-            volumen.gain.exponentialRampToValueAtTime(0.35, t + 0.02);
-            volumen.gain.exponentialRampToValueAtTime(0.0001, t + 0.6);
-            tono.connect(volumen).connect(contexto.destination);
-            tono.start(t);
-            tono.stop(t + 0.62);
-        });
-    }
-}
-
 /**
  * Aviso de comandas nuevas en cocina: campana, vibración y contador en el título de la pestaña.
  *
  * El sonido queda activo por defecto y se recuerda. Los navegadores solo dejan sonar audio
  * después de que la persona toca la página: mientras eso no pasa, `bloqueado` es true y la
  * pantalla pide un toque; el primer toque en cualquier parte lo habilita.
+ *
+ * El navegador vuelve a suspender el audio al apagarse la pantalla o al quedar la pestaña
+ * atrás. Por eso se vigila su estado (si se suspende, vuelve a pedirse el toque), se intenta
+ * reanudar al volver a la pestaña y antes de cada campana.
  */
 export default function useAvisoCocina(comandas, filtro) {
     const [activo, setActivo] = useState(leerPreferencia);
@@ -56,13 +40,20 @@ export default function useAvisoCocina(comandas, filtro) {
 
     const habilitar = useCallback(async () => {
         try {
-            audio.current ??= new (window.AudioContext || window.webkitAudioContext)();
+            if (!audio.current) {
+                audio.current = new (window.AudioContext || window.webkitAudioContext)();
+                audio.current.onstatechange = () => setBloqueado(audio.current?.state !== 'running');
+            }
             await audio.current.resume();
             setBloqueado(audio.current.state !== 'running');
         } catch {
             setBloqueado(true);
         }
     }, []);
+
+    // Si ya hubo un toque en esta sesión (p. ej. al volver a Cocina desde otro módulo), el
+    // navegador deja reanudar el audio sin pedir otro.
+    useEffect(() => { if (activo) habilitar(); }, [activo, habilitar]);
 
     // El primer toque en cualquier parte de la pantalla desbloquea el audio.
     useEffect(() => {
@@ -81,7 +72,9 @@ export default function useAvisoCocina(comandas, filtro) {
         vistos.current = actuales;
         if (nuevas.length === 0) return;
 
-        if (activo && audio.current?.state === 'running') campana(audio.current, nuevas.length);
+        if (activo) {
+            sonarCampana(audio.current, nuevas.length).then((sono) => { if (!sono) setBloqueado(true); });
+        }
         try { navigator.vibrate?.([180, 90, 180]); } catch { /* sin vibración */ }
         if (document.hidden) setSinVer((n) => n + nuevas.length);
     }, [comandas, filtro, activo]);
@@ -97,7 +90,11 @@ export default function useAvisoCocina(comandas, filtro) {
         }
     }, [sinVer]);
     useEffect(() => {
-        const alVolver = () => { if (!document.hidden) setSinVer(0); };
+        const alVolver = () => {
+            if (document.hidden) return;
+            setSinVer(0);
+            if (audio.current && audio.current.state !== 'running') audio.current.resume().catch(() => {});
+        };
         document.addEventListener('visibilitychange', alVolver);
         return () => {
             document.removeEventListener('visibilitychange', alVolver);
@@ -113,7 +110,7 @@ export default function useAvisoCocina(comandas, filtro) {
         guardarPreferencia(siguiente);
         if (siguiente) {
             await habilitar();
-            if (audio.current?.state === 'running') campana(audio.current);
+            await sonarCampana(audio.current);
         }
     }, [activo, habilitar]);
 
