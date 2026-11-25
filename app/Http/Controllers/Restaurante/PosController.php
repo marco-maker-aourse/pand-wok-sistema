@@ -7,6 +7,8 @@ use App\Http\Requests\Restaurante\PosRequest;
 use App\Jobs\EmitirComprobanteSunatJob;
 use App\Models\Cliente;
 use App\Models\Restaurante\Mesa;
+use App\Models\Venta;
+use App\Services\Impresion\CrearTrabajoImpresionService;
 use App\Models\Restaurante\Pedido;
 use App\Services\Restaurante\PresentarRestauranteService;
 use App\Services\Restaurante\SugerenciasPosService;
@@ -109,6 +111,19 @@ class PosController extends Controller
         ]);
     }
 
+    public function guardar(PosRequest $request): RedirectResponse
+    {
+        $usuario = $request->user();
+        $pedido = $this->enDominio(fn () => $this->pos->guardar(
+            $request->filled('id_pedido') ? $request->integer('id_pedido') : null,
+            $request->datos(),
+            $usuario->id_usuario,
+            $usuario->idSucursalActiva(),
+        ), 'pos');
+
+        return to_route('restaurante.pos', ['cuenta' => $pedido->id_pedido])->with('success', 'Cuenta guardada.');
+    }
+
     public function enviar(PosRequest $request): RedirectResponse
     {
         $usuario = $request->user();
@@ -126,15 +141,22 @@ class PosController extends Controller
     public function cobrar(PosRequest $request): RedirectResponse
     {
         $usuario = $request->user();
+        $datos = $request->datos();
+        abort_if($datos['enviar_a_cocina'] && ! $usuario->hasPermission('comandas.enviar'), 403);
+
         ['pedido' => $pedido, 'venta' => $venta, 'nueva' => $nueva] = $this->enDominio(fn () => $this->pos->cobrar(
             $request->filled('id_pedido') ? $request->integer('id_pedido') : null,
-            $request->datos(),
+            $datos,
             $usuario->id_usuario,
             $usuario->idSucursalActiva(),
             $usuario->hasPermission('pos.descuentos'),
         ), 'pos');
 
-        if ($nueva || $venta->estado_sunat === 'PENDIENTE') {
+        // La nota de venta no se envía a SUNAT: se imprime de inmediato si la caja imprime sola.
+        $nota = $venta->estado_sunat === Venta::SIN_ENVIO_SUNAT;
+        if ($nota && $nueva) {
+            app(CrearTrabajoImpresionService::class)->comprobanteFiscalAceptado($venta);
+        } elseif (! $nota && ($nueva || $venta->estado_sunat === 'PENDIENTE')) {
             EmitirComprobanteSunatJob::dispatchAfterResponse($venta->id_venta);
         }
 
@@ -145,6 +167,7 @@ class PosController extends Controller
             'total' => (float) $venta->total_venta,
             'vuelto' => max(0, round($recibido - (float) $venta->total_venta, 2)),
             'cuenta' => $pedido->numero,
+            'nota_venta' => $nota,
         ]);
 
         // Una cuenta de mesa con saldo (cobro parcial no aplica aquí) sigue abierta; si se cerró, ticket nuevo.

@@ -64,7 +64,7 @@ export default function FormularioTerminal({ abierto, terminal, impresoras, onCe
                     </Field>
                 </div>
                 <div className="space-y-3 rounded-xl bg-slate-50 p-3">
-                    <CheckboxField label="Impresión automática" description="Si falla, nunca anula la venta." checked={data.impresion_automatica} onChange={(v) => setData('impresion_automatica', v)} />
+                    <CheckboxField label="Imprimir comprobantes automáticamente" description="Desactívalo para imprimir solo cuando lo pida el cliente. Se cancelarán los comprobantes automáticos que sigan pendientes." checked={data.impresion_automatica} onChange={(v) => setData('impresion_automatica', v)} />
                     <CheckboxField label="Terminal activa" checked={data.activo} onChange={(v) => setData('activo', v)} />
                 </div>
             </form>

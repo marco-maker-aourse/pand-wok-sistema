@@ -9,6 +9,7 @@ use App\Models\Producto;
 use App\Models\ProductoPresentacion;
 use App\Services\Inventario\GestionarExistenciaService;
 use App\Services\Inventario\OrigenMovimiento;
+use App\Services\Inventario\TipoExistencia;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -28,7 +29,7 @@ class KardexController extends Controller
             ->with([
                 'unidadBase:id_unidad,nombre',
                 'presentaciones' => fn ($q) => $q->where('estado', true)
-                    ->with('presentacion:id_presentacion,nombre')
+                    ->with(['presentacion:id_presentacion,nombre', 'productoStock:id_producto,nombre'])
                     ->orderBy('factor_conversion', 'asc'),
                 'kardex' => fn ($q) => $q->where('id_sucursal', $branchId)
                     ->orderBy('id_kardex', 'desc')
@@ -76,6 +77,8 @@ class KardexController extends Controller
                     'ultima_actualizacion' => $ultimoKardex?->ultima_actualizacion,
                     'presentaciones' => $presentacionesFormateadas,
                     'movimientos'    => $movimientos,
+                    // Tipo y dónde se lleva el stock (variantes físicas), ver TipoExistencia.
+                    ...TipoExistencia::de($prod),
                 ];
             });
 

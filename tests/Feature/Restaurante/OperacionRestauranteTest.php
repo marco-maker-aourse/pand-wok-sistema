@@ -7,8 +7,12 @@ use App\Models\Kardex;
 use App\Models\Restaurante\Comanda;
 use App\Models\Restaurante\Pedido;
 use App\Models\Restaurante\PedidoDetalle;
+use App\Models\TerminalPos;
+use App\Models\TurnoCaja;
 use App\Models\User;
+use App\Models\Venta;
 use App\Services\Caja\GestionarTurnoCajaService;
+use App\Services\Impresion\CrearTrabajoImpresionService;
 use App\Services\Restaurante\CocinaService;
 use App\Services\Restaurante\CobrarPedidoService;
 use App\Services\Restaurante\EnviarComandaService;
@@ -125,6 +129,27 @@ class OperacionRestauranteTest extends TestCase
         $this->assertSame(0, DB::table('configuracion.series_sucursal')->value('ult_nro_boleta'));
     }
 
+    public function test_cobro_parcial_sin_comanda_consume_la_receta_una_vez_y_permite_enviar_otros_items(): void
+    {
+        app(GestionarTurnoCajaService::class)->abrir(10, 1, 0);
+        app(RecetasService::class)->guardar(1, 1, [['id_precio_insumo' => 3, 'cantidad' => 1]]);
+        $pedido = $this->pedido([$this->lomo('manual-1', 2), $this->lomo('cocina-1')]);
+        [$manual, $paraCocina] = $pedido->detalles()->orderBy('id_detalle_pedido')->get();
+        $cobros = app(CobrarPedidoService::class);
+        $cobros->ejecutar($pedido->getKey(), 1, 10, $this->cobro($manual, 'parte-1', 1, 0, 30), false);
+
+        $this->assertSame(8.0, $this->saldo(3));
+        $this->assertDatabaseCount('restaurante.comandas', 0);
+        $comanda = app(EnviarComandaService::class)->enviar($pedido->getKey(), 'envio', 10, 1)['comandas']->sole();
+        $this->assertSame($paraCocina->getKey(), $comanda->detalles()->sole()->getKey());
+
+        $cobros->ejecutar($pedido->getKey(), 1, 10, $this->cobro($manual, 'parte-2', 1, 1, 30), false);
+        $this->assertSame('2.000', $manual->refresh()->cantidad_cobrada);
+        $this->assertNull($manual->id_comanda);
+        $this->assertSame(7.0, $this->saldo(3));
+        $this->assertDatabaseCount('restaurante.consumos_insumos', 2);
+    }
+
     public function test_receta_convierte_unidades_registra_consumo_unico_y_repone_stock(): void
     {
         DB::table('catalogos.producto_presentaciones')->where('id_precio', 3)->update(['factor_conversion' => 0.5]);
@@ -222,6 +247,48 @@ class OperacionRestauranteTest extends TestCase
         $this->assertSame(9.5, $this->saldo(3));
         $this->actingAs(User::findOrFail(10))->withSession(['sucursal_activa' => 2])->get('/mermas')
             ->assertInertia(fn (Assert $page) => $page->component('Restaurante/Recetas')->has('mermas', 0));
+    }
+
+    public function test_modo_manual_cancela_solo_comprobantes_automaticos_pendientes_de_la_terminal(): void
+    {
+        DB::table('catalogos.terminales_pos')->insert([
+            ['id_terminal' => 1, 'id_sucursal' => 1, 'codigo' => 'CAJA-01', 'nombre' => 'Caja', 'impresion_automatica' => true],
+            ['id_terminal' => 2, 'id_sucursal' => 2, 'codigo' => 'CAJA-02', 'nombre' => 'Otra caja', 'impresion_automatica' => true],
+        ]);
+
+        $trabajos = [
+            ['venta:1:comprobante-fiscal', 'TICKET_VENTA', 'PENDIENTE', 1, 1],
+            ['venta:2:reimpresion:manual', 'TICKET_VENTA', 'PENDIENTE', 1, 1],
+            ['comanda:1', 'COMANDA', 'PENDIENTE', 1, 1],
+            ['venta:3:comprobante-fiscal', 'TICKET_VENTA', 'ENTREGADO_AGENTE', 1, 1],
+            ['venta:4:comprobante-fiscal', 'TICKET_VENTA', 'PENDIENTE', 2, 2],
+        ];
+        foreach ($trabajos as [$clave, $tipo, $estado, $terminal, $sucursal]) {
+            DB::table('operaciones.trabajos_impresion')->insert([
+                'clave_idempotencia' => $clave, 'tipo' => $tipo, 'estado' => $estado,
+                'id_terminal' => $terminal, 'id_sucursal' => $sucursal,
+            ]);
+        }
+
+        $terminalAntes = TerminalPos::withoutGlobalScopes()->findOrFail(1);
+        $this->actingAs(User::findOrFail(10))->from('/impresoras')->put('/terminales-pos/1', [
+            'codigo' => 'CAJA-01', 'nombre' => 'Caja', 'copias_ticket' => 1,
+            'impresion_automatica' => false, 'activo' => true,
+        ])->assertRedirect('/impresoras')->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('catalogos.terminales_pos', ['id_terminal' => 1, 'impresion_automatica' => false]);
+        $this->assertSame([
+            'venta:1:comprobante-fiscal' => 'CANCELADO',
+            'venta:2:reimpresion:manual' => 'PENDIENTE',
+            'comanda:1' => 'PENDIENTE',
+            'venta:3:comprobante-fiscal' => 'ENTREGADO_AGENTE',
+            'venta:4:comprobante-fiscal' => 'PENDIENTE',
+        ], DB::table('operaciones.trabajos_impresion')->orderBy('id_trabajo_impresion')->pluck('estado', 'clave_idempotencia')->all());
+
+        $venta = (new Venta)->forceFill(['id_venta' => 5, 'id_sucursal' => 1, 'estado_sunat' => 'ACEPTADO']);
+        $venta->setRelation('turno', (new TurnoCaja(['id_terminal' => 1]))->setRelation('terminal', $terminalAntes));
+        $this->assertNull(app(CrearTrabajoImpresionService::class)->comprobanteFiscalAceptado($venta));
+        $this->assertDatabaseCount('operaciones.trabajos_impresion', 5);
     }
 
     public function test_rutas_de_cobro_reportes_y_sucursal(): void

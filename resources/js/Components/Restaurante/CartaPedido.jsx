@@ -1,10 +1,13 @@
 import { useMemo, useState } from 'react';
-import { Ban, SlidersHorizontal } from 'lucide-react';
+import { Ban, Clock3, Plus, SlidersHorizontal, Star } from 'lucide-react';
 import { SearchInput, cx } from '@/Components/ui';
 import { soles } from './formato';
 import Distintivo from '@/Components/Restaurante/Distintivo';
 
 const MINIMO_FRECUENTES = 8;
+
+/** Por debajo de esta cantidad la tarjeta muestra cuántas unidades quedan (dato real de stock). */
+const POCAS_UNIDADES = 5;
 
 const normalizar = (texto) => (texto ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
@@ -19,8 +22,8 @@ export default function CartaPedido({ carta, onElegir, sugerencias = null, relac
     const porId = useMemo(() => new Map(carta.productos.map((p) => [p.id_producto, p])), [carta.productos]);
     // Pestañas calculadas con pedidos reales de la sucursal; sin historial no aparecen.
     const especiales = [
-        sugerencias?.frecuentes?.length && { id_categoria: 'frecuentes', nombre: 'Frecuentes', ids: sugerencias.frecuentes },
-        sugerencias?.ultimos?.length && { id_categoria: 'ultimos', nombre: 'Mis últimos', ids: sugerencias.ultimos },
+        sugerencias?.frecuentes?.length && { id_categoria: 'frecuentes', nombre: 'Frecuentes', icono: Star, ids: sugerencias.frecuentes },
+        sugerencias?.ultimos?.length && { id_categoria: 'ultimos', nombre: 'Mis últimos', icono: Clock3, ids: sugerencias.ultimos },
     ].filter(Boolean);
     const sugeridos = relacionados.map((id) => porId.get(id)).filter((p) => p && !p.agotado);
 
@@ -56,10 +59,11 @@ export default function CartaPedido({ carta, onElegir, sugerencias = null, relac
                                 aria-selected={categoria === c.id_categoria}
                                 onClick={() => setCategoria(c.id_categoria)}
                                 className={cx(
-                                    'h-10 shrink-0 rounded-full px-4 text-sm font-medium ring-1 transition-colors',
+                                    'inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full px-4 text-sm font-medium ring-1 transition-colors',
                                     categoria === c.id_categoria ? 'bg-brand text-on-brand ring-brand' : 'bg-white text-slate-700 ring-slate-200 hover:bg-slate-50',
                                 )}
                             >
+                                {c.icono && <c.icono className="h-3.5 w-3.5" aria-hidden="true" />}
                                 {c.nombre}
                             </button>
                         ))}
@@ -104,6 +108,8 @@ export default function CartaPedido({ carta, onElegir, sugerencias = null, relac
 function TarjetaPlato({ producto, cantidad, recien, onElegir, conDistintivo }) {
     const precio = producto.presentaciones[0]?.precio_venta;
     const conOpciones = producto.grupos.length > 0 || producto.presentaciones.length > 1;
+    const stocks = producto.presentaciones.map((p) => p.stock).filter((v) => v !== null && v !== undefined);
+    const quedan = !producto.agotado && stocks.length > 0 ? Math.max(...stocks) : null;
 
     return (
         <button
@@ -121,13 +127,20 @@ function TarjetaPlato({ producto, cantidad, recien, onElegir, conDistintivo }) {
                 {producto.codigo_carta && <span className="mt-0.5 shrink-0 rounded bg-slate-100 px-1 font-mono text-[0.6875rem] font-semibold text-slate-600">{producto.codigo_carta}</span>}
                 <span className="text-sm leading-snug font-medium text-slate-900">{producto.nombre}</span>
             </span>
+            {quedan !== null && quedan <= POCAS_UNIDADES && (
+                <span className="mt-1 text-[0.6875rem] font-medium text-amber-700">Quedan {quedan}</span>
+            )}
             <span className="mt-2 flex items-center justify-between gap-2">
                 {producto.agotado ? (
                     <span className="inline-flex items-center gap-1 text-xs font-medium text-rose-600"><Ban className="h-3.5 w-3.5" aria-hidden="true" />Agotado</span>
                 ) : (
                     <span className="font-mono text-sm font-semibold text-brand-ink tabular-nums">{soles(precio)}</span>
                 )}
-                {conOpciones && !producto.agotado && <SlidersHorizontal className="h-3.5 w-3.5 text-slate-400" aria-label="Tiene opciones" />}
+                {!producto.agotado && (conOpciones ? (
+                    <span className="inline-flex items-center gap-1 text-[0.6875rem] font-medium text-slate-500"><SlidersHorizontal className="h-3.5 w-3.5" aria-hidden="true" />Opciones</span>
+                ) : (
+                    <Plus className="h-4 w-4 text-slate-300 transition-colors group-hover:text-brand-ink" aria-hidden="true" />
+                ))}
             </span>
         </button>
     );

@@ -5,8 +5,8 @@
 const PERMISOS_POR_ROL = {
     COCINA: { grupos: [], items: [] },
     CAJERO: {
-        grupos: ['Principal', 'Restaurante', 'Operaciones', 'Gestión'],
-        items: ['Inicio', 'Punto de venta', 'Salón', 'Caja', 'Comprobantes', 'Productos', 'Clientes'],
+        grupos: ['Principal', 'Restaurante', 'Operaciones'],
+        items: ['Inicio', 'Punto de venta', 'Salón', 'Caja', 'Comprobantes'],
     },
     MOZO: {
         grupos: ['Principal', 'Restaurante'],
@@ -14,20 +14,19 @@ const PERMISOS_POR_ROL = {
     },
     VENDEDOR: {
         grupos: ['Principal', 'Operaciones', 'Inventario', 'Gestión'],
-        items: ['Inicio', 'Caja', 'Caja y ventas', 'Comprobantes', 'Movimientos de existencias', 'Productos', 'Clientes'],
+        items: ['Inicio', 'Caja', 'Caja y ventas', 'Comprobantes', 'Existencias', 'Productos', 'Clientes'],
     },
     ALMACENERO: {
         grupos: ['Principal', 'Operaciones', 'Inventario', 'Gestión', 'Catálogos'],
         items: [
             'Inicio',
-            'Entradas',
+            'Entradas de insumos',
             'Mermas',
-            'Movimientos de existencias',
+            'Existencias',
             'Productos',
             'Proveedores',
             'Categorías',
             'Presentaciones',
-            'Marcas',
             'Unidades de medida',
         ],
     },

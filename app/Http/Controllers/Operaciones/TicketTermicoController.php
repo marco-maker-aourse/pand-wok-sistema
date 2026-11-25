@@ -20,8 +20,8 @@ class TicketTermicoController extends Controller
         abort_unless((int) $venta->id_sucursal === $request->user()->idSucursalActiva(), 404);
         $data = $request->validate(['solicitud' => ['nullable', 'uuid']]);
 
-        if ($venta->estado_sunat !== 'ACEPTADO') {
-            return response()->json(['message' => 'El ticket se puede imprimir cuando SUNAT acepte el comprobante.'], 422);
+        if (! $venta->imprimible()) {
+            return response()->json(['message' => 'El ticket se puede imprimir cuando SUNAT acepte el comprobante. Revisa el motivo en Comprobantes.'], 422);
         }
 
         // Se registra solo el efecto de impresión; nunca se recrea una venta, pago o CPE.
@@ -32,7 +32,7 @@ class TicketTermicoController extends Controller
         }
 
         return response()->json([
-            'message' => 'Ticket enviado a la impresora de la caja.',
+            'message' => 'El ticket se imprimirá cuando el agente de la caja procese la solicitud.',
             'id_trabajo_impresion' => $trabajo->id_trabajo_impresion,
         ], 201);
     }

@@ -25,11 +25,14 @@ class AgenteImpresionController extends Controller
         $result = $vinculacion->confirmar($data['codigo'], $data['identificador_agente'], $data['version'] ?? null);
         /** @var TerminalPos $terminal */
         $terminal = $result['terminal'];
+        $ancho = $this->anchoPapel($terminal);
 
         return response()->json([
             // Se devuelve una sola vez; el agente debe protegerlo con el almacén seguro del SO.
             'token' => $result['token'],
             'terminal' => ['id' => $terminal->id_terminal, 'codigo' => $terminal->codigo, 'nombre' => $terminal->nombre],
+            // El agente adopta este ancho al vincularse en lugar de su valor por defecto (58 mm).
+            'impresora' => $ancho ? ['ancho_papel_mm' => $ancho] : null,
         ], 201);
     }
 
@@ -70,7 +73,11 @@ class AgenteImpresionController extends Controller
             return $job->fresh();
         });
 
-        return response()->json(['data' => $trabajo ? $this->jobPayload($trabajo) : null]);
+        // El agente adopta en cada sondeo el ancho vigente de la impresora de su terminal.
+        return response()->json([
+            'data' => $trabajo ? $this->jobPayload($trabajo) : null,
+            'terminal' => ['ancho_papel_mm' => $this->anchoPapel($terminal)],
+        ]);
     }
 
     public function resultado(Request $request, int $trabajo): JsonResponse
@@ -156,6 +163,20 @@ class AgenteImpresionController extends Controller
             'impresora_sistema_nombre' => $terminal->impresora_sistema_nombre,
             'ancho_papel_mm' => $terminal->impresora?->ancho_papel_mm,
         ]]);
+    }
+
+    /** Sin sesión no hay sucursal activa: la impresora se acota explícitamente a la de la terminal. */
+    private function anchoPapel(TerminalPos $terminal): ?int
+    {
+        if (! $terminal->id_impresora) {
+            return null;
+        }
+        $ancho = Impresora::withoutGlobalScopes()
+            ->where('id_sucursal', $terminal->id_sucursal)
+            ->whereKey($terminal->id_impresora)
+            ->value('ancho_papel_mm');
+
+        return in_array((int) $ancho, [58, 80], true) ? (int) $ancho : null;
     }
 
     private function jobPayload(TrabajoImpresion $job): array

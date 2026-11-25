@@ -192,7 +192,7 @@ Route::middleware('auth')->group(function (): void {
     Route::put('/roles/{rol}/permisos', [UsuarioController::class, 'updatePermissions'])->middleware('permission:usuarios.gestionar')->name('roles.permissions.update');
 
     // --- 11. MÓDULOS AUXILIARES ---
-    Route::get('/reportes', ModulePageController::class)->defaults('module', 'reportes')->middleware('permission:reportes.ver')->name('modules.reportes');
+    Route::redirect('/reportes', '/reportes/restaurante')->middleware('permission:reportes.restaurante')->name('modules.reportes');
 
     // --- 12. INTELIGENCIA ARTIFICIAL & SERVICIOS EXTERNOS ---
     Route::post('/ia/preguntar', [IAController::class, 'preguntar'])->middleware(['permission:dashboard.ver', 'throttle:12,1'])->name('ia.preguntar');

@@ -7,6 +7,7 @@ use App\Models\Impresora;
 use App\Models\TrabajoImpresion;
 use App\Models\Venta;
 use App\Services\Comprobantes\PresentarComprobanteService;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /**
@@ -19,6 +20,8 @@ class CrearTrabajoImpresionService
 
     public const MODO_MANUAL = 'MANUAL';
 
+    private const SUFIJO_AUTOMATICO = ':comprobante-fiscal';
+
     /** La venta no tiene terminal activa con impresora activa. */
     public const MODO_NO_DISPONIBLE = 'NO_DISPONIBLE';
 
@@ -30,11 +33,30 @@ class CrearTrabajoImpresionService
      */
     public function comprobanteFiscalAceptado(Venta $venta): ?TrabajoImpresion
     {
-        if ($venta->estado_sunat !== 'ACEPTADO') {
+        if (! $venta->imprimible()) {
             return null;
         }
 
-        return $this->crearTrabajoFiscal($venta, "venta:{$venta->id_venta}:comprobante-fiscal");
+        $terminalId = $venta->turno?->id_terminal;
+        if (! $terminalId) {
+            return null;
+        }
+
+        // Serializa la creación de un ticket con el cambio de modo de la terminal.
+        return DB::transaction(function () use ($venta, $terminalId): ?TrabajoImpresion {
+            $terminal = TerminalPos::withoutGlobalScopes()
+                ->where('id_sucursal', $venta->id_sucursal)
+                ->lockForUpdate()
+                ->find($terminalId);
+
+            if (! $terminal?->impresion_automatica) {
+                return null;
+            }
+
+            $trabajo = $this->crearTrabajoFiscal($venta, $terminal, "venta:{$venta->id_venta}".self::SUFIJO_AUTOMATICO);
+
+            return $trabajo?->estado === 'CANCELADO' ? null : $trabajo;
+        }, 3);
     }
 
     /**
@@ -44,11 +66,31 @@ class CrearTrabajoImpresionService
      */
     public function reimprimirComprobanteFiscal(Venta $venta, ?string $solicitud = null): ?TrabajoImpresion
     {
-        if ($venta->estado_sunat !== 'ACEPTADO') {
+        if (! $venta->imprimible()) {
             return null;
         }
 
-        return $this->crearTrabajoFiscal($venta, "venta:{$venta->id_venta}:reimpresion:".($solicitud ?? Str::uuid()));
+        $terminal = $venta->turno?->terminal;
+
+        return $terminal
+            ? $this->crearTrabajoFiscal($venta, $terminal, "venta:{$venta->id_venta}:reimpresion:".($solicitud ?? Str::uuid()))
+            : null;
+    }
+
+    /** Se llama al guardar la terminal en modo manual, dentro de la misma transacción. */
+    public function cancelarAutomaticasPendientes(TerminalPos $terminal): int
+    {
+        return TrabajoImpresion::withoutGlobalScopes()
+            ->where('id_sucursal', $terminal->id_sucursal)
+            ->where('id_terminal', $terminal->id_terminal)
+            ->where('estado', 'PENDIENTE')
+            ->where('tipo', 'TICKET_VENTA')
+            ->where('clave_idempotencia', 'like', 'venta:%'.self::SUFIJO_AUTOMATICO)
+            ->update([
+                'estado' => 'CANCELADO',
+                'detalle_error' => 'La terminal pasó a impresión manual.',
+                'procesado_en' => now(),
+            ]);
     }
 
     /**
@@ -61,7 +103,7 @@ class CrearTrabajoImpresionService
     public function estadoImpresion(Venta $venta, bool $encolada): array
     {
         $terminal = $venta->turno?->terminal;
-        $aceptado = $venta->estado_sunat === 'ACEPTADO';
+        $aceptado = $venta->imprimible();
 
         if (! $terminal || ! $terminal->activo || ! $terminal->impresora?->activo) {
             return ['modo' => self::MODO_NO_DISPONIBLE, 'puede_imprimir' => false, 'encolada' => false];
@@ -82,19 +124,13 @@ class CrearTrabajoImpresionService
         return (int) $venta->turno?->terminal?->impresora?->ancho_papel_mm === 58 ? 58 : 80;
     }
 
-    private function crearTrabajoFiscal(Venta $venta, string $claveIdempotencia): ?TrabajoImpresion
+    private function crearTrabajoFiscal(Venta $venta, TerminalPos $terminal, string $claveIdempotencia): ?TrabajoImpresion
     {
-        $venta->loadMissing(['turno.terminal.impresora', 'cliente', 'detalles.precio.producto', 'detalles.precio.presentacion']);
-        $terminal = $venta->turno?->terminal;
-
-        if (! $terminal || ! $terminal->activo || ! $terminal->impresora?->activo) {
+        if (! $terminal->activo || ! $terminal->impresora?->activo) {
             return null;
         }
 
-        // La impresión automática respeta la política configurada por la terminal.
-        if (str_contains($claveIdempotencia, ':comprobante-fiscal') && ! $terminal->impresion_automatica) {
-            return null;
-        }
+        $venta->loadMissing(['cliente', 'detalles.precio.producto', 'detalles.precio.presentacion']);
 
         return TrabajoImpresion::withoutGlobalScopes()->firstOrCreate(
             ['clave_idempotencia' => $claveIdempotencia],

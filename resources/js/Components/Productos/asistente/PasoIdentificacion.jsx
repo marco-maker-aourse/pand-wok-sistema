@@ -1,7 +1,7 @@
 import { Field, Input } from '@/Components/ui';
 import SelectorBusqueda from '../SelectorBusqueda';
 
-/** Paso 1: nombre, categoría, marca y código de barras. */
+/** Paso 1: nombre, categoría y código de barras. */
 export default function PasoIdentificacion({ f }) {
     const { data, setData, errors, localCatalogs, setQuickCatalog, setQuickName } = f;
 
@@ -22,15 +22,6 @@ export default function PasoIdentificacion({ f }) {
                     error={errors.id_categoria}
                     allowNone={false}
                     onQuickCreate={() => { setQuickCatalog('categoria'); setQuickName(''); }}
-                />
-                <SelectorBusqueda
-                    label="Marca"
-                    placeholder="Buscar marca..."
-                    options={localCatalogs.marcas}
-                    value={data.id_marca}
-                    onChange={(val) => setData('id_marca', val)}
-                    noneLabel="Sin marca / genérico"
-                    onQuickCreate={() => { setQuickCatalog('marca'); setQuickName(''); }}
                 />
             </div>
 

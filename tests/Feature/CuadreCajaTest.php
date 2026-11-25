@@ -19,7 +19,8 @@ class CuadreCajaTest extends TestCase
         }
         DB::statement('CREATE TABLE catalogos.metodos_pago (id_metodo INTEGER PRIMARY KEY, nombre TEXT, tipo TEXT)');
         DB::statement('CREATE TABLE operaciones.turnos_caja (id_turno INTEGER PRIMARY KEY, id_usuario INTEGER, id_sucursal INTEGER, id_terminal INTEGER NULL, monto_apertura NUMERIC, monto_cierre_declarado NUMERIC NULL, fecha_apertura DATETIME, fecha_cierre DATETIME NULL, estado TEXT)');
-        DB::statement('CREATE TABLE operaciones.ventas (id_venta INTEGER PRIMARY KEY, id_turno INTEGER)');
+        DB::statement('CREATE TABLE operaciones.ventas (id_venta INTEGER PRIMARY KEY, id_turno INTEGER, id_tipo_comprobante INTEGER NULL, total_venta NUMERIC NULL)');
+        DB::statement('CREATE TABLE catalogos.tipos_comprobante (id_tipo_comprobante INTEGER PRIMARY KEY, codigo_sunat TEXT)');
         DB::statement('CREATE TABLE operaciones.pagos_ventas (id_pago INTEGER PRIMARY KEY, id_venta INTEGER, id_metodo INTEGER, monto NUMERIC, comision_pasarela NUMERIC DEFAULT 0, estado_pago TEXT)');
         DB::statement('CREATE TABLE operaciones.movimientos_caja (id_movimiento INTEGER PRIMARY KEY, id_turno INTEGER, tipo_movimiento TEXT, monto NUMERIC)');
 

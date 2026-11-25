@@ -6,14 +6,14 @@ import { CheckboxField, Field, Input, StatusBadge, Td, Tr } from '@/Components/u
 const CAMPOS_BUSQUEDA = ['nombre'];
 const COLUMNAS = [{ label: 'Presentación', campo: 'nombre' }, { label: 'Estado', campo: 'estado' }];
 const SUGERENCIAS = [
-    { etiqueta: 'UNIDAD SUELTA', detalle: 'Venta individual al menudeo' },
-    { etiqueta: 'SIX PACK (X6)', detalle: 'Empaque de 6 unidades' },
-    { etiqueta: 'DOCENA (X12)', detalle: 'Docena cerrada de 12 unidades' },
-    { etiqueta: 'DISPLAY X 24', detalle: 'Caja expositora para mostrador' },
-    { etiqueta: 'CAJA X 12', detalle: 'Caja estándar pequeña' },
-    { etiqueta: 'CAJA X 24', detalle: 'Caja estándar mediana' },
-    { etiqueta: 'FARDO X 20', detalle: 'Paquetes de abarrotes o botellas' },
-    { etiqueta: 'SACO X 50 KG', detalle: 'Granos y productos a granel' },
+    { etiqueta: 'PORCIÓN', detalle: 'Plato servido en la carta' },
+    { etiqueta: 'PORCIÓN FAMILIAR', detalle: 'Plato para compartir' },
+    { etiqueta: 'BOTELLA PERSONAL', detalle: 'Bebida de 500 ml o similar' },
+    { etiqueta: 'BOTELLA 1.5 L', detalle: 'Bebida para la mesa' },
+    { etiqueta: 'JARRA', detalle: 'Refresco de la casa por jarra' },
+    { etiqueta: 'VASO', detalle: 'Refresco o bebida por vaso' },
+    { etiqueta: 'PAQUETE X 6', detalle: 'Empaque de compra de bebidas' },
+    { etiqueta: 'KILOGRAMO', detalle: 'Insumo comprado a granel' },
 ];
 
 const idPresentacion = (item) => item.id_presentacion ?? item.id;

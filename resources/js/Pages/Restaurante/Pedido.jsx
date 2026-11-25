@@ -12,6 +12,7 @@ import LineaCuenta from '@/Components/Restaurante/LineaCuenta';
 import { ESTADO_PEDIDO, describirEvento } from '@/Components/Restaurante/estados';
 import { cambiarCantidadLinea, hora, nuevaClave, primerError, soles, tiempoDesde, tituloCuenta } from '@/Components/Restaurante/formato';
 import Distintivo from '@/Components/Restaurante/Distintivo';
+import useAvisoBorrador from '@/hooks/useAvisoBorrador';
 
 /**
  * Toma de pedido. Los platos elegidos van primero a un borrador local (rápido en tablet,
@@ -34,23 +35,13 @@ export default function Pedido({ pedido, carta, destinos, puede }) {
         if (flash.success) toast.success(flash.success);
     }, [flash.success]);
 
-    // Evita perder el borrador al salir por accidente.
-    useEffect(() => {
-        if (borrador.length === 0) return undefined;
-        const avisar = (e) => { e.preventDefault(); e.returnValue = ''; };
-        window.addEventListener('beforeunload', avisar);
-        const quitar = router.on('before', (evento) => {
-            const metodo = evento.detail.visit.method;
-            if (metodo === 'get' && !window.confirm('Hay platos sin guardar en la cuenta. ¿Salir de todos modos?')) evento.preventDefault();
-        });
-        return () => { window.removeEventListener('beforeunload', avisar); quitar(); };
-    }, [borrador.length]);
+    useAvisoBorrador(borrador.length > 0, 'Hay platos sin guardar en la cuenta. Si sales ahora se perderán.');
 
     const vigentes = pedido.detalles.filter((d) => d.estado !== 'ANULADO');
     const anulados = pedido.detalles.filter((d) => d.estado === 'ANULADO');
     const totalBorrador = useMemo(() => borrador.reduce((s, l) => s + l.precio_estimado * l.cantidad, 0), [borrador]);
     const editable = puede.editar;
-    const tienePendientes = vigentes.some((item) => item.estado === 'PENDIENTE');
+    const tienePendientes = vigentes.some((item) => item.estado === 'PENDIENTE' && Number(item.cantidad_cobrada) === 0);
     const estadoPedido = ESTADO_PEDIDO[pedido.estado] ?? ESTADO_PEDIDO.ABIERTO;
 
     const elegir = (producto) => {

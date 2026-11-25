@@ -31,6 +31,11 @@ class PresentarVentaService
             'correlativo' => $venta->correlativo,
             'fecha_emision' => $venta->fecha_emision?->toIso8601String(),
             'estado_sunat' => $venta->estado_sunat,
+            // Motivo exacto del último intento (lo guarda SunatEmisionService).
+            'mensaje_sunat' => $venta->mensaje_sunat,
+            'codigo_respuesta_sunat' => $venta->codigo_respuesta_sunat,
+            'intentos_sunat' => (int) $venta->intentos_sunat,
+            'ultimo_intento_sunat' => $venta->ultimo_intento_sunat?->toIso8601String(),
             'hash_cpe' => $venta->hash_cpe,
             'archivos' => [
                 'xml' => filled($venta->enlace_xml),
@@ -38,7 +43,7 @@ class PresentarVentaService
                 'pdf' => filled($venta->enlace_pdf),
             ],
             ...$this->totales($venta),
-            'tipo_comprobante' => $venta->comprobante?->codigo_sunat === TipoComprobante::FACTURA ? 'FACTURA' : 'BOLETA',
+            'tipo_comprobante' => match ($venta->comprobante?->codigo_sunat) { TipoComprobante::FACTURA => 'FACTURA', Venta::NOTA_VENTA => 'NOTA_VENTA', default => 'BOLETA' },
             'codigo_comprobante' => $venta->comprobante?->codigo_sunat,
             'nombre_razon_social' => $venta->cliente?->nombre_razon_social ?? 'PÚBLICO EN GENERAL',
             'num_documento' => $venta->cliente?->num_documento ?? '00000000',

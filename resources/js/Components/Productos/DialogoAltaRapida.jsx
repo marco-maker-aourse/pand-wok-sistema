@@ -1,8 +1,8 @@
 import { Button, Dialog, Field, Input } from '@/Components/ui';
 
-const TITULOS = { categoria: 'Nueva categoría', marca: 'Nueva marca', unidad: 'Nueva unidad de medida' };
+const TITULOS = { categoria: 'Nueva categoría', unidad: 'Nueva unidad de medida' };
 
-/** Alta inmediata de categoría, marca o unidad desde el asistente de producto. */
+/** Alta inmediata de categoría o unidad desde el asistente de producto. */
 export default function DialogoAltaRapida({ f }) {
     const { quickCatalog, setQuickCatalog, quickName, setQuickName, quickCode, setQuickCode, quickSaving, saveQuickCatalog } = f;
     const cerrar = () => setQuickCatalog(null);

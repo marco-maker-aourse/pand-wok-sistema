@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { ReceiptText } from 'lucide-react';
-import { Button, Dialog, Field, Input, cx } from '@/Components/ui';
+import { Button, CheckboxField, Dialog, Field, Input } from '@/Components/ui';
 import PanelPagos from '@/Components/Ventas/PanelPagos';
 import ClienteCobro from './ClienteCobro';
+import SelectorComprobante, { explicarComprobante } from './SelectorComprobante';
 import { soles } from './formato';
 import { motivoPagos, pagosParaEnviar, saldoPagos } from './pagos';
 
@@ -12,10 +13,11 @@ const pagoVacio = (id = '') => ({ id_metodo: id, monto: '', monto_recibido: '', 
  * Comprobante y pagos del POS. `total` es el importe por cobrar calculado con los mismos
  * precios del servidor; el servidor lo vuelve a calcular y rechaza si no coincide.
  */
-export default function DialogoCobroPos({ abierto, onCerrar, total, metodosPago, clienteInicial, puedeDescontar, procesando, error, onCobrar }) {
+export default function DialogoCobroPos({ abierto, onCerrar, total, metodosPago, clienteInicial, puedeDescontar, puedeEnviar, procesando, error, onCobrar }) {
     const [tipo, setTipo] = useState('BOLETA');
     const [cliente, setCliente] = useState(clienteInicial);
     const [descuento, setDescuento] = useState('');
+    const [enviarACocina, setEnviarACocina] = useState(false);
     const [pagos, setPagos] = useState(() => [pagoVacio(metodosPago[0]?.id_metodo)]);
 
     useEffect(() => {
@@ -23,6 +25,7 @@ export default function DialogoCobroPos({ abierto, onCerrar, total, metodosPago,
             setTipo('BOLETA');
             setCliente(clienteInicial);
             setDescuento('');
+            setEnviarACocina(false);
             setPagos([pagoVacio(metodosPago[0]?.id_metodo)]);
         }
     }, [abierto]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -38,6 +41,7 @@ export default function DialogoCobroPos({ abierto, onCerrar, total, metodosPago,
     };
     const retirarPago = (indice) => setPagos((actuales) => actuales.filter((_, i) => i !== indice));
 
+    const sinDocumento = !cliente || /^0+$/.test(cliente.num_documento ?? '');
     // El botón nunca se bloquea en silencio: se dice qué falta.
     const motivo = !cliente ? 'Elige el cliente (o «Público en general» para boleta).'
         : tipo === 'FACTURA' && cliente.num_documento?.length !== 11 ? 'La factura necesita un cliente con RUC (11 dígitos).'
@@ -48,6 +52,7 @@ export default function DialogoCobroPos({ abierto, onCerrar, total, metodosPago,
         tipo_comprobante: tipo,
         id_cliente: cliente?.id_cliente ?? null,
         descuento_global: Number(descuento || 0).toFixed(2),
+        enviar_a_cocina: Boolean(puedeEnviar && enviarACocina),
         pagos: pagosParaEnviar(pagos, metodosPago, totalFinal),
     });
 
@@ -65,22 +70,13 @@ export default function DialogoCobroPos({ abierto, onCerrar, total, metodosPago,
             )}
         >
             <div className="space-y-4 p-5">
-                <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Comprobante">
-                    {[['BOLETA', 'Boleta'], ['FACTURA', 'Factura']].map(([valor, etiqueta]) => (
-                        <button
-                            key={valor}
-                            type="button"
-                            role="radio"
-                            aria-checked={tipo === valor}
-                            onClick={() => setTipo(valor)}
-                            className={cx('h-11 rounded-xl text-sm font-medium ring-1', tipo === valor ? 'bg-brand-soft text-brand-ink ring-2 ring-brand' : 'ring-slate-200 hover:bg-slate-50')}
-                        >
-                            {etiqueta}
-                        </button>
-                    ))}
+                <div className="flex items-baseline justify-between rounded-xl bg-slate-50 px-4 py-3 ring-1 ring-slate-200">
+                    <span className="text-sm text-slate-600">Total a cobrar</span>
+                    <span className="font-mono text-2xl font-semibold tracking-tight text-slate-900 tabular-nums">{soles(totalFinal)}</span>
                 </div>
+                <SelectorComprobante valor={tipo} onCambiar={setTipo} disabled={procesando} />
+                <p className="text-xs text-slate-500">{explicarComprobante(tipo, sinDocumento)}</p>
                 <ClienteCobro cliente={cliente} cambiar={setCliente} />
-                {tipo === 'FACTURA' && <p className="text-xs text-slate-500">La factura requiere un cliente con RUC.</p>}
                 {puedeDescontar && (
                     <Field label="Descuento (S/)">
                         <Input type="number" min={0} step={0.01} inputMode="decimal" value={descuento} onChange={(e) => setDescuento(e.target.value)} />
@@ -98,10 +94,13 @@ export default function DialogoCobroPos({ abierto, onCerrar, total, metodosPago,
                     onQuitar={retirarPago}
                     detalle
                 />
-                <p className="flex items-baseline justify-between font-medium">
-                    <span>Total a cobrar</span>
-                    <span className="font-mono text-2xl tabular-nums">{soles(totalFinal)}</span>
-                </p>
+                {Number(descuento || 0) > 0 && (
+                    <p className="flex items-baseline justify-between text-sm text-slate-600">
+                        <span>Con descuento de <span className="font-mono tabular-nums">{soles(descuento)}</span></span>
+                        <span className="font-mono font-semibold text-slate-900 tabular-nums">{soles(totalFinal)}</span>
+                    </p>
+                )}
+                {puedeEnviar && <CheckboxField label="Enviar también a cocina" checked={enviarACocina} onChange={setEnviarACocina} disabled={procesando} />}
                 {motivo && !error && <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800" role="status">{motivo}</p>}
                 {error && <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700" role="alert">{error}</p>}
             </div>

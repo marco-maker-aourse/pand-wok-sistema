@@ -149,6 +149,18 @@ class InventarioRestauranteTest extends TestCase
         $this->assertSame(23.5, $this->saldo(50), 'Cantidades fraccionarias y una sola salida por merma.');
     }
 
+    public function test_la_entrada_de_insumos_conoce_el_tipo_de_cada_producto(): void
+    {
+        DB::statement('CREATE TABLE catalogos.proveedores (id_proveedor INTEGER PRIMARY KEY, num_documento TEXT, razon_social TEXT, direccion_fiscal TEXT, estado BOOLEAN DEFAULT 1)');
+        DB::statement('ALTER TABLE catalogos.tipos_comprobante ADD COLUMN descripcion TEXT');
+
+        $this->actingAs(\App\Models\User::query()->findOrFail(10))->get('/ingresos/create')->assertOk()
+            ->assertInertia(fn (\Inertia\Testing\AssertableInertia $page) => $page
+                ->component('Ingresos/Create')
+                ->where('productos', fn ($productos) => collect($productos)->firstWhere('id_producto', 50)['tipo_producto'] === 'INSUMO'
+                    && collect($productos)->firstWhere('id_producto', 52)['tipo_producto'] === 'PREPARADO'));
+    }
+
     public function test_el_stock_y_el_consumo_son_por_sucursal(): void
     {
         $this->comprarFiltros(1);

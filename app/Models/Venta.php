@@ -23,7 +23,18 @@ class Venta extends Model
         'op_exoneradas', 'igv', 'descuento_global', 'total_venta', 
         'estado_sunat', 'hash_cpe', 'enlace_pdf', 'enlace_xml', 'enlace_cdr',
         'id_pedido', 'clave_cobro', 'huella_cobro',
+        'mensaje_sunat', 'codigo_respuesta_sunat', 'intentos_sunat', 'ultimo_intento_sunat',
     ];
+
+    /** Nota de venta: comprobante interno sin valor tributario, nunca se envía a SUNAT. */
+    public const NOTA_VENTA = 'NV';
+    public const SIN_ENVIO_SUNAT = 'NO_APLICA';
+
+    /** Se puede imprimir: comprobante aceptado por SUNAT o nota de venta (no va a SUNAT). */
+    public function imprimible(): bool
+    {
+        return in_array($this->estado_sunat, ['ACEPTADO', self::SIN_ENVIO_SUNAT], true);
+    }
 
     protected function casts(): array
     {
@@ -34,6 +45,7 @@ class Venta extends Model
             'igv' => 'decimal:2',
             'descuento_global' => 'decimal:2',
             'total_venta' => 'decimal:2',
+            'ultimo_intento_sunat' => 'datetime',
         ];
     }
 

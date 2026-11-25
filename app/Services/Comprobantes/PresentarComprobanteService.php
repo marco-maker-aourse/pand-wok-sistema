@@ -34,11 +34,13 @@ class PresentarComprobanteService
 
         $emisor = $this->datosGenerales->emisor((int) $venta->id_sucursal);
         $esFactura = $venta->comprobante?->codigo_sunat === TipoComprobante::FACTURA;
+        // Nota de venta: documento interno, sin valor tributario, sin QR ni consulta SUNAT.
+        $esNota = $venta->comprobante?->codigo_sunat === Venta::NOTA_VENTA;
         $emision = $venta->fecha_emision?->copy()->setTimezone('America/Lima');
 
         $documento = [
             'codigo_sunat' => $venta->comprobante?->codigo_sunat,
-            'titulo' => $esFactura ? 'FACTURA ELECTRÓNICA' : 'BOLETA DE VENTA ELECTRÓNICA',
+            'titulo' => $esNota ? 'NOTA DE VENTA' : ($esFactura ? 'FACTURA ELECTRÓNICA' : 'BOLETA DE VENTA ELECTRÓNICA'),
             'serie' => $venta->serie,
             'correlativo' => str_pad((string) $venta->correlativo, 8, '0', STR_PAD_LEFT),
             'numero' => "{$venta->serie}-".str_pad((string) $venta->correlativo, 8, '0', STR_PAD_LEFT),
@@ -131,14 +133,17 @@ class PresentarComprobanteService
                 'cajero' => $cajero,
                 'caja' => $venta->turno?->terminal?->nombre,
             ],
-            'leyendas' => [
+            'leyendas' => $esNota ? [
+                'representacion' => 'Documento interno sin valor tributario. Solicite su boleta o factura.',
+                'consulta' => null,
+            ] : [
                 'representacion' => 'Representación impresa de la '.($esFactura ? 'Factura Electrónica' : 'Boleta de Venta Electrónica'),
                 'consulta' => 'Consulte su comprobante en www.sunat.gob.pe',
             ],
             'estado_sunat' => $venta->estado_sunat,
             'hash_cpe' => $venta->hash_cpe,
             // El agente genera el QR desde este contenido tributario; no recibe un QR del navegador.
-            'qr_fiscal' => $this->contenidoQrFiscal($emisor?->ruc_empresa, $documento, $cliente, $totales, $venta->fecha_emision, $venta->hash_cpe),
+            'qr_fiscal' => $esNota ? null : $this->contenidoQrFiscal($emisor?->ruc_empresa, $documento, $cliente, $totales, $venta->fecha_emision, $venta->hash_cpe),
             'pagos' => $venta->pagos->map(fn ($pago): array => [
                 'metodo' => $pago->metodo?->nombre ?? 'No especificado',
                 'monto' => (float) $pago->monto,
