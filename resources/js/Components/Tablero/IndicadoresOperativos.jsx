@@ -29,8 +29,9 @@ export default function IndicadoresOperativos({ resumen, etiquetaPeriodo, insigh
     const clientes = Number(insights.uniqueCustomers) || 0;
 
     return (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
             <Stat
+                className="col-span-2 sm:col-span-1"
                 destacado
                 label={`Ventas (${etiquetaPeriodo.toLowerCase()})`}
                 value={moneda.format(ventas)}

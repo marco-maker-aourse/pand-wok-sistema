@@ -34,7 +34,7 @@ function FiltroEstado({ filtro, onCambiar, conteos }) {
     );
 }
 
-function CuentasSinMesa({ cuentas, ahora, rutaCuenta, puedeAbrir }) {
+function CuentasSinMesa({ cuentas, ahora, rutaCuenta }) {
     return (
         <Card as="aside" className="self-start overflow-hidden">
             <header className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
@@ -42,12 +42,6 @@ function CuentasSinMesa({ cuentas, ahora, rutaCuenta, puedeAbrir }) {
                     <h2 className="text-sm font-semibold text-slate-900">Para llevar y delivery</h2>
                     <p className="text-xs text-slate-500">{cuentas.length ? `${cuentas.length} ${cuentas.length === 1 ? 'pedido abierto' : 'pedidos abiertos'}` : 'Sin pedidos abiertos'}</p>
                 </div>
-                {puedeAbrir && (
-                    <div className="flex gap-1">
-                        <Button variant="secondary" size="sm" icon={ShoppingBag} href="/pos?tipo=PARA_LLEVAR" aria-label="Nuevo para llevar" />
-                        <Button variant="secondary" size="sm" icon={Bike} href="/pos?tipo=DELIVERY" aria-label="Nuevo delivery" />
-                    </div>
-                )}
             </header>
             {cuentas.length === 0 ? (
                 <p className="px-4 py-8 text-center text-sm text-slate-500">Los pedidos de mostrador y delivery sin cobrar aparecen aquí.</p>
@@ -67,7 +61,7 @@ function CuentasSinMesa({ cuentas, ahora, rutaCuenta, puedeAbrir }) {
                                             <Clock3 className="h-3 w-3" aria-hidden="true" />{tiempoDesde(cuenta.abierto_en, ahora)} · {cuenta.items} ítems
                                         </p>
                                     </div>
-                                    <span className="font-mono text-sm font-semibold text-slate-900 tabular-nums">{soles(cuenta.total)}</span>
+                                    <span className="text-sm font-semibold text-slate-900 tabular-nums">{soles(cuenta.total)}</span>
                                     <ChevronRight className="h-4 w-4 text-slate-400" aria-hidden="true" />
                                 </Link>
                             </li>
@@ -144,10 +138,10 @@ export default function Salon({ areas = [], cuentasSinMesa = [], resumen, puede 
                         : 'Configura las áreas y mesas para empezar.'}
                     actions={(
                         <>
+                            {puede.configurar && <Button variant="secondary" icon={Settings2} href="/salon/configuracion" aria-label="Mesas y áreas"><span className="hidden sm:inline">Mesas y áreas</span></Button>}
+                            {puede.abrir && <Button variant="secondary" icon={ShoppingBag} href="/pos?tipo=PARA_LLEVAR" aria-label="Nuevo para llevar"><span className="hidden sm:inline">Para llevar</span></Button>}
+                            {puede.abrir && <Button icon={Bike} href="/pos?tipo=DELIVERY" aria-label="Nuevo delivery"><span className="hidden sm:inline">Delivery</span></Button>}
                             <Button variant="ghost" icon={RefreshCw} onClick={recargar} loading={actualizando} aria-label="Actualizar salón" />
-                            {puede.configurar && <Button variant="secondary" icon={Settings2} href="/salon/configuracion">Mesas y áreas</Button>}
-                            {puede.abrir && <Button variant="secondary" icon={ShoppingBag} href="/pos?tipo=PARA_LLEVAR">Para llevar</Button>}
-                            {puede.abrir && <Button icon={Bike} href="/pos?tipo=DELIVERY">Delivery</Button>}
                         </>
                     )}
                 />
@@ -184,7 +178,7 @@ export default function Salon({ areas = [], cuentasSinMesa = [], resumen, puede 
 
                                 <div className="p-2 sm:p-4">
                                     {mesas.length ? (
-                                        <div className="grid grid-cols-2 gap-1 sm:grid-cols-3 sm:gap-2 lg:grid-cols-4 2xl:grid-cols-5">
+                                        <div className="grid grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] gap-1 sm:grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] sm:gap-2">
                                             {mesas.map((mesa) => (
                                                 <TarjetaMesa key={mesa.id_mesa} mesa={mesa} ahora={ahora} onSeleccionar={seleccionarMesa} onCambiarEstado={cambiarEstado} puedeCambiarEstado={puede.abrir} />
                                             ))}
@@ -198,7 +192,7 @@ export default function Salon({ areas = [], cuentasSinMesa = [], resumen, puede 
                         )}
                     </Card>
 
-                    <CuentasSinMesa cuentas={cuentasSinMesa} ahora={ahora} rutaCuenta={rutaCuenta} puedeAbrir={puede.abrir} />
+                    <CuentasSinMesa cuentas={cuentasSinMesa} ahora={ahora} rutaCuenta={rutaCuenta} />
                 </div>
             </div>
         </AppLayout>

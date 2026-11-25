@@ -15,10 +15,20 @@ const ESTADO_IMPRESION = {
     CANCELADO: 'Impresión cancelada',
 };
 
-export function EstadoImpresion({ impresion }) {
+/** `soloAvisos`: muestra solo los problemas de impresión (tablero de cocina). */
+export function EstadoImpresion({ impresion, soloAvisos = false }) {
     if (!impresion) return null;
 
     const error = ['FALLIDO', 'REQUIERE_REVISION'].includes(impresion.estado);
+    if (soloAvisos) {
+        if (!error) return null;
+        return (
+            <p role="status" className="flex items-center gap-1.5 rounded-lg bg-rose-50 px-2.5 py-1.5 text-sm font-medium text-rose-800 ring-1 ring-rose-200">
+                <Printer className="h-4 w-4 shrink-0" aria-hidden="true" />
+                {ESTADO_IMPRESION[impresion.estado]}{impresion.error && `: ${impresion.error}`}
+            </p>
+        );
+    }
 
     return (
         <p className={error ? 'text-xs text-rose-700' : 'text-xs text-slate-600'} role={error ? 'status' : undefined}>

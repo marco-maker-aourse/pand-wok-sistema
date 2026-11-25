@@ -17,16 +17,16 @@ const VALOR = {
  */
 export default function Stat({ label, value, hint, icon, tone = 'default', iconTone, destacado = false, extra, className }) {
     return (
-        <div className={cx('elevable relative overflow-hidden rounded-2xl p-5 ring-1', destacado ? 'bg-brand-soft ring-brand-border' : 'bg-white shadow-[var(--shadow-tarjeta)] ring-slate-900/[0.05]', className)}>
+        <div className={cx('elevable relative overflow-hidden rounded-2xl p-4 ring-1 sm:p-5', destacado ? 'bg-brand-soft ring-brand-border' : 'bg-white shadow-[var(--shadow-tarjeta)] ring-slate-900/[0.05]', className)}>
             {destacado && (
                 <FormaTubo d="M150 40 A70 70 0 1 0 190 150" viewBox="0 0 240 240" ancho={30} className="pointer-events-none absolute -right-8 -bottom-10 w-32 opacity-50" />
             )}
             <div className="relative flex items-start justify-between gap-3">
-                <p className="text-sm font-medium text-slate-600">{label}</p>
+                <p className="text-xs font-medium text-slate-600 sm:text-sm">{label}</p>
                 {icon && <IconoTile icon={icon} tone={destacado ? 'solido' : iconTone ?? (tone === 'default' ? 'brand' : tone)} size="md" />}
             </div>
-            <div className="relative mt-3 flex items-end justify-between gap-3">
-                <p className={cx('text-[1.625rem] leading-none font-semibold tracking-[-0.02em] tabular-nums', VALOR[tone])}>{value}</p>
+            <div className="relative mt-3 flex flex-wrap items-end justify-between gap-x-3 gap-y-1">
+                <p className={cx('text-xl leading-none font-semibold tracking-[-0.02em] tabular-nums sm:text-[1.625rem]', VALOR[tone])}>{value}</p>
                 {extra}
             </div>
             {hint && <p className="relative mt-2 text-xs text-slate-500">{hint}</p>}

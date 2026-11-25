@@ -29,9 +29,9 @@ const PASOS = {
 
 /** La urgencia se lee por ícono y texto, no solo por color. */
 const RELOJ = {
-    [URGENCIA.A_TIEMPO]: { icono: Timer, clase: 'bg-slate-100 text-slate-700', texto: 'a tiempo' },
-    [URGENCIA.EN_ESPERA]: { icono: Hourglass, clase: 'bg-amber-100 text-amber-900', texto: 'en espera' },
-    [URGENCIA.ATRASADA]: { icono: Flame, clase: 'bg-rose-600 text-white', texto: 'atrasada' },
+    [URGENCIA.A_TIEMPO]: { icono: Timer, clase: 'bg-slate-100 text-slate-700', texto: 'a tiempo', franja: 'before:bg-slate-200' },
+    [URGENCIA.EN_ESPERA]: { icono: Hourglass, clase: 'bg-amber-100 text-amber-900', texto: 'en espera', franja: 'before:bg-amber-400' },
+    [URGENCIA.ATRASADA]: { icono: Flame, clase: 'bg-rose-600 text-white', texto: 'atrasada', franja: 'before:bg-rose-600' },
 };
 
 const ICONO_TIPO = { MESA: Armchair, PARA_LLEVAR: ShoppingBag, DELIVERY: Bike };
@@ -53,7 +53,8 @@ function Comanda({ comanda, puedeGestionar, ahora }) {
     const { principal, alterno } = PASOS[comanda.estado];
 
     return (
-        <article className={cx('rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200', !activa && 'opacity-70')}
+        <article className={cx('relative overflow-hidden rounded-2xl bg-white p-4 pl-5 shadow-[var(--shadow-tarjeta)] ring-1 ring-slate-900/[0.06] before:absolute before:inset-y-0 before:left-0 before:w-1.5',
+            activa ? tiempo.franja : 'opacity-70 before:bg-slate-200', activa && urgencia(minutos) === URGENCIA.ATRASADA && 'ring-2 ring-rose-200')}
             aria-label={`Comanda ${comanda.numero}, ${tituloCuenta(comanda.pedido)}, ${reloj(minutos)}${activa ? `, ${tiempo.texto}` : ''}`}>
             <header className="flex items-start gap-3">
                 <span className="text-3xl leading-none font-bold text-slate-900 tabular-nums">#{comanda.numero}</span>
@@ -105,7 +106,7 @@ function Comanda({ comanda, puedeGestionar, ahora }) {
                 ))}
             </ul>
 
-            <div className="mt-2"><EstadoImpresion impresion={comanda.impresion} /></div>
+            <div className="mt-3 empty:hidden"><EstadoImpresion impresion={comanda.impresion} soloAvisos /></div>
 
             {puedeGestionar && activa && (
                 <footer className="mt-4 flex gap-2">
@@ -212,15 +213,17 @@ export default function Cocina({ comandas, estaciones, estacion, idSucursal, pue
                 {COLUMNAS.map(({ estado, titulo, icono: Icono, vacio }) => {
                     const columna = porEstado(estado);
                     return (
-                        <section key={estado} aria-label={titulo} className={cx('min-w-0', vista !== estado && 'hidden lg:block')}>
-                            <h2 className="mb-2 hidden items-center gap-2 text-lg font-semibold text-slate-900 lg:flex">
-                                <Icono className="h-5 w-5 text-slate-500" aria-hidden="true" />{titulo}
-                                <span className="text-base font-medium text-slate-500 tabular-nums">{columna.length}</span>
+                        <section key={estado} aria-label={titulo} className={cx('min-w-0 lg:rounded-3xl lg:bg-slate-200/50 lg:p-3 lg:ring-1 lg:ring-slate-900/[0.04]', vista !== estado && 'hidden lg:block')}>
+                            <h2 className="mb-3 hidden items-center gap-2 px-1 text-base font-semibold text-slate-900 lg:flex">
+                                <span className="grid h-8 w-8 place-items-center rounded-xl bg-white text-slate-600 shadow-sm"><Icono className="h-4 w-4" aria-hidden="true" /></span>
+                                {titulo}
+                                <span className={cx('ml-auto grid h-7 min-w-7 place-items-center rounded-full px-2 text-sm font-semibold tabular-nums',
+                                    estado === 'PENDIENTE' && columna.length ? 'bg-rose-600 text-white' : 'bg-white text-slate-600')}>{columna.length}</span>
                             </h2>
                             <div className="space-y-3">
                                 {columna.map((comanda) => <Comanda key={comanda.id_comanda} comanda={comanda} puedeGestionar={puedeGestionar} ahora={ahora} />)}
                                 {columna.length === 0 && (
-                                    <div className="flex flex-col items-center gap-2 rounded-2xl bg-white/60 px-6 py-10 text-center text-sm text-slate-500">
+                                    <div className="flex flex-col items-center gap-2 rounded-2xl border-2 border-dashed border-slate-300/70 px-6 py-10 text-center text-sm text-slate-500">
                                         <Icono className="h-8 w-8 text-slate-300" aria-hidden="true" />{vacio}
                                     </div>
                                 )}
