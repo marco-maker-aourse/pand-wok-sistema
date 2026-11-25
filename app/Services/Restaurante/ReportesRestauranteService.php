@@ -2,6 +2,7 @@
 
 namespace App\Services\Restaurante;
 
+use App\Models\Restaurante\Pedido;
 use App\Services\Inventario\OrigenMovimiento;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Query\Builder;
@@ -22,6 +23,27 @@ class ReportesRestauranteService
             ->join('catalogos.productos as p', 'p.id_producto', '=', 'pd.id_producto');
         $dia = $postgres ? "CAST(v.fecha_emision AT TIME ZONE 'America/Lima' AS DATE)" : "DATE(v.fecha_emision, '-05:00')";
         $totales = (clone $ventas)->selectRaw('COUNT(*) as cobros, COALESCE(SUM(v.total_venta), 0) as total, COALESCE(SUM(v.op_gravadas + v.op_exoneradas), 0) as base')->first();
+        $hora = $postgres ? "CAST(EXTRACT(HOUR FROM v.fecha_emision AT TIME ZONE 'America/Lima') AS INTEGER)" : "CAST(strftime('%H', v.fecha_emision, '-05:00') AS INTEGER)";
+
+        // Una cuenta puede cobrarse en varias partes: los pedidos y comensales se cuentan una vez.
+        $atendidos = DB::table('restaurante.pedidos as p')
+            ->whereIn('p.id_pedido', (clone $ventas)->select('v.id_pedido'))
+            ->selectRaw('COUNT(*) as pedidos, COALESCE(SUM(CASE WHEN p.tipo = ? AND p.comensales > 0 THEN p.comensales END), 0) as comensales', [Pedido::MESA])
+            ->first();
+        // Gasto por comensal: solo cuentas que registraron comensales (las mesas).
+        $conComensales = (clone $ventas)->join('restaurante.pedidos as pc', 'pc.id_pedido', '=', 'v.id_pedido')
+            ->where('pc.tipo', Pedido::MESA)->where('pc.comensales', '>', 0)->sum('v.total_venta');
+        $tipos = (clone $ventas)->join('restaurante.pedidos as pt', 'pt.id_pedido', '=', 'v.id_pedido')
+            ->groupBy('pt.tipo')->orderByDesc('total')->orderBy('pt.tipo')
+            ->selectRaw('pt.tipo, COUNT(DISTINCT v.id_pedido) as pedidos, SUM(v.total_venta) as total')->get()
+            ->map(fn (object $fila): array => ['tipo' => $fila->tipo, 'pedidos' => (int) $fila->pedidos, 'total' => (float) $fila->total])->all();
+
+        // Período anterior de la misma duración, para comparar.
+        $dias = $desde->diffInDays($hasta) + 1;
+        $anteriorDesde = $desde->subDays($dias);
+        $previas = $this->rango(DB::table('operaciones.ventas as v')->whereNotNull('v.id_pedido'), 'v', 'fecha_emision', $sucursales,
+            $anteriorDesde->utc()->format($formato), $desde->utc()->format($formato))
+            ->selectRaw('COUNT(*) as cobros, COALESCE(SUM(v.total_venta), 0) as total')->first();
 
         $costosReceta = DB::table('restaurante.consumos_insumos')->whereIn('id_sucursal', $sucursales)
             ->where('estado', 'CONSUMIDO')->groupBy('id_detalle_pedido')
@@ -73,7 +95,21 @@ class ReportesRestauranteService
                 'costo_registrado' => $costo, 'lineas_sin_costo' => (int) $recetas->sin_costo,
                 'margen' => $recetas->sin_costo ? null : round((float) $totales->base - $costo, 2),
                 'pedidos_anulados' => (clone $anulados)->count(),
+                'ticket_promedio' => $this->promedio((float) $totales->total, (int) $totales->cobros),
+                'pedidos' => (int) $atendidos->pedidos,
+                'comensales' => (int) $atendidos->comensales,
+                'gasto_por_comensal' => $this->promedio((float) $conComensales, (int) $atendidos->comensales),
+                'minutos_cocina' => $this->minutosCocina(clone $preparacion, $segundos),
             ],
+            'anterior' => [
+                'desde' => $anteriorDesde->toDateString(), 'hasta' => $desde->subDay()->toDateString(),
+                'total' => (float) $previas->total, 'cobros' => (int) $previas->cobros,
+                'ticket_promedio' => $this->promedio((float) $previas->total, (int) $previas->cobros),
+            ],
+            'tipos' => $tipos,
+            'horas' => (clone $ventas)->groupByRaw($hora)->orderByRaw($hora)
+                ->selectRaw("{$hora} as hora, COUNT(*) as cobros, SUM(v.total_venta) as total")->get()
+                ->map(fn (object $fila): array => ['hora' => (int) $fila->hora, 'cobros' => (int) $fila->cobros, 'total' => (float) $fila->total])->all(),
             'dias' => (clone $ventas)->groupByRaw($dia)->orderBy('dia')->selectRaw("{$dia} as dia, COUNT(*) as cobros, SUM(v.total_venta) as total")->get(),
             'sucursales' => $porSucursal,
             'platos' => (clone $lineas)->whereRaw("COALESCE(pd.tipo_producto, p.tipo_producto) = 'PREPARADO'")
@@ -94,6 +130,19 @@ class ReportesRestauranteService
             'cocina' => $preparacion->groupBy('s.id_sucursal', 's.nombre', 'e.id_estacion', 'e.nombre')->orderBy('s.nombre')->orderBy('e.nombre')
                 ->selectRaw("s.nombre as sucursal, COALESCE(e.nombre, 'Cocina general') as nombre, COUNT(*) as comandas, AVG({$segundos}) as segundos")->get(),
         ];
+    }
+
+    private function promedio(float $total, int $cantidad): ?float
+    {
+        return $cantidad > 0 ? round($total / $cantidad, 2) : null;
+    }
+
+    /** Minutos promedio desde que la comanda se empieza (o llega) hasta que queda lista. */
+    private function minutosCocina(Builder $preparacion, string $segundos): ?float
+    {
+        $promedio = $preparacion->selectRaw("AVG({$segundos}) as segundos")->value('segundos');
+
+        return $promedio === null ? null : round((float) $promedio / 60, 1);
     }
 
     private function rango(Builder $consulta, string $alias, string $fecha, array $sucursales, string $inicio, string $fin): Builder

@@ -218,6 +218,57 @@ class OperacionRestauranteTest extends TestCase
         $this->assertSame('Lomo saltado', $reporte['platos'][0]->nombre);
     }
 
+    public function test_metricas_del_periodo_para_decidir(): void
+    {
+        app(GestionarTurnoCajaService::class)->abrir(10, 1, 0);
+        $pedido = $this->pedido([$this->gaseosa('G1', 2)]);
+        $pedido->update(['comensales' => 2]);
+        $item = $pedido->detalles()->sole();
+        $cobros = app(CobrarPedidoService::class);
+        $cobros->ejecutar($pedido->getKey(), 1, 10, $this->cobro($item, 'metricas-1', 1, 0, 5), false);
+        $cobros->ejecutar($pedido->getKey(), 1, 10, $this->cobro($item, 'metricas-2', 1, 1, 5), false);
+
+        $paraLlevar = app(GestionarPedidoService::class)->abrir(['tipo' => Pedido::PARA_LLEVAR, 'clave_idempotencia' => 'metricas-fuera'], 10, 1);
+        $paraLlevar->update(['comensales' => 3]);
+        app(GestionarPedidoService::class)->agregarItems($paraLlevar->getKey(), [$this->gaseosa('GF')], 10, 1);
+        $cobros->ejecutar($paraLlevar->getKey(), 1, 10, $this->cobro($paraLlevar->detalles()->sole(), 'fuera', 1, 0, 5), false);
+        // Las 02:00 UTC del día siguiente todavía son las 21:00 del día consultado en Lima.
+        DB::table('operaciones.ventas')->update(['fecha_emision' => '2026-11-26 02:00:00']);
+        DB::table('restaurante.comandas')->insert([
+            ['id_sucursal' => 1, 'id_pedido' => $pedido->getKey(), 'numero' => 1, 'clave_envio' => 'tiempo-1',
+                'estado' => Comanda::LISTA, 'enviada_en' => '2026-11-25 21:00:00', 'iniciada_en' => '2026-11-25 21:10:00', 'lista_en' => '2026-11-25 21:20:00'],
+            ['id_sucursal' => 1, 'id_pedido' => $pedido->getKey(), 'numero' => 2, 'clave_envio' => 'tiempo-2',
+                'estado' => Comanda::LISTA, 'enviada_en' => '2026-11-25 21:00:00', 'iniciada_en' => null, 'lista_en' => '2026-11-25 21:14:00'],
+        ]);
+
+        $servicio = app(ReportesRestauranteService::class);
+        $hoy = CarbonImmutable::parse('2026-11-25', 'America/Lima');
+        $reporte = $servicio->consultar([1], $hoy, $hoy);
+        $resumen = $reporte['resumen'];
+
+        $this->assertSame(5.0, $resumen['ticket_promedio']);
+        $this->assertSame(3, $resumen['cobros']);
+        $this->assertSame(2, $resumen['pedidos']);
+        $this->assertSame(2, $resumen['comensales']);
+        $this->assertSame(5.0, $resumen['gasto_por_comensal']);
+        $this->assertSame(12.0, $resumen['minutos_cocina']);
+        $this->assertSame([
+            ['tipo' => 'MESA', 'pedidos' => 1, 'total' => 10.0],
+            ['tipo' => 'PARA_LLEVAR', 'pedidos' => 1, 'total' => 5.0],
+        ], $reporte['tipos']);
+        $this->assertSame([['hora' => 21, 'cobros' => 3, 'total' => 15.0]], $reporte['horas']);
+        $this->assertSame('2026-11-25', $reporte['dias']->sole()->dia);
+        $this->assertSame(['desde' => $hoy->subDay()->toDateString(), 'hasta' => $hoy->subDay()->toDateString(), 'total' => 0.0, 'cobros' => 0, 'ticket_promedio' => null], $reporte['anterior']);
+
+        // Mañana se compara contra hoy: el período anterior tiene la misma duración.
+        $manana = $servicio->consultar([1], $hoy->addDay(), $hoy->addDay());
+        $this->assertSame(15.0, $manana['anterior']['total']);
+        $this->assertSame(5.0, $manana['anterior']['ticket_promedio']);
+        $this->assertNull($manana['resumen']['ticket_promedio'], 'sin cobros no hay ticket promedio');
+        $this->assertNull($manana['resumen']['gasto_por_comensal']);
+        $this->assertNull($manana['resumen']['minutos_cocina']);
+    }
+
     public function test_anular_el_ultimo_item_sin_cobrar_cierra_una_cuenta_saldada(): void
     {
         app(GestionarTurnoCajaService::class)->abrir(10, 1, 0);
